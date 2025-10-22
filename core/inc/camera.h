@@ -1,21 +1,12 @@
-
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "raylib.h"
+#include <raylib.h>
 
-/**
- * @brief Initializes and returns a Camera2D object.
- *
- * @return Camera2D The initialized camera.
- */
+// Initialise la caméra en vue du dessus centrée sur la moitié de la carte
 Camera2D init_camera(void);
 
-/**
- * @brief Updates the camera position based on user input.
- *
- * @param camera Pointer to the Camera2D object to be updated.
- */
-void update_camera(Camera2D *camera);
+// Met à jour la caméra (déplacement, zoom)
+void update_camera(Camera2D* camera);
 
-#endif
+#endif // CAMERA_H
