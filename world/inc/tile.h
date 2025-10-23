@@ -1,45 +1,60 @@
+/**
+ * @file tile.h
+ * @brief Tile type definition and resource management system.
+ *
+ * This module provides initialization, access, and cleanup routines
+ * for all available tile types in the world. It manages the
+ * `TileType` definitions that describe visual appearance,
+ * walkability, and interaction properties of each terrain tile.
+ *
+ * Typical usage:
+ * - Call @ref init_tile_types() during game startup.
+ * - Retrieve tile definitions via @ref get_tile_type().
+ * - Call @ref unload_tile_types() on shutdown to release resources.
+ *
+ * @date 2025-10-23
+ * @author Hugo
+ */
+
 #ifndef TILE_H
 #define TILE_H
 
-#include <stdbool.h>
-#include <raylib.h>
+#include "world.h"
 
-// Liste des types de tuiles disponibles
-typedef enum
-{
-    TILE_GRASS = 0,
-    TILE_WATER,
-    TILE_LAVA,
-    TILE_COUNT
-} TileTypeID;
+// -----------------------------------------------------------------------------
+// FUNCTION DECLARATIONS
+// -----------------------------------------------------------------------------
 
-typedef enum
-{
-    TILE_CATEGORY_GROUND,
-    TILE_CATEGORY_WALL,
-    TILE_CATEGORY_DOOR,
-    TILE_CATEGORY_WATER,
-    TILE_CATEGORY_TREE,
-    TILE_CATEGORY_ROAD
-} TileCategory;
-
-typedef struct
-{
-    const char*  name;
-    TileTypeID   id;
-    TileCategory category;
-    bool         walkable;
-    Color        color;
-    Texture2D    texture; // optional (not used initially)
-    bool         isBreakable;
-    int          durability;
-} TileType;
-
-// Initialise le tableau des TileType (charge les textures si nécessaire)
+/**
+ * @brief Initializes the global list of available tile types.
+ *
+ * This function sets up the tile definitions (name, category,
+ * color, and properties) and loads associated textures if required.
+ *
+ * @note Must be called once before any tile rendering or map generation.
+ */
 void init_tile_types(void);
-// Décharge les textures à la fermeture
+
+/**
+ * @brief Releases all textures and resources used by tile types.
+ *
+ * This function unloads any textures or dynamic resources
+ * allocated during @ref init_tile_types().
+ *
+ * @note Should be called when exiting the game or unloading a world.
+ */
 void unload_tile_types(void);
-// Renvoie un pointeur sur le type de tuile demandé
+
+/**
+ * @brief Retrieves a pointer to a specific tile type definition.
+ *
+ * @param[in] id Unique identifier of the tile type to retrieve.
+ * @return Pointer to the corresponding @ref TileType structure,
+ *         or `NULL` if the ID is invalid or undefined.
+ *
+ * @note The returned pointer refers to a static definition and
+ *       must not be freed or modified directly.
+ */
 TileType* get_tile_type(TileTypeID id);
 
-#endif // TILE_H
+#endif /* TILE_H */

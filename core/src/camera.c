@@ -2,8 +2,8 @@
 #include "map.h"
 #include "raymath.h"
 
-const float ZOOM_MIN = 0.5f; // dézoom max
-const float ZOOM_MAX = 2.5f; // zoom max
+const float ZOOM_MIN = 0.5f;
+const float ZOOM_MAX = 2.5f;
 
 Camera2D init_camera(void)
 {
@@ -11,49 +11,52 @@ Camera2D init_camera(void)
     cam.target   = (Vector2){(MAP_WIDTH * TILE_SIZE) / 2.0f, (MAP_HEIGHT * TILE_SIZE) / 2.0f};
     cam.offset   = (Vector2){GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f};
     cam.rotation = 0.0f;
-    cam.zoom     = 1.0f;
+
+    float zoomX = (float)GetScreenWidth() / (MAP_WIDTH * TILE_SIZE);
+    float zoomY = (float)GetScreenHeight() / (MAP_HEIGHT * TILE_SIZE);
+    cam.zoom    = fminf(zoomX, zoomY) * 1.2f;
+    if (cam.zoom > ZOOM_MAX)
+        cam.zoom = ZOOM_MAX;
+    if (cam.zoom < ZOOM_MIN)
+        cam.zoom = ZOOM_MIN;
+
     return cam;
 }
 
-void update_camera(Camera2D* camera)
+void update_camera(Camera2D* camera, const CameraInput* input)
 {
     const float moveSpeed = 500.0f;
     const float zoomSpeed = 0.1f;
-    float       dt        = GetFrameTime();
+    const float dt        = GetFrameTime();
 
-    Vector2 movement = {0};
-    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
-        movement.x -= 1.0f;
-    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
-        movement.x += 1.0f;
-    if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))
-        movement.y -= 1.0f;
-    if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))
-        movement.y += 1.0f;
+    // --- Keep camera centered relative to screen size ---
+    camera->offset = (Vector2){GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f};
 
-    if (movement.x != 0 || movement.y != 0)
+    // --- Apply movement ---
+    if (input->moveDir.x != 0 || input->moveDir.y != 0)
     {
-        movement       = Vector2Scale(Vector2Normalize(movement), moveSpeed * dt / camera->zoom);
-        camera->target = Vector2Add(camera->target, movement);
+        Vector2 dir    = Vector2Normalize(input->moveDir);
+        Vector2 move   = Vector2Scale(dir, moveSpeed * dt / camera->zoom);
+        camera->target = Vector2Add(camera->target, move);
     }
 
-    // --- Wrap caméra toroïdal ---
-    float worldWidth  = MAP_WIDTH * TILE_SIZE;
-    float worldHeight = MAP_HEIGHT * TILE_SIZE;
+    // --- Toroidal wrapping ---
+    const float worldWidth  = MAP_WIDTH * TILE_SIZE;
+    const float worldHeight = MAP_HEIGHT * TILE_SIZE;
+
     if (camera->target.x < 0)
         camera->target.x += worldWidth;
+    else if (camera->target.x >= worldWidth)
+        camera->target.x -= worldWidth;
     if (camera->target.y < 0)
         camera->target.y += worldHeight;
-    if (camera->target.x >= worldWidth)
-        camera->target.x -= worldWidth;
-    if (camera->target.y >= worldHeight)
+    else if (camera->target.y >= worldHeight)
         camera->target.y -= worldHeight;
 
-    // --- Zoom molette ---
-    float wheel = GetMouseWheelMove();
-    if (wheel != 0)
+    // --- Zoom ---
+    if (input->zoomDelta != 0.0f)
     {
-        camera->zoom += wheel * zoomSpeed;
+        camera->zoom += input->zoomDelta * zoomSpeed;
         if (camera->zoom < ZOOM_MIN)
             camera->zoom = ZOOM_MIN;
         if (camera->zoom > ZOOM_MAX)

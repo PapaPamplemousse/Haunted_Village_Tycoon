@@ -115,7 +115,7 @@ Object* create_object(ObjectTypeID id, int x, int y)
     return obj;
 }
 
-void draw_objects(Camera2D* camera)
+void draw_objects(Map* map, Camera2D* camera)
 {
     Rectangle view = {.x      = camera->target.x - (GetScreenWidth() / 2) / camera->zoom,
                       .y      = camera->target.y - (GetScreenHeight() / 2) / camera->zoom,
@@ -131,10 +131,10 @@ void draw_objects(Camera2D* camera)
     {
         for (int x = startX; x <= endX; x++)
         {
-            int wx = (x % G_MAP.width + G_MAP.width) % G_MAP.width;
-            int wy = (y % G_MAP.height + G_MAP.height) % G_MAP.height;
+            int wx = (x % map->width + map->width) % map->width;
+            int wy = (y % map->height + map->height) % map->height;
 
-            Object* obj = G_MAP.objects[wy][wx];
+            Object* obj = map->objects[wy][wx];
             if (!obj)
                 continue;
 
@@ -160,12 +160,12 @@ void draw_objects(Camera2D* camera)
 
 bool is_wall_object(const Object* o)
 {
-    return o && (o->type->id == OBJ_DOOR_WOOD);
+    return o && (o->type->id == OBJ_WALL_STONE);
 }
 
 bool is_door_object(const Object* o)
 {
-    return o && (o->type->id == OBJ_WALL_STONE);
+    return o && (o->type->id == OBJ_DOOR_WOOD);
 }
 
 bool is_blocking_object(const Object* o)
