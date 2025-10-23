@@ -2,6 +2,9 @@
 #include "map.h"
 #include "raymath.h"
 
+const float ZOOM_MIN = 0.5f; // dézoom max
+const float ZOOM_MAX = 2.5f; // zoom max
+
 Camera2D init_camera(void)
 {
     Camera2D cam = {0};
@@ -14,11 +17,10 @@ Camera2D init_camera(void)
 
 void update_camera(Camera2D* camera)
 {
-    const float moveSpeed = 500.0f; // pixels per second
-    const float zoomSpeed = 0.1f;   // zoom factor
+    const float moveSpeed = 500.0f;
+    const float zoomSpeed = 0.1f;
     float       dt        = GetFrameTime();
 
-    // Déplacement ZQSD ou flèches
     Vector2 movement = {0};
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
         movement.x -= 1.0f;
@@ -35,14 +37,26 @@ void update_camera(Camera2D* camera)
         camera->target = Vector2Add(camera->target, movement);
     }
 
-    // Zoom à la molette
+    // --- Wrap caméra toroïdal ---
+    float worldWidth  = MAP_WIDTH * TILE_SIZE;
+    float worldHeight = MAP_HEIGHT * TILE_SIZE;
+    if (camera->target.x < 0)
+        camera->target.x += worldWidth;
+    if (camera->target.y < 0)
+        camera->target.y += worldHeight;
+    if (camera->target.x >= worldWidth)
+        camera->target.x -= worldWidth;
+    if (camera->target.y >= worldHeight)
+        camera->target.y -= worldHeight;
+
+    // --- Zoom molette ---
     float wheel = GetMouseWheelMove();
     if (wheel != 0)
     {
         camera->zoom += wheel * zoomSpeed;
-        if (camera->zoom < 0.1f)
-            camera->zoom = 0.1f;
-        if (camera->zoom > 5.0f)
-            camera->zoom = 5.0f;
+        if (camera->zoom < ZOOM_MIN)
+            camera->zoom = ZOOM_MIN;
+        if (camera->zoom > ZOOM_MAX)
+            camera->zoom = ZOOM_MAX;
     }
 }

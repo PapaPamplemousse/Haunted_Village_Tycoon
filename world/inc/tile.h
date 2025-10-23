@@ -8,18 +8,31 @@
 typedef enum
 {
     TILE_GRASS = 0,
-    TILE_WALL,
     TILE_WATER,
+    TILE_LAVA,
     TILE_COUNT
 } TileTypeID;
 
-// Structure décrivant les propriétés d’un type de tuile
+typedef enum
+{
+    TILE_CATEGORY_GROUND,
+    TILE_CATEGORY_WALL,
+    TILE_CATEGORY_DOOR,
+    TILE_CATEGORY_WATER,
+    TILE_CATEGORY_TREE,
+    TILE_CATEGORY_ROAD
+} TileCategory;
+
 typedef struct
 {
-    const char* name;     // Nom lisible
-    Color       color;    // Couleur par défaut
-    bool        passable; // Vrai si un PNJ peut marcher dessus
-    Texture2D   texture;  // Texture (peut être un texture NULL si non utilisée)
+    const char*  name;
+    TileTypeID   id;
+    TileCategory category;
+    bool         walkable;
+    Color        color;
+    Texture2D    texture; // optional (not used initially)
+    bool         isBreakable;
+    int          durability;
 } TileType;
 
 // Initialise le tableau des TileType (charge les textures si nécessaire)
