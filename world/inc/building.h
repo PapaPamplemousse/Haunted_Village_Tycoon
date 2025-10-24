@@ -22,12 +22,6 @@
 // CONSTANTS
 // -----------------------------------------------------------------------------
 
-/**
- * @def MAX_BUILDINGS
- * @brief Maximum number of buildings that can be tracked simultaneously.
- */
-#define MAX_BUILDINGS 100
-
 // -----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 // -----------------------------------------------------------------------------
@@ -68,5 +62,7 @@ extern int buildingCount;
  *       It should be called whenever the world layout changes (e.g., walls added/removed).
  */
 void update_building_detection(Map* map);
+
+Building* register_building_from_bounds(Map* map, Rectangle bounds);
 
 #endif /* BUILDING_H */

@@ -31,8 +31,9 @@ void input_update(InputState* input)
     }
     if (IsKeyPressed(KEY_THREE))
     {
-        input->selectedTile   = TILE_LAVA;
-        input->selectedObject = OBJ_NONE;
+        // input->selectedTile   = TILE_LAVA;
+        input->selectedObject = OBJ_STDBUSH;
+        printf("Selected object: Standard bush \n");
     }
 
     if (IsKeyPressed(KEY_FOUR))

@@ -21,6 +21,10 @@
 // FUNCTION DECLARATIONS
 // -----------------------------------------------------------------------------
 
+void init_object_textures(void);
+
+void unload_object_textures(void);
+
 /**
  * @brief Retrieves a pointer to the definition of an object type by its ID.
  *

@@ -329,3 +329,75 @@ void update_building_detection(Map* map)
         }
     }
 }
+
+Building* register_building_from_bounds(Map* map, Rectangle bounds)
+{
+    if (buildingCount >= MAX_BUILDINGS)
+        return NULL;
+
+    // Aire intérieure estimée (rect murs 1 case d’épaisseur)
+    int ix = (int)bounds.x + 1;
+    int iy = (int)bounds.y + 1;
+    int iw = (int)bounds.width - 2;
+    int ih = (int)bounds.height - 2;
+    if (iw <= 0 || ih <= 0)
+        return NULL;
+
+    // Prépare une structure FloodResult minimale pour init
+    FloodResult res          = {0};
+    res.area                 = iw * ih;
+    res.bounds               = bounds;
+    res.doorCount            = 1; // au moins 1 (placée par les builders)
+    res.wallBoundaryCount    = (int)(2 * bounds.width + 2 * bounds.height) - 4;
+    res.nonStructuralBlocker = false;
+    res.touchesBorder        = false;
+
+    Building* b = &buildings[buildingCount];
+    init_building_structure(b, buildingCount + 1, &res);
+
+    // Collecte des objets intérieurs uniquement
+    Object** temp  = (Object**)malloc((size_t)(iw * ih) * sizeof(Object*));
+    int      count = 0;
+
+    for (int y = iy; y < iy + ih; ++y)
+    {
+        for (int x = ix; x < ix + iw; ++x)
+        {
+            Object* obj = map->objects[y][x];
+            if (!obj)
+                continue;
+            // ignore murs/portes (frontière)
+            if (is_wall_object(obj) || is_door_object(obj))
+                continue;
+            temp[count++] = obj;
+        }
+    }
+
+    b->objectCount = count;
+    if (count > 0)
+    {
+        b->objects = (Object**)malloc((size_t)count * sizeof(Object*));
+        memcpy(b->objects, temp, (size_t)count * sizeof(Object*));
+    }
+    else
+    {
+        b->objects = NULL;
+    }
+    free(temp);
+
+    // Classification RoomTypeRule
+    const RoomTypeRule* rule = analyze_building_type(b);
+    if (rule)
+    {
+        snprintf(b->name, sizeof(b->name), "%s", rule->name);
+        b->roomType = rule;
+    }
+    else
+    {
+        snprintf(b->name, sizeof(b->name), "Unclassified Room");
+        b->roomType = NULL;
+    }
+
+    buildingCount++;
+    return b;
+}

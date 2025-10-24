@@ -21,19 +21,25 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 100
+#define MAP_WIDTH 200
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 100
+#define MAP_HEIGHT 200
 
 /**
  * @def TILE_SIZE
  * @brief Size of one tile in pixels (for rendering and placement).
  */
 #define TILE_SIZE 32
+
+/**
+ * @def MAX_BUILDINGS
+ * @brief Maximum number of buildings that can be tracked simultaneously.
+ */
+#define MAX_BUILDINGS 100
 
 // -----------------------------------------------------------------------------
 // ENUMERATIONS
@@ -51,14 +57,24 @@ typedef enum
     OBJ_TABLE_WOOD,  /**< Wooden table */
     OBJ_CHAIR_WOOD,  /**< Wooden chair */
     OBJ_TORCH_WALL,  /**< Wall-mounted torch */
-    OBJ_FIRE_PIT,    /**< Fire pit */
     OBJ_CHEST_WOOD,  /**< Wooden chest */
     OBJ_WORKBENCH,   /**< Workbench or crafting table */
     OBJ_DOOR_WOOD,   /**< Wooden door */
-    OBJ_WINDOW_WOOD, /**< Wooden window */
     OBJ_WALL_STONE,  /**< Stone wall segment */
     OBJ_DECOR_PLANT, /**< Decorative plant */
-    OBJ_MAX          /**< Sentinel value (number of object types) */
+    OBJ_ROCK,        /**< Rock */
+    OBJ_TREE,        /**< Tree */
+    OBJ_DEAD_TREE,   /**< Dead Tree */
+    OBJ_STDBUSH,     /**< Bush */
+    OBJ_STDBUSH_DRY, /**< Dry Bush */
+    OBJ_SULFUR_VENT, /**< Sulfur Vent */
+    OBJ_BONE_PILE,   /**< Bones */
+    OBJ_CRATE,       /**< Crate */
+    OBJ_FIREPIT,     /**< Fire pit (used for OBJ_FIREPIT in object data) */
+    OBJ_ALTAR,       /**< Altar */
+    OBJ_WALL_WOOD,   /**< Wood Wall */
+
+    OBJ_COUNT /**< Sentinel value (number of object types) */
 } ObjectTypeID;
 
 /**
@@ -114,16 +130,17 @@ typedef struct
     const char*  displayName; /**< Human-readable name for UI display */
     const char*  category;    /**< Category string (e.g., "furniture", "structure") */
 
-    int       maxHP;      /**< Maximum hit points */
-    int       comfort;    /**< Comfort rating contribution */
-    int       warmth;     /**< Warmth rating contribution */
-    int       lightLevel; /**< Light emission level */
-    int       width;      /**< Object width in tiles */
-    int       height;     /**< Object height in tiles */
-    bool      walkable;   /**< Whether the player can walk over it */
-    bool      flammable;  /**< Whether it can catch fire */
-    Color     color;      /**< Default color (fallback if no texture) */
-    Texture2D texture;    /**< Texture used for rendering */
+    int         maxHP;       /**< Maximum hit points */
+    int         comfort;     /**< Comfort rating contribution */
+    int         warmth;      /**< Warmth rating contribution */
+    int         lightLevel;  /**< Light emission level */
+    int         width;       /**< Object width in tiles */
+    int         height;      /**< Object height in tiles */
+    bool        walkable;    /**< Whether the player can walk over it */
+    bool        flammable;   /**< Whether it can catch fire */
+    Color       color;       /**< Default color (fallback if no texture) */
+    const char* texturePath; /**< path to texture */
+    Texture2D   texture;     /**< Texture used for rendering */
 } ObjectType;
 
 /**
@@ -198,6 +215,7 @@ typedef struct
     bool         walkable;     /**< Whether entities can move through it */
     Color        color;        /**< Tile color (used when no texture is defined) */
     Texture2D    texture;      /**< Texture for rendering (optional) */
+    const char*  texturePath;  /**< path to texture */
     bool         isBreakable;  /**< Whether the tile can be terraformed */
     int          durability;   /**< Hit points before terraformation */
     float        movementCost; /**< Relative movement cost (1.0 = normal) */
@@ -219,5 +237,100 @@ typedef struct
     TileTypeID tiles[MAP_HEIGHT][MAP_WIDTH];   /**< 2D grid of terrain tiles */
     Object*    objects[MAP_HEIGHT][MAP_WIDTH]; /**< 2D grid of placed objects */
 } Map;
+
+/**
+ * @brief Parameters for world generation.
+ *
+ * This structure holds all the necessary configuration variables
+ * to define the size, biome distribution, and feature density
+ * of a generated game world.
+ */
+typedef struct
+{
+    int min_biome_radius; /**< Minimum radius of biome cells, measured in map tiles. */
+
+    // --- Relative Biome Weights ---
+
+    float weight_forest;   /**< Relative weight for Forest biome generation (0.0 to 1.0+). */
+    float weight_plain;    /**< Relative weight for Plain biome generation (0.0 to 1.0+). */
+    float weight_savanna;  /**< Relative weight for Savanna biome generation (0.0 to 1.0+). */
+    float weight_tundra;   /**< Relative weight for Tundra biome generation (0.0 to 1.0+). */
+    float weight_desert;   /**< Relative weight for Desert biome generation (0.0 to 1.0+). */
+    float weight_swamp;    /**< Relative weight for Swamp biome generation (0.0 to 1.0+). */
+    float weight_mountain; /**< Relative weight for Mountain biome generation (0.0 to 1.0+). */
+    float weight_cursed;   /**< Relative weight for Cursed biome generation (0.0 to 1.0+). */
+    float weight_hell;     /**< Relative weight for Hell biome generation (0.0 to 1.0+). */
+
+    // --- Feature and Structure Density ---
+
+    /**
+     * @brief Density of decorative features (e.g., trees, rocks). Expected range: ~0.0 to 0.2.
+     */
+    float feature_density;
+
+    /**
+     * @brief Probability of generating a major structure (e.g., dungeon, village) per map tile. Expected range: ~0.0 to 0.01.
+     */
+    float structure_chance;
+
+    /**
+     * @brief espace between structures
+     */
+    int structure_min_spacing;
+
+    float biome_struct_mult_forest;   ///< Structure chance multiplier for the Forest biome.
+    float biome_struct_mult_plain;    ///< Structure chance multiplier for the Plain biome.
+    float biome_struct_mult_savanna;  ///< Structure chance multiplier for the Savanna biome.
+    float biome_struct_mult_tundra;   ///< Structure chance multiplier for the Tundra biome.
+    float biome_struct_mult_desert;   ///< Structure chance multiplier for the Desert biome.
+    float biome_struct_mult_swamp;    ///< Structure chance multiplier for the Swamp biome.
+    float biome_struct_mult_mountain; ///< Structure chance multiplier for the Mountain biome.
+    float biome_struct_mult_cursed;   ///< Structure chance multiplier for the Cursed biome.
+    float biome_struct_mult_hell;     ///< Structure chance multiplier for the Hell biome.
+} WorldGenParams;
+
+/**
+ * @brief Enumeration of all possible biome types in the game world.
+ */
+typedef enum
+{
+    BIO_FOREST,   ///< Forest biome.
+    BIO_PLAIN,    ///< Plain/Grassland biome.
+    BIO_SAVANNA,  ///< Savanna biome.
+    BIO_TUNDRA,   ///< Tundra/Frozen biome.
+    BIO_DESERT,   ///< Desert/Arid biome.
+    BIO_SWAMP,    ///< Swamp/Marsh biome.
+    BIO_MOUNTAIN, ///< Mountain/High altitude biome.
+    BIO_CURSED,   ///< Cursed/Corrupted biome.
+    BIO_HELL      ///< Hell/Infernal biome.
+} BiomeKind;
+
+/**
+ * @brief Defines the properties of a single biome cell or center point.
+ *
+ * Biomes are typically defined by their centers, from which their influence spreads.
+ */
+typedef struct
+{
+    int        x, y;      ///< Coordinates of the biome center on the map.
+    BiomeKind  kind;      ///< The type of biome (e.g., Forest, Desert).
+    TileTypeID primary;   /**< The primary tile type of the biome (e.g., main grass, main sand). */
+    TileTypeID secondary; /**< A close variant tile type (used for texture variation or subtiles). */
+} BiomeCenter;
+
+/**
+ * @brief Enumeration of the different types of world structures.
+ *
+ * This list defines the specific structure blueprints available for generation.
+ */
+typedef enum
+{
+    STRUCT_HUT_CANNIBAL,  ///< A small, primitive hut, typically for cannibals.
+    STRUCT_CRYPT,         ///< An underground tomb or burial chamber.
+    STRUCT_RUIN,          ///< Remains of a destroyed building or wall.
+    STRUCT_VILLAGE_HOUSE, ///< A standard residential building in a village.
+    STRUCT_TEMPLE,        ///< A large, religious building.
+    STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
+} StructureKind;
 
 #endif /* WORLD_H */

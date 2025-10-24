@@ -7,19 +7,21 @@
 #include "building.h"
 #include "object.h"
 #include "world.h"
-
+#include <stdint.h>
 static Map G_MAP = {0};
 
 void app_run(void)
 {
-    int          screenWidth  = 1280;
-    int          screenHeight = 720;
-    unsigned int seed         = 1774;
+    int      screenWidth  = 1280;
+    int      screenHeight = 720;
+    uint64_t seed         = 0xA1B2C3D4u;
 
     InitWindow(screenWidth, screenHeight, "Containment Tycoon (Top-Down)");
     SetTargetFPS(60);
 
     init_tile_types();
+    init_object_textures();
+
     map_init(&G_MAP, seed);
     update_building_detection(&G_MAP);
 
@@ -66,6 +68,7 @@ void app_run(void)
     }
 
     unload_tile_types();
+    unload_object_textures();
     map_unload(&G_MAP);
     CloseWindow();
 }

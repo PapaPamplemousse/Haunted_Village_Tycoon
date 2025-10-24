@@ -1,0 +1,88 @@
+/**
+ * @file world_structures.h
+ * @brief Defines data structures and functions for world structure generation.
+ *
+ * This header file provides the blueprint for defining and managing different
+ * types of structures (like huts, crypts, temples) that can be generated
+ * within a game world, associating them with specific biomes.
+ */
+#ifndef WORLD_STRUCTURES_H
+#define WORLD_STRUCTURES_H
+
+#include <stdint.h>
+#include "world.h"
+#include "map.h"
+#include "object.h"
+
+/**
+ * @brief Generic, data-driven descriptor for a world structure.
+ *
+ * This structure holds all the metadata required to define a type of structure,
+ * including its size constraints, relative rarity for generation, and the
+ * concrete function used to build it.
+ */
+typedef struct
+{
+    const char*   name;                 ///< Descriptive name of the structure (e.g., "Cannibal Hut").
+    StructureKind kind;                 ///< The type/classification of the structure.
+    int           minWidth, maxWidth;   ///< Minimum and maximum width in map tiles.
+    int           minHeight, maxHeight; ///< Minimum and maximum height in map tiles.
+    float         rarity;               ///< Relative weight for drawing/picking this structure (higher = more common).
+    /**
+     * @brief Concrete construction callback.
+     *
+     * This function is responsible for placing walls, doors, objects, and
+     * other details that constitute the structure on the map.
+     * @param map The map where the structure will be built.
+     * @param x The top-left X coordinate of the structure's bounding box.
+     * @param y The top-left Y coordinate of the structure's bounding box.
+     * @param rng Pointer to the random number generator state.
+     */
+    void (*build)(Map* map, int x, int y, uint64_t* rng);
+} StructureDef;
+
+/**
+ * @brief Profile for associating a Biome with a set of possible structures.
+ *
+ * This profile defines which structures can appear in a specific biome.
+ */
+typedef struct
+{
+    BiomeKind            biome;          ///< The biome this profile applies to.
+    const StructureDef** structures;     ///< Array of pointers to StructureDef objects possible in this biome.
+    int                  structureCount; ///< Number of structures in the array.
+} BiomeStructureProfile;
+
+/**
+ * @brief Provides access to all defined biome structure profiles.
+ *
+ * This function is mainly intended for debugging or full iteration over all
+ * available profiles.
+ * @param count Output parameter: will be set to the number of profiles returned.
+ * @return A constant array of all BiomeStructureProfile definitions.
+ */
+const BiomeStructureProfile* get_biome_struct_profiles(int* count);
+
+/**
+ * @brief Selects a random structure definition appropriate for a given biome.
+ *
+ * The selection is weighted by the @c rarity field of the StructureDef.
+ * @param biome The type of biome for which a structure is being sought.
+ * @param rng Pointer to the random number generator state.
+ * @return A constant pointer to the selected StructureDef, or NULL if no
+ * structure is defined for the biome.
+ */
+const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng);
+
+/// @name Concrete Structure Generators
+/// @brief Functions that implement the actual map modifications for specific structures.
+/// @note These functions are implemented in @c world_structures.c and are
+/// typically assigned to the @c build callback in a @c StructureDef.
+/// @{
+void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng);
+void build_crypt(Map* map, int x, int y, uint64_t* rng);
+void build_ruin(Map* map, int x, int y, uint64_t* rng);
+void build_village_house(Map* map, int x, int y, uint64_t* rng);
+void build_temple(Map* map, int x, int y, uint64_t* rng);
+
+#endif // WORLD_STRUCTURES_H
