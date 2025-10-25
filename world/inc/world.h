@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 200
+#define MAP_WIDTH 300
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 200
+#define MAP_HEIGHT 300
 
 /**
  * @def TILE_SIZE
@@ -40,6 +40,12 @@
  * @brief Maximum number of buildings that can be tracked simultaneously.
  */
 #define MAX_BUILDINGS 100
+
+// Tune for your target GPU. 128×128 balances rebuild cost vs draw calls.
+// You can go 64×64 on very low-end GPUs or 256×256 for fewer textures.
+
+#define CHUNK_W 16
+#define CHUNK_H 16
 
 // -----------------------------------------------------------------------------
 // ENUMERATIONS
@@ -333,4 +339,16 @@ typedef enum
     STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
 } StructureKind;
 
+typedef struct MapChunk
+{
+    int             cx, cy; // Chunk coordinates (in chunk units, not tiles)
+    RenderTexture2D rt;     // Cached render of this chunk
+    bool            dirty;  // Needs rebuild before being drawn
+} MapChunk;
+
+typedef struct ChunkGrid
+{
+    int       chunksX, chunksY;
+    MapChunk* chunks; // [chunksY * chunksX]
+} ChunkGrid;
 #endif /* WORLD_H */

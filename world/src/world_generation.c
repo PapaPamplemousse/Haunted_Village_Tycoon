@@ -7,6 +7,8 @@
 #include "world_structures.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include "world_chunk.h"
+
 typedef struct
 {
     int x, y;
@@ -414,6 +416,24 @@ static void generate_lakes(Map* map, uint64_t* rng)
         }
 
         // Dessine l’ellipse
+        // for (int y = cy - ry; y <= cy + ry; y++)
+        // {
+        //     if (y < 0 || y >= H)
+        //         continue;
+        //     for (int x = cx - rx; x <= cx + rx; x++)
+        //     {
+        //         if (x < 0 || x >= W)
+        //             continue;
+        //         float dx = (float)(x - cx) / rx;
+        //         float dy = (float)(y - cy) / ry;
+        //         if (dx * dx + dy * dy <= 1.0f)
+        //         {
+        //             map->tiles[y][x]   = fill;
+        //             map->objects[y][x] = NULL;
+        //         }
+        //     }
+        // }
+        // Draw the ellipse (lake area)
         for (int y = cy - ry; y <= cy + ry; y++)
         {
             if (y < 0 || y >= H)
@@ -431,6 +451,23 @@ static void generate_lakes(Map* map, uint64_t* rng)
                 }
             }
         }
+
+        // ✅ Tell the chunk system that this lake region changed
+        int x0 = cx - rx;
+        int y0 = cy - ry;
+        int w  = rx * 2 + 1;
+        int h  = ry * 2 + 1;
+        if (x0 < 0)
+        {
+            w += x0;
+            x0 = 0;
+        }
+        if (y0 < 0)
+        {
+            h += y0;
+            y0 = 0;
+        }
+        // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x0, (float)y0, (float)w, (float)h});
     }
 }
 
@@ -609,4 +646,5 @@ void generate_world(Map* map)
             }
         }
     }
+    // chunkgrid_mark_all(gChunks, map);
 }

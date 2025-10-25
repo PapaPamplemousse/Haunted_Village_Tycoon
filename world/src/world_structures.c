@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "map.h"
+#include "world_chunk.h"
 // --- helper murs/porte rectangle ---
 static void rect_walls(Map* map, int x, int y, int w, int h, ObjectTypeID wall, ObjectTypeID door)
 {
@@ -57,6 +58,7 @@ void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng)
     // Liaison auto au système de rooms (bounds = extérieur des murs)
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
     register_building_from_bounds(map, bounds); // détecte et nomme via RoomTypeRule
+    // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
 void build_crypt(Map* map, int x, int y, uint64_t* rng)
@@ -75,6 +77,7 @@ void build_crypt(Map* map, int x, int y, uint64_t* rng)
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
     register_building_from_bounds(map, bounds);
+    // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
 void build_ruin(Map* map, int x, int y, uint64_t* rng)
@@ -89,6 +92,7 @@ void build_ruin(Map* map, int x, int y, uint64_t* rng)
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
     register_building_from_bounds(map, bounds);
+    // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
 void build_village_house(Map* map, int x, int y, uint64_t* rng)
@@ -103,6 +107,8 @@ void build_village_house(Map* map, int x, int y, uint64_t* rng)
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
     register_building_from_bounds(map, bounds);
+
+    // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
 void build_temple(Map* map, int x, int y, uint64_t* rng)
@@ -117,6 +123,7 @@ void build_temple(Map* map, int x, int y, uint64_t* rng)
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
     register_building_from_bounds(map, bounds);
+    // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
 // ======================= TABLES DATA-DRIVEN =======================

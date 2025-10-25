@@ -24,7 +24,6 @@ bool editor_update(Map* map, Camera2D* camera, InputState* input)
     else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
     {
         changed = true;
-        map_set_tile(map, cellX, cellY, TILE_GRASS);
         map_remove_object(map, cellX, cellY);
     }
 

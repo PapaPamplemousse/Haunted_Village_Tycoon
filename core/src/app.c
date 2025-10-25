@@ -8,6 +8,7 @@
 #include "object.h"
 #include "world.h"
 #include <stdint.h>
+#include "world_chunk.h"
 static Map G_MAP = {0};
 
 void app_run(void)
@@ -25,6 +26,9 @@ void app_run(void)
     map_init(&G_MAP, seed);
     update_building_detection(&G_MAP);
 
+    gChunks = chunkgrid_create(&G_MAP);
+    // chunkgrid_mark_all(gChunks, &G_MAP);
+
     InputState input;
     input_init(&input);
 
@@ -41,10 +45,13 @@ void app_run(void)
 
         BeginDrawing();
         ClearBackground(BLACK);
+        // chunkgrid_rebuild_dirty(gChunks, &G_MAP);
         BeginMode2D(camera);
 
-        draw_map(&G_MAP, &camera);
-        draw_objects(&G_MAP, &camera);
+        chunkgrid_draw_visible(gChunks, &G_MAP, &camera); // draw static
+
+        // draw_map(&G_MAP, &camera);
+        // draw_objects(&G_MAP, &camera);
 
         for (int i = 0; i < buildingCount; i++)
         {
@@ -64,11 +71,16 @@ void app_run(void)
         }
 
         EndMode2D();
+        chunkgrid_evict_far(gChunks, &camera, 3000.0f); // unload chunks farther than 3000 px
+
         EndDrawing();
     }
 
     unload_tile_types();
     unload_object_textures();
     map_unload(&G_MAP);
+    chunkgrid_destroy(gChunks);
+    gChunks = NULL;
+
     CloseWindow();
 }

@@ -3,6 +3,7 @@
 #include "object.h"
 #include <stdlib.h>
 #include "world_generation.h"
+#include "world_chunk.h"
 
 static inline int wrap_x(int x)
 {
@@ -62,6 +63,7 @@ TileTypeID map_get_tile(Map* map, int x, int y)
 void map_set_tile(Map* map, int x, int y, TileTypeID id)
 {
     map->tiles[wrap_y(y)][wrap_x(x)] = id;
+    chunkgrid_mark_dirty_tile(gChunks, x, y);
 }
 
 void map_place_object(Map* map, ObjectTypeID id, int x, int y)
@@ -72,6 +74,8 @@ void map_place_object(Map* map, ObjectTypeID id, int x, int y)
     if (map->objects[wy][wx])
         free(map->objects[wy][wx]);
     map->objects[wy][wx] = create_object(id, x, y);
+
+    chunkgrid_mark_dirty_tile(gChunks, wx, wy);
 }
 
 void map_remove_object(Map* map, int x, int y)
@@ -83,6 +87,8 @@ void map_remove_object(Map* map, int x, int y)
     {
         free(map->objects[wy][wx]);
         map->objects[wy][wx] = NULL;
+
+        chunkgrid_mark_dirty_tile(gChunks, wx, wy);
     }
 }
 
