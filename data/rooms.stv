@@ -29,7 +29,7 @@ requirement  = table_wood:1, chair_wood:2, firepit:1
 id           = 3
 min_area     = 6
 max_area     = 36
-requirement  = firepit:1, crate:1
+requirement  = firepit:1, crate:1, bone_pile:1
 
 [Crypt]
 id           = 4

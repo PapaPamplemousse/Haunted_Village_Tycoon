@@ -20,6 +20,7 @@ treeMul         = 1.5
 bushMul         = 0.6
 rockMul         = 0.15
 structMul       = 0.4
+structures      = STRUCT_RUIN:0.6, STRUCT_TEMPLE:0.4
 max_instances   = -1
 
 [PLAIN]
@@ -33,6 +34,7 @@ treeMul         = 0.2
 bushMul         = 0.4
 rockMul         = 0.1
 structMul       = 1.0
+structures      = STRUCT_VILLAGE_HOUSE:0.7, STRUCT_HUT_CANNIBAL:0.3
 max_instances   = -1
 
 [SAVANNA]
@@ -46,6 +48,7 @@ treeMul         = 0.4
 bushMul         = 0.8
 rockMul         = 0.2
 structMul       = 1.2
+structures      = STRUCT_HUT_CANNIBAL:0.6, STRUCT_VILLAGE_HOUSE:0.4
 max_instances   = -1
 
 
@@ -62,6 +65,7 @@ treeMul         = 0.2
 bushMul         = 0.1
 rockMul         = 0.4
 structMul       = 0.5
+structures      = STRUCT_CRYPT:0.65, STRUCT_RUIN:0.35
 max_instances   = -1
 
 [DESERT]
@@ -77,6 +81,7 @@ treeMul         = 0.0
 bushMul         = 0.1
 rockMul         = 0.7
 structMul       = 0.3
+structures      = STRUCT_RUIN:1.0
 max_instances   = -1
 
 [SWAMP]
@@ -90,6 +95,7 @@ treeMul         = 0.6
 bushMul         = 0.5
 rockMul         = 0.05
 structMul       = 0.6
+structures      = STRUCT_HUT_CANNIBAL:0.55, STRUCT_RUIN:0.45
 max_instances   = -1
 
 [MOUNTAIN]
@@ -105,6 +111,7 @@ treeMul         = 0.0
 bushMul         = 0.05
 rockMul         = 1.2
 structMul       = 0.4
+structures      = STRUCT_CRYPT:0.5, STRUCT_RUIN:0.5
 max_instances   = -1
 
 [CURSED]
@@ -120,6 +127,7 @@ treeMul         = 1.2
 bushMul         = 0.1
 rockMul         = 0.2
 structMul       = 0.8
+structures      = STRUCT_CRYPT:0.6, STRUCT_TEMPLE:0.4
 max_instances   = 1
 
 [HELL]
@@ -135,4 +143,5 @@ treeMul         = 0.0
 bushMul         = 0.0
 rockMul         = 0.1
 structMul       = 0.2
+structures      =
 max_instances   = 1

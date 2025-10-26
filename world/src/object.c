@@ -170,16 +170,7 @@ bool is_wall_object(const Object* o)
     {
         return false;
     }
-
-    for (size_t i = 0; i < NUM_DOOR_IDS; ++i)
-    {
-        if (o->type->id == DOOR_IDS[i])
-        {
-            return true;
-        }
-    }
-
-    return false;
+    return o->type->isWall;
 }
 
 bool is_door_object(const Object* o)
@@ -188,16 +179,7 @@ bool is_door_object(const Object* o)
     {
         return false;
     }
-
-    for (size_t i = 0; i < NUM_WALL_IDS; ++i)
-    {
-        if (o->type->id == WALL_IDS[i])
-        {
-            return true;
-        }
-    }
-
-    return false;
+    return o->type->isDoor;
 }
 
 bool is_blocking_object(const Object* o)

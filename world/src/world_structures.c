@@ -3,7 +3,11 @@
 #include <stdlib.h>
 #include <math.h>
 #include "map.h"
+#include <ctype.h>
+#include <string.h>
 #include "world_chunk.h"
+#include "biome_loader.h"
+
 // --- helper murs/porte rectangle ---
 static void rect_walls(Map* map, int x, int y, int w, int h, ObjectTypeID wall, ObjectTypeID door)
 {
@@ -149,55 +153,123 @@ static const StructureDef STRUCTURES[STRUCT_COUNT] = {{"Cannibal Hut", STRUCT_HU
                                                       {"Village House", STRUCT_VILLAGE_HOUSE, 4, 5, 4, 5, 1.0f, build_village_house},
                                                       {"Temple", STRUCT_TEMPLE, 6, 9, 6, 9, 0.3f, build_temple}};
 
-// Profils Biome -> Structures
-static const StructureDef* FOREST_STRUCTS[]   = {&STRUCTURES[STRUCT_RUIN], &STRUCTURES[STRUCT_TEMPLE]};
-static const StructureDef* PLAIN_STRUCTS[]    = {&STRUCTURES[STRUCT_VILLAGE_HOUSE], &STRUCTURES[STRUCT_HUT_CANNIBAL]};
-static const StructureDef* SAVANNA_STRUCTS[]  = {&STRUCTURES[STRUCT_HUT_CANNIBAL], &STRUCTURES[STRUCT_VILLAGE_HOUSE]};
-static const StructureDef* TUNDRA_STRUCTS[]   = {&STRUCTURES[STRUCT_CRYPT], &STRUCTURES[STRUCT_RUIN]};
-static const StructureDef* DESERT_STRUCTS[]   = {&STRUCTURES[STRUCT_RUIN]};
-static const StructureDef* SWAMP_STRUCTS[]    = {&STRUCTURES[STRUCT_HUT_CANNIBAL], &STRUCTURES[STRUCT_RUIN]};
-static const StructureDef* MOUNTAIN_STRUCTS[] = {&STRUCTURES[STRUCT_CRYPT], &STRUCTURES[STRUCT_RUIN]};
-static const StructureDef* CURSED_STRUCTS[]   = {&STRUCTURES[STRUCT_CRYPT], &STRUCTURES[STRUCT_TEMPLE]};
-static const StructureDef* HELL_STRUCTS[]     = {/* rien */};
-
-static const BiomeStructureProfile PROFILES[] = {
-    {BIO_FOREST, FOREST_STRUCTS, 2}, {BIO_PLAIN, PLAIN_STRUCTS, 2},       {BIO_SAVANNA, SAVANNA_STRUCTS, 2}, {BIO_TUNDRA, TUNDRA_STRUCTS, 2}, {BIO_DESERT, DESERT_STRUCTS, 1},
-    {BIO_SWAMP, SWAMP_STRUCTS, 2},   {BIO_MOUNTAIN, MOUNTAIN_STRUCTS, 2}, {BIO_CURSED, CURSED_STRUCTS, 2},   {BIO_HELL, HELL_STRUCTS, 0},
-};
-
-const BiomeStructureProfile* get_biome_struct_profiles(int* count)
+const StructureDef* get_structure_def(StructureKind kind)
 {
-    if (count)
-        *count = (int)(sizeof(PROFILES) / sizeof(PROFILES[0]));
-    return PROFILES;
+    if (kind < 0 || kind >= STRUCT_COUNT)
+        return NULL;
+    return &STRUCTURES[kind];
+}
+
+static void normalize_token(const char* src, char* dst, size_t cap)
+{
+    size_t len = 0;
+    for (const char* p = src; *p && len + 1 < cap; ++p)
+    {
+        unsigned char c = (unsigned char)*p;
+        if (c == '\r' || c == '\n')
+            continue;
+        if (c == ' ' || c == '-' || c == '\t')
+            c = '_';
+        dst[len++] = (char)toupper(c);
+    }
+    dst[len] = '\0';
+
+    if (strncmp(dst, "STRUCT_", 7) == 0)
+        memmove(dst, dst + 7, strlen(dst + 7) + 1);
+}
+
+StructureKind structure_kind_from_string(const char* name)
+{
+    if (!name)
+        return STRUCT_COUNT;
+
+    char buf[64];
+    normalize_token(name, buf, sizeof(buf));
+
+    if (strcmp(buf, "HUT_CANNIBAL") == 0)
+        return STRUCT_HUT_CANNIBAL;
+    if (strcmp(buf, "CRYPT") == 0)
+        return STRUCT_CRYPT;
+    if (strcmp(buf, "RUIN") == 0)
+        return STRUCT_RUIN;
+    if (strcmp(buf, "VILLAGE_HOUSE") == 0)
+        return STRUCT_VILLAGE_HOUSE;
+    if (strcmp(buf, "TEMPLE") == 0)
+        return STRUCT_TEMPLE;
+
+    return STRUCT_COUNT;
+}
+
+const char* structure_kind_to_string(StructureKind kind)
+{
+    switch (kind)
+    {
+        case STRUCT_HUT_CANNIBAL:
+            return "HUT_CANNIBAL";
+        case STRUCT_CRYPT:
+            return "CRYPT";
+        case STRUCT_RUIN:
+            return "RUIN";
+        case STRUCT_VILLAGE_HOUSE:
+            return "VILLAGE_HOUSE";
+        case STRUCT_TEMPLE:
+            return "TEMPLE";
+        case STRUCT_COUNT:
+            break;
+    }
+    return "UNKNOWN";
 }
 
 const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng)
 {
-    int n = 0;
     (void)rng;
+    const BiomeDef* def = get_biome_def(biome);
+    if (!def || def->structureCount <= 0 || !def->structures)
+        return NULL;
 
-    const BiomeStructureProfile* all = get_biome_struct_profiles(&n);
-    for (int i = 0; i < n; i++)
-        if (all[i].biome == biome)
-        {
-            const BiomeStructureProfile* p = &all[i];
-            if (p->structureCount <= 0)
-                return NULL;
+    float totalWeight = 0.0f;
+    for (int i = 0; i < def->structureCount; ++i)
+    {
+        const BiomeStructureEntry* entry = &def->structures[i];
+        const StructureDef*        sDef  = get_structure_def(entry->kind);
+        if (!sDef)
+            continue;
 
-            float sum = 0.0f;
-            for (int k = 0; k < p->structureCount; k++)
-                sum += p->structures[k]->rarity;
-            float r = ((float)rand() / RAND_MAX) * sum;
+        float w = entry->weight;
+        if (w <= 0.0f)
+            continue;
 
-            float acc = 0.0f;
-            for (int k = 0; k < p->structureCount; k++)
-            {
-                acc += p->structures[k]->rarity;
-                if (r <= acc)
-                    return p->structures[k];
-            }
-            return p->structures[p->structureCount - 1];
-        }
+        totalWeight += w * (sDef->rarity > 0.0f ? sDef->rarity : 1.0f);
+    }
+
+    if (totalWeight <= 0.0f)
+        return NULL;
+
+    float pick = ((float)rand() / (float)RAND_MAX) * totalWeight;
+    float acc  = 0.0f;
+
+    for (int i = 0; i < def->structureCount; ++i)
+    {
+        const BiomeStructureEntry* entry = &def->structures[i];
+        const StructureDef*        sDef  = get_structure_def(entry->kind);
+        if (!sDef)
+            continue;
+
+        float w = entry->weight;
+        if (w <= 0.0f)
+            continue;
+
+        float effective = w * (sDef->rarity > 0.0f ? sDef->rarity : 1.0f);
+        acc += effective;
+        if (pick <= acc)
+            return sDef;
+    }
+
+    for (int i = def->structureCount - 1; i >= 0; --i)
+    {
+        const StructureDef* sDef = get_structure_def(def->structures[i].kind);
+        if (sDef)
+            return sDef;
+    }
     return NULL;
 }

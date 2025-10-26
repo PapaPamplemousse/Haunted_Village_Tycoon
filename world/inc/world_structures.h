@@ -42,28 +42,6 @@ typedef struct
 } StructureDef;
 
 /**
- * @brief Profile for associating a Biome with a set of possible structures.
- *
- * This profile defines which structures can appear in a specific biome.
- */
-typedef struct
-{
-    BiomeKind            biome;          ///< The biome this profile applies to.
-    const StructureDef** structures;     ///< Array of pointers to StructureDef objects possible in this biome.
-    int                  structureCount; ///< Number of structures in the array.
-} BiomeStructureProfile;
-
-/**
- * @brief Provides access to all defined biome structure profiles.
- *
- * This function is mainly intended for debugging or full iteration over all
- * available profiles.
- * @param count Output parameter: will be set to the number of profiles returned.
- * @return A constant array of all BiomeStructureProfile definitions.
- */
-const BiomeStructureProfile* get_biome_struct_profiles(int* count);
-
-/**
  * @brief Selects a random structure definition appropriate for a given biome.
  *
  * The selection is weighted by the @c rarity field of the StructureDef.
@@ -73,6 +51,14 @@ const BiomeStructureProfile* get_biome_struct_profiles(int* count);
  * structure is defined for the biome.
  */
 const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng);
+
+/**
+ * @brief Retrieves the immutable definition associated with a structure kind.
+ */
+const StructureDef* get_structure_def(StructureKind kind);
+
+StructureKind structure_kind_from_string(const char* name);
+const char*   structure_kind_to_string(StructureKind kind);
 
 /// @name Concrete Structure Generators
 /// @brief Functions that implement the actual map modifications for specific structures.
