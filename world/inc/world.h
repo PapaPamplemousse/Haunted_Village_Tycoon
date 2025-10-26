@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 100
+#define MAP_WIDTH 1600
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 100
+#define MAP_HEIGHT 1600
 
 /**
  * @def TILE_SIZE
@@ -44,8 +44,8 @@
 // Tune for your target GPU. 128×128 balances rebuild cost vs draw calls.
 // You can go 64×64 on very low-end GPUs or 256×256 for fewer textures.
 
-#define CHUNK_W 16
-#define CHUNK_H 16
+#define CHUNK_W 32
+#define CHUNK_H 32
 
 // -----------------------------------------------------------------------------
 // ENUMERATIONS
@@ -385,10 +385,13 @@ typedef enum
 
 typedef struct MapChunk
 {
-    int             cx, cy;     // Chunk coordinates (in chunk units, not tiles)
-    RenderTexture2D rt;         // Cached render of this chunk
-    bool            dirty;      // Needs rebuild before being drawn
-    float           buildTimer; //
+    int             cx, cy;      // Chunk coordinates (in chunk units, not tiles)
+    RenderTexture2D rt;          // Cached render of this chunk
+    RenderTexture2D rt_prev;     // Previous render of this chunk
+    RenderTexture2D rt_next;     // Next render of this chunk
+    bool            dirty;       // Needs rebuild before being drawn
+    float           buildTimer;  //
+    bool            pendingSwap; //
 } MapChunk;
 
 typedef struct ChunkGrid

@@ -51,6 +51,61 @@ void chunkgrid_destroy(ChunkGrid* cg)
     free(cg);
 }
 
+void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
+{
+    if (!cg || !map)
+        return;
+
+    // Trouve le chunk correspondant à cette tuile
+    int cx = x / CHUNK_W;
+    int cy = y / CHUNK_H;
+
+    if (cx < 0 || cy < 0 || cx >= cg->chunksX || cy >= cg->chunksY)
+        return;
+
+    MapChunk* c = &cg->chunks[cy * cg->chunksX + cx];
+
+    // Si le chunk n’a pas encore de texture (premier build)
+    if (c->rt.id == 0)
+    {
+        c->dirty = true;
+        return;
+    }
+
+    // Coordonnées locales dans la texture du chunk
+    int localX = (x % CHUNK_W) * TILE_SIZE;
+    int localY = (y % CHUNK_H) * TILE_SIZE;
+
+    // Prépare le dessin dans le RenderTexture existant
+    BeginTextureMode(c->rt);
+
+    // Efface juste cette zone (fond transparent)
+    DrawRectangle(localX, localY, TILE_SIZE, TILE_SIZE, BLANK);
+
+    // --- Redessine la tuile ---
+    const TileType* tt = get_tile_type(map->tiles[y][x]);
+    if (tt)
+    {
+        if (tt->texture.id)
+            DrawTexture(tt->texture, localX, localY, WHITE);
+        else
+            DrawRectangle(localX, localY, TILE_SIZE, TILE_SIZE, tt->color);
+    }
+
+    // --- Redessine l’objet éventuel ---
+    Object* o = map->objects[y][x];
+    if (o)
+    {
+        if (o->type->texture.id)
+            DrawTextureEx(o->type->texture, (Vector2){(float)localX, (float)localY}, 0.0f, 1.0f, WHITE);
+        else
+            DrawRectangle(localX + 2, localY + 2, TILE_SIZE - 4, TILE_SIZE - 4, o->type->color);
+    }
+
+    EndTextureMode();
+
+    c->dirty = false;
+}
 // ---------------------------------------------------------------
 //  Marking dirty regions
 // ---------------------------------------------------------------

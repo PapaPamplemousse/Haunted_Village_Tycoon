@@ -34,6 +34,8 @@ void chunkgrid_destroy(ChunkGrid* cg);
  */
 void chunkgrid_mark_dirty_tile(ChunkGrid* cg, int tileX, int tileY);
 
+void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y);
+
 /**
  * @brief Mark all chunks dirty (for example, after world regeneration).
  */

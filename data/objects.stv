@@ -49,7 +49,7 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 180,0,0,255
-texture      = ../assets/objects/furniture/single_bed.png
+texture      = assets/objects/furniture/single_bed.png
 
 [BED_LARGE]
 id           = 2
