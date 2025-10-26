@@ -344,6 +344,21 @@ typedef enum
 } BiomeKind;
 
 /**
+ * @brief Enumeration of the different types of world structures.
+ *
+ * This list defines the specific structure blueprints available for generation.
+ */
+typedef enum
+{
+    STRUCT_HUT_CANNIBAL,  ///< A small, primitive hut, typically for cannibals.
+    STRUCT_CRYPT,         ///< An underground tomb or burial chamber.
+    STRUCT_RUIN,          ///< Remains of a destroyed building or wall.
+    STRUCT_VILLAGE_HOUSE, ///< A standard residential building in a village.
+    STRUCT_TEMPLE,        ///< A large, religious building.
+    STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
+} StructureKind;
+
+/**
  * @brief Defines the properties of a single biome cell or center point.
  *
  * Biomes are typically defined by their centers, from which their influence spreads.
@@ -358,30 +373,23 @@ typedef struct
 
 typedef struct
 {
-    BiomeKind  kind;
-    TileTypeID primary, secondary;
-    float      tempMin, tempMax;
-    float      humidMin, humidMax;
-    float      heightMin, heightMax;
-    float      treeMul, bushMul, rockMul, structMul;
-    int        maxInstances;
-    int        minInstances;
-} BiomeDef;
+    StructureKind kind;
+    float         weight;
+} BiomeStructureEntry;
 
-/**
- * @brief Enumeration of the different types of world structures.
- *
- * This list defines the specific structure blueprints available for generation.
- */
-typedef enum
+typedef struct
 {
-    STRUCT_HUT_CANNIBAL,  ///< A small, primitive hut, typically for cannibals.
-    STRUCT_CRYPT,         ///< An underground tomb or burial chamber.
-    STRUCT_RUIN,          ///< Remains of a destroyed building or wall.
-    STRUCT_VILLAGE_HOUSE, ///< A standard residential building in a village.
-    STRUCT_TEMPLE,        ///< A large, religious building.
-    STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
-} StructureKind;
+    BiomeKind            kind;
+    TileTypeID           primary, secondary;
+    float                tempMin, tempMax;
+    float                humidMin, humidMax;
+    float                heightMin, heightMax;
+    float                treeMul, bushMul, rockMul, structMul;
+    int                  maxInstances;
+    int                  minInstances;
+    BiomeStructureEntry* structures;
+    int                  structureCount;
+} BiomeDef;
 
 typedef struct MapChunk
 {
