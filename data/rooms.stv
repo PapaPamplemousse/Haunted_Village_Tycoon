@@ -1,0 +1,55 @@
+# =========================================================
+# ROOM DEFINITIONS (.stv)
+# =========================================================
+# Each section defines a room type.
+#
+# Fields:
+#   name        = internal name (optional, usually same as section name)
+#   min_area    = minimum area in tiles
+#   max_area    = maximum area in tiles (0 = no limit)
+#   requirement = object_name:min_count, object_name:min_count, ...
+#
+# The loader will resolve each object_name via the ObjectType array
+# previously loaded from objects.stv.
+# =========================================================
+
+[Bedroom]
+id           = 1
+min_area     = 2
+max_area     = 25
+requirement  = bed_small:1, torch_wall:1
+
+[Kitchen]
+id           = 2
+min_area     = 6
+max_area     = 40
+requirement  = table_wood:1, chair_wood:2, firepit:1
+
+[Hut]
+id           = 3
+min_area     = 6
+max_area     = 36
+requirement  = firepit:1, crate:1
+
+[Crypt]
+id           = 4
+min_area     = 9
+max_area     = 64
+requirement  = altar:1, bone_pile:1
+
+[Sanctuary]
+id           = 5
+min_area     = 12
+max_area     = 128
+requirement  = altar:1, torch_wall:2
+
+[House]
+id           = 6
+min_area     = 8
+max_area     = 49
+requirement  = bed_small:1, table_wood:1, chair_wood:1
+
+[LargeRoom]
+id           = 7
+min_area     = 40
+max_area     = 0

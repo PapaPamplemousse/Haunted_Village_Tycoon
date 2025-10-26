@@ -70,78 +70,12 @@ void chunkgrid_mark_dirty_tile(ChunkGrid* cg, int x, int y)
 //  Internal: draw a tile/object chunk into its RenderTexture
 // ---------------------------------------------------------------
 
-// static void rebuild_chunk(MapChunk* c, Map* map)
-// {
-//     const int x0 = c->cx * CHUNK_W;
-//     const int y0 = c->cy * CHUNK_H;
-
-//     // Lazy GPU texture allocation
-//     if (c->rt.id == 0)
-//         c->rt = LoadRenderTexture(CHUNK_W * TILE_SIZE, CHUNK_H * TILE_SIZE);
-
-//     BeginTextureMode(c->rt);
-//     ClearBackground(BLANK);
-
-//     // --- Tiles ---
-//     for (int ty = 0; ty < CHUNK_H; ++ty)
-//     {
-//         int y = y0 + ty;
-//         if (y >= map->height)
-//             break;
-
-//         for (int tx = 0; tx < CHUNK_W; ++tx)
-//         {
-//             int x = x0 + tx;
-//             if (x >= map->width)
-//                 break;
-
-//             const TileType* tt = get_tile_type(map->tiles[y][x]);
-//             int             px = tx * TILE_SIZE;
-//             int             py = ty * TILE_SIZE;
-
-//             if (tt->texture.id)
-//                 DrawTexture(tt->texture, px, py, WHITE);
-//             else
-//                 DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, tt->color);
-//         }
-//     }
-
-//     // --- Static objects ---
-//     for (int ty = 0; ty < CHUNK_H; ++ty)
-//     {
-//         int y = y0 + ty;
-//         if (y >= map->height)
-//             break;
-
-//         for (int tx = 0; tx < CHUNK_W; ++tx)
-//         {
-//             int x = x0 + tx;
-//             if (x >= map->width)
-//                 break;
-
-//             Object* o = map->objects[y][x];
-//             if (!o)
-//                 continue;
-
-//             int px = tx * TILE_SIZE;
-//             int py = ty * TILE_SIZE;
-
-//             if (o->type->texture.id)
-//                 DrawTextureEx(o->type->texture, (Vector2){(float)px, (float)py}, 0.0f, 1.0f, WHITE);
-//             else
-//                 DrawRectangle(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4, o->type->color);
-//         }
-//     }
-
-//     EndTextureMode();
-//     c->dirty = false;
-// }
 static void rebuild_chunk(MapChunk* c, Map* map)
 {
     const int x0 = c->cx * CHUNK_W;
     const int y0 = c->cy * CHUNK_H;
 
-    // 🔹 Render into a temporary texture first
+    // Render into a temporary texture first
     RenderTexture2D temp = LoadRenderTexture(CHUNK_W * TILE_SIZE, CHUNK_H * TILE_SIZE);
 
     BeginTextureMode(temp);
@@ -200,7 +134,7 @@ static void rebuild_chunk(MapChunk* c, Map* map)
 
     EndTextureMode();
 
-    // 🔹 Swap textures atomically (no black flash)
+    // Swap textures atomically (no black flash)
     if (c->rt.id != 0)
         UnloadRenderTexture(c->rt);
 
@@ -213,47 +147,6 @@ static void rebuild_chunk(MapChunk* c, Map* map)
 //  Cull + rebuild visible chunks only
 // ---------------------------------------------------------------
 
-// void chunkgrid_draw_visible(ChunkGrid* cg, Map* map, Camera2D* cam)
-// {
-//     if (!cg)
-//         return;
-
-//     // Compute camera view rect in world pixels
-//     const float invZoom = 1.0f / cam->zoom;
-//     Rectangle   view    = {cam->target.x - cam->offset.x * invZoom, cam->target.y - cam->offset.y * invZoom, GetScreenWidth() * invZoom, GetScreenHeight() * invZoom};
-
-//     // Visible chunk range + one margin chunk around to avoid pop-in
-//     int x0 = clampi((int)floorf(view.x / (CHUNK_W * TILE_SIZE)) - 1, 0, cg->chunksX - 1);
-//     int y0 = clampi((int)floorf(view.y / (CHUNK_H * TILE_SIZE)) - 1, 0, cg->chunksY - 1);
-//     int x1 = clampi((int)ceilf((view.x + view.width) / (CHUNK_W * TILE_SIZE)) + 1, 0, cg->chunksX - 1);
-//     int y1 = clampi((int)ceilf((view.y + view.height) / (CHUNK_H * TILE_SIZE)) + 1, 0, cg->chunksY - 1);
-
-//     const int rebuildPerFrame = 2; // budgeted rebuilds
-//     int       rebuilt         = 0;
-
-//     for (int cy = y0; cy <= y1; ++cy)
-//         for (int cx = x0; cx <= x1; ++cx)
-//         {
-//             MapChunk* c = &cg->chunks[cy * cg->chunksX + cx];
-
-//             // Lazy build within frame budget
-//             if ((c->rt.id == 0 || c->dirty) && rebuilt < rebuildPerFrame)
-//             {
-//                 rebuild_chunk(c, map);
-//                 rebuilt++;
-//             }
-
-//             if (c->rt.id == 0)
-//                 continue; // not ready yet
-
-//             const float wx = (float)(cx * CHUNK_W * TILE_SIZE);
-//             const float wy = (float)(cy * CHUNK_H * TILE_SIZE);
-
-//             // Flip Y because RenderTexture is upside-down
-//             DrawTextureRec(c->rt.texture, (Rectangle){0, 0, (float)c->rt.texture.width, -(float)c->rt.texture.height}, (Vector2){wx, wy}, WHITE);
-//         }
-// }
-
 void chunkgrid_draw_visible(ChunkGrid* cg, Map* map, Camera2D* cam)
 {
     if (!cg)
@@ -262,18 +155,18 @@ void chunkgrid_draw_visible(ChunkGrid* cg, Map* map, Camera2D* cam)
     const float invZoom = 1.0f / cam->zoom;
     Rectangle   view    = {cam->target.x - cam->offset.x * invZoom, cam->target.y - cam->offset.y * invZoom, GetScreenWidth() * invZoom, GetScreenHeight() * invZoom};
 
-    // 🔸 Increase preload margin to prepare chunks off-screen
+    // Increase preload margin to prepare chunks off-screen
     const int preloadMargin = 2; // 2 chunks around viewport
     int       x0            = clampi((int)floorf(view.x / (CHUNK_W * TILE_SIZE)) - preloadMargin, 0, cg->chunksX - 1);
     int       y0            = clampi((int)floorf(view.y / (CHUNK_H * TILE_SIZE)) - preloadMargin, 0, cg->chunksY - 1);
     int       x1            = clampi((int)ceilf((view.x + view.width) / (CHUNK_W * TILE_SIZE)) + preloadMargin, 0, cg->chunksX - 1);
     int       y1            = clampi((int)ceilf((view.y + view.height) / (CHUNK_H * TILE_SIZE)) + preloadMargin, 0, cg->chunksY - 1);
 
-    // 🔸 Only rebuild a few chunks per frame to avoid stutter
+    // Only rebuild a few chunks per frame to avoid stutter
     const int rebuildBudget = 3;
     int       rebuilt       = 0;
 
-    // 🔹 PASS 1 – rebuild missing/dirty chunks (off-screen work)
+    // PASS 1 – rebuild missing/dirty chunks (off-screen work)
     for (int cy = y0; cy <= y1 && rebuilt < rebuildBudget; ++cy)
     {
         for (int cx = x0; cx <= x1 && rebuilt < rebuildBudget; ++cx)
@@ -287,7 +180,7 @@ void chunkgrid_draw_visible(ChunkGrid* cg, Map* map, Camera2D* cam)
         }
     }
 
-    // 🔹 PASS 2 – draw only chunks that have a valid texture
+    // PASS 2 – draw only chunks that have a valid texture
     const int drawMargin = 1; // actual visible area
     x0                   = clampi((int)floorf(view.x / (CHUNK_W * TILE_SIZE)) - drawMargin, 0, cg->chunksX - 1);
     y0                   = clampi((int)floorf(view.y / (CHUNK_H * TILE_SIZE)) - drawMargin, 0, cg->chunksY - 1);

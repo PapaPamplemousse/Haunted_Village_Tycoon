@@ -1,0 +1,198 @@
+# =========================================================
+# TILE DEFINITIONS (.stv)
+# =========================================================
+# id           = TileTypeID (see enum)
+# name         = internal name
+# category     = ground | water | hazard | obstacle
+# walkable     = bool
+# is_breakable = bool
+# durability   = int
+# movement     = float
+# humidity     = float
+# fertility    = float
+# temperature  = float
+# color        = r,g,b,a
+# texture      = path
+# =========================================================
+
+[GRASS]
+id           = 0
+name         = Grass
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 1.0
+humidity     = 0.7
+fertility    = 0.8
+temperature  = 18
+color        = 34,139,34,255
+texture      = assets/textures/grass.png
+
+[WATER]
+id           = 1
+name         = Water
+category     = water
+walkable     = false
+is_breakable = false
+durability   = 100
+movement     = 100.0
+humidity     = 1.0
+fertility    = 0.0
+temperature  = 12
+color        = 70,130,180,255
+texture      = assets/textures/water.png
+
+[LAVA]
+id           = 2
+name         = Lava
+category     = hazard
+walkable     = false
+is_breakable = false
+durability   = 100
+movement     = 100.0
+humidity     = 0.0
+fertility    = 0.0
+temperature  = 1000
+color        = 255,69,0,255
+texture      = assets/textures/lava.png
+
+[FOREST]
+id           = 3
+name         = Forest
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 1.5
+humidity     = 0.8
+fertility    = 0.7
+temperature  = 15
+color        = 34,100,34,255
+texture      = assets/textures/forest.png
+
+[PLAIN]
+id           = 4
+name         = Plain
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 1.0
+humidity     = 0.5
+fertility    = 0.6
+temperature  = 20
+color        = 124,252,0,255
+texture      = assets/textures/plain.png
+
+[SAVANNA]
+id           = 5
+name         = Savanna
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 1.2
+humidity     = 0.3
+fertility    = 0.3
+temperature  = 28
+color        = 189,183,107,255
+texture      = assets/textures/savana.png
+
+[TUNDRA]
+id           = 6
+name         = Tundra
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 2.0
+humidity     = 0.2
+fertility    = 0.1
+temperature  = -10
+color        = 176,196,222,255
+texture      = assets/textures/tundra.png
+
+[TUNDRA_2]
+id           = 7
+name         = Tundra_2
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 2.0
+humidity     = 0.2
+fertility    = 0.1
+temperature  = -10
+color        = 176,196,222,255
+texture      = assets/textures/tundra_2.png
+
+[HELL]
+id           = 8
+name         = Hell
+category     = hazard
+walkable     = false
+is_breakable = false
+durability   = 100
+movement     = 3.0
+humidity     = 0.0
+fertility    = 0.0
+temperature  = 50
+color        = 139,0,0,255
+texture      = assets/textures/hell.png
+
+[CURSED_FOREST]
+id           = 9
+name         = Cursed_Forest
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 2.5
+humidity     = 0.7
+fertility    = 0.5
+temperature  = 8
+color        = 85,107,47,255
+texture      = assets/textures/cursed_forest.png
+
+[SWAMP]
+id           = 10
+name         = Swamp
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 3.0
+humidity     = 0.9
+fertility    = 0.8
+temperature  = 10
+color        = 102,102,51,255
+texture      = assets/textures/swamp.png
+
+[DESERT]
+id           = 11
+name         = Desert
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 100
+movement     = 1.3
+humidity     = 0.1
+fertility    = 0.05
+temperature  = 40
+color        = 244,164,96,255
+texture      = assets/textures/desert.png
+
+[MOUNTAIN]
+id           = 12
+name         = Mountain
+category     = obstacle
+walkable     = false
+is_breakable = true
+durability   = 500
+movement     = 100.0
+humidity     = 0.2
+fertility    = 0.05
+temperature  = 0
+color        = 105,105,105,255
+texture      = assets/textures/mountain.png

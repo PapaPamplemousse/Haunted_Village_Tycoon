@@ -1,0 +1,436 @@
+# =========================================================
+# OBJECT DEFINITIONS (.stv)
+# =========================================================
+# id           = unique integer ID (ObjectTypeID)
+# name         = internal identifier
+# display_name = name shown in UI
+# category     = "furniture" | "utility" | "storage" | "structure" | "decoration" | "resource" | "hazard" | "system"
+# max_hp, comfort, warmth, light, width, height = integers
+# walkable, flammable, is_wall, is_door = bool
+# color        = r,g,b,a
+# texture      = path
+# =========================================================
+
+[NONE]
+id           = 0
+name         = none
+display_name = None
+category     = system
+max_hp       = 0
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 0
+height       = 0
+walkable     = true
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 0,0,0,0
+texture      = none
+
+# =========================================================
+# --- Furniture ---
+# =========================================================
+
+[BED_SMALL]
+id           = 1
+name         = bed_small
+display_name = Small Bed
+category     = furniture
+max_hp       = 50
+comfort      = 2
+warmth       = 0
+light        = 0
+width        = 1
+height       = 2
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 180,0,0,255
+texture      = ../assets/objects/furniture/single_bed.png
+
+[BED_LARGE]
+id           = 2
+name         = bed_large
+display_name = Large Bed
+category     = furniture
+max_hp       = 100
+comfort      = 4
+warmth       = 0
+light        = 0
+width        = 2
+height       = 2
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 200,0,0,255
+texture      = assets/objects/furniture/double_bed.png
+
+[TABLE_WOOD]
+id           = 3
+name         = table_wood
+display_name = Wooden Table
+category     = furniture
+max_hp       = 80
+comfort      = 1
+warmth       = 0
+light        = 0
+width        = 2
+height       = 2
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 139,69,19,255
+texture      = assets/objects/furniture/table_wood.png
+
+[CHAIR_WOOD]
+id           = 4
+name         = chair_wood
+display_name = Wooden Chair
+category     = furniture
+max_hp       = 40
+comfort      = 1
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 139,69,19,255
+texture      = assets/objects/furniture/chair_wood.png
+
+# =========================================================
+# --- Utility ---
+# =========================================================
+
+[TORCH_WALL]
+id           = 5
+name         = torch_wall
+display_name = Wall Torch
+category     = utility
+max_hp       = 20
+comfort      = 0
+warmth       = 1
+light        = 3
+width        = 1
+height       = 1
+walkable     = true
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 255,165,0,255
+texture      = assets/objects/utility/torch_wall.png
+
+[WORKBENCH]
+id           = 6
+name         = workbench
+display_name = Workbench
+category     = utility
+max_hp       = 90
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 2
+height       = 1
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 139,69,19,255
+texture      = assets/objects/utility/workbench.png
+
+# =========================================================
+# --- Storage ---
+# =========================================================
+
+[CHEST_WOOD]
+id           = 7
+name         = chest_wood
+display_name = Wooden Chest
+category     = storage
+max_hp       = 60
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 2
+height       = 1
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 160,82,45,255
+texture      = assets/objects/storage/chest_wood.png
+
+[CRATE]
+id           = 8
+name         = crate
+display_name = Crate
+category     = storage
+max_hp       = 70
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 160,110,60,255
+texture      = assets/objects/storage/crate.png
+
+# =========================================================
+# --- Structures ---
+# =========================================================
+
+[DOOR_WOOD]
+id           = 9
+name         = door_wood
+display_name = Wooden Door
+category     = structure
+max_hp       = 100
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 2
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = true
+color        = 139,69,19,255
+texture      = assets/objects/structure/door_wood.png
+
+[WALL_STONE]
+id           = 10
+name         = wall_stone
+display_name = Stone Wall
+category     = structure
+max_hp       = 200
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = true
+is_door      = false
+color        = 100,100,100,255
+texture      = assets/objects/structure/wall_stone.png
+
+[WALL_WOOD]
+id           = 11
+name         = wall_wood
+display_name = Wood Wall
+category     = structure
+max_hp       = 150
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = true
+is_wall      = true
+is_door      = false
+color        = 120,80,40,255
+texture      = assets/objects/structure/wall_wood.png
+
+# =========================================================
+# --- Decoration ---
+# =========================================================
+
+[DECOR_PLANT]
+id           = 12
+name         = decor_plant
+display_name = Potted Plant
+category     = decoration
+max_hp       = 15
+comfort      = 1
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = true
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 0,200,0,255
+texture      = assets/objects/decoration/decor_plant.png
+
+[BONE_PILE]
+id           = 13
+name         = bone_pile
+display_name = Bones
+category     = decoration
+max_hp       = 10
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = true
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 200,200,200,255
+texture      = assets/objects/decoration/bone_pile.png
+
+# =========================================================
+# --- Resources / Nature ---
+# =========================================================
+
+[ROCK]
+id           = 14
+name         = rock
+display_name = Rock
+category     = resource
+max_hp       = 300
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 110,110,110,255
+texture      = assets/objects/resource/rock.png
+
+[TREE]
+id           = 15
+name         = tree
+display_name = Tree
+category     = resource
+max_hp       = 250
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 2
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 20,120,20,255
+texture      = assets/objects/resource/tree.png
+
+[DEAD_TREE]
+id           = 16
+name         = dead_tree
+display_name = Dead Tree
+category     = resource
+max_hp       = 180
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 2
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 90,70,50,255
+texture      = assets/objects/resource/dead_tree.png
+
+[BUSH]
+id           = 17
+name         = bush
+display_name = Bush
+category     = resource
+max_hp       = 50
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = true
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 40,140,40,255
+texture      = assets/objects/resource/standard_bush.png
+
+[BUSH_DRY]
+id           = 18
+name         = bush_dry
+display_name = Dry Bush
+category     = resource
+max_hp       = 30
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = true
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 150,130,60,255
+texture      = assets/objects/resource/dry_bush.png
+
+# =========================================================
+# --- Hazards / Special ---
+# =========================================================
+
+[SULFUR_VENT]
+id           = 19
+name         = sulfur_vent
+display_name = Sulfur Vent
+category     = hazard
+max_hp       = 150
+comfort      = -2
+warmth       = 2
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 220,200,40,255
+texture      = assets/objects/hazard/sulfur_vent.png
+
+[FIREPIT]
+id           = 20
+name         = firepit
+display_name = Exterior Fire Pit
+category     = utility
+max_hp       = 50
+comfort      = 0
+warmth       = 3
+light        = 2
+width        = 2
+height       = 2
+walkable     = false
+flammable    = true
+is_wall      = false
+is_door      = false
+color        = 255,120,20,255
+texture      = assets/objects/utility/firepit.png
+
+[ALTAR]
+id           = 21
+name         = altar
+display_name = Altar
+category     = utility
+max_hp       = 250
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 2
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 180,180,220,255
+texture      = assets/objects/utility/altar.png

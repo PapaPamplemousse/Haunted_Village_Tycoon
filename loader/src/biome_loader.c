@@ -1,4 +1,4 @@
-#include "biome_definitions.h"
+#include "biome_loader.h"
 #include "tile.h"
 #include <stdio.h>
 #include <stdlib.h>

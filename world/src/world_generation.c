@@ -4,7 +4,7 @@
 #include "map.h"
 #include "world.h"
 #include "world_structures.h"
-#include "biome_definitions.h"
+#include "biome_loader.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -661,89 +661,6 @@ void generate_world(Map* map)
         }
     }
 
-    //     // 4) Paint tiles with soft biome blending and organic micro-variation
-    //     const float microFreq  = 0.06f;  // intra-biome patchiness
-    //     const float warpFreq   = 0.004f; // cross-biome warping
-    //     const float featherMin = 0.30f;  // inner blend edge
-    //     const float featherMax = 0.70f;  // outer blend edge
-
-    // #if defined(WORLDGEN_USE_OPENMP)
-    // #pragma omp parallel for
-    // #endif
-    //     for (int y = 0; y < H; ++y)
-    //     {
-    //         const int cy = y / MC;
-    //         for (int x = 0; x < W; ++x)
-    //         {
-    //             const int cx = x / MC;
-
-    //             // Continents & extremes via height
-    //             float h = C.height[y * W + x];
-    //             if (h < 0.06f)
-    //             {
-    //                 map->tiles[y][x]   = TILE_WATER;
-    //                 map->objects[y][x] = NULL;
-    //                 continue;
-    //             }
-    //             if (h > 0.97f)
-    //             {
-    //                 map->tiles[y][x]   = TILE_LAVA;
-    //                 map->objects[y][x] = NULL;
-    //                 continue;
-    //             }
-
-    //             // --- Pick two nearest biome centers (A and B) ---
-    //             int best1 = -1, best2 = -1;
-    //             pick_two_centers_from_neighbors(&best1, &best2, x, y, MC, cellsX, cellsY, cellCenterIdx, centers);
-
-    //             if (best1 < 0)
-    //             {
-    //                 int ci = cellCenterIdx[cy * cellsX + cx];
-    //                 best1  = (ci >= 0) ? ci : 0;
-    //                 best2  = best1;
-    //             }
-
-    //             const BiomeCenter* A  = &centers[best1];
-    //             const BiomeCenter* B  = &centers[best2];
-    //             const BiomeDef*    pA = get_biome_def(A->kind);
-    //             const BiomeDef*    pB = get_biome_def(B->kind);
-
-    //             // --- Domain warping for soft “organic” borders ---
-    //             float wx = (float)x + (fbm2D(x * warpFreq, y * warpFreq, 2, 2.0f, 0.5f, 1.0f, 999u) - 0.5f) * 80.0f;
-    //             float wy = (float)y + (fbm2D((x + 913) * warpFreq, (y - 777) * warpFreq, 2, 2.0f, 0.5f, 1.0f, 888u) - 0.5f) * 80.0f;
-
-    //             float dxA = wx - (float)A->x, dyA = wy - (float)A->y;
-    //             float dxB = wx - (float)B->x, dyB = wy - (float)B->y;
-    //             float dA = dxA * dxA + dyA * dyA;
-    //             float dB = dxB * dxB + dyB * dyB;
-
-    //             // --- Compute blend factor (0..1) with a smooth band ---
-    //             float t     = dA / (dA + dB + 0.0001f);
-    //             float blend = t;
-    //             blend       = blend * blend * (3.0f - 2.0f * blend); // smoothstep(0,1)
-    //             blend       = fminf(1.0f, fmaxf(0.0f, (blend - featherMin) / (featherMax - featherMin)));
-
-    //             // --- Local intra-biome noise for texture variation ---
-    //             float hf1 = fbm2D((float)x, (float)y, 3, 2.1f, 0.5f, microFreq, 222u);
-    //             float hf2 = fbm2D(x * 0.07f, y * 0.07f, 2, 2.0f, 0.5f, 0.02f, 333u);
-
-    //             // Combine and center noise roughly around 0
-    //             float secondaryMask = (hf1 + hf2) * 0.5f - 0.5f; // Now in [-0.5, +0.5]
-
-    //             // Secondary tile appears about 45% of the time
-    //             TileTypeID tileA = (secondaryMask > 0.0f) ? pA->primary : pA->secondary;
-    //             TileTypeID tileB = (secondaryMask > 0.0f) ? pB->primary : pB->secondary;
-
-    //             // --- Organic cross-biome blend mask ---
-    //             // Use continuous mix instead of hard switch; produces smooth, rounded biome borders.
-    //             float localNoise = fbm2D(x * 0.01f, y * 0.01f, 2, 2.0f, 0.5f, 1.0f, 444u);
-    //             float mix        = blend + (localNoise - 0.5f) * 0.2f; // slightly irregular edge
-    //             mix              = fminf(1.0f, fmaxf(0.0f, mix));
-
-    //             map->tiles[y][x]   = (mix < 0.5f) ? tileA : tileB;
-    //             map->objects[y][x] = NULL;
-    //         }
-    //     }
     // 4) Paint tiles with soft biome blending and organic micro-variation
     const float warpFreq   = 0.004f; // cross-biome warping
     const float featherMin = 0.30f;  // inner blend edge

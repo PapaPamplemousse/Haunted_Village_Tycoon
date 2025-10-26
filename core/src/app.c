@@ -37,7 +37,7 @@ static void app_init(void)
     SetTargetFPS(40);
 
     init_tile_types();
-    init_object_textures();
+    init_objects();
 
     map_init(&G_MAP, seed);
     update_building_detection(&G_MAP);

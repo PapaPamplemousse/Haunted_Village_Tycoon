@@ -57,31 +57,58 @@
  */
 typedef enum
 {
-    OBJ_NONE = 0,    /**< Empty space / no object */
-    OBJ_BED_SMALL,   /**< Small bed */
-    OBJ_BED_LARGE,   /**< Large bed */
-    OBJ_TABLE_WOOD,  /**< Wooden table */
-    OBJ_CHAIR_WOOD,  /**< Wooden chair */
-    OBJ_TORCH_WALL,  /**< Wall-mounted torch */
-    OBJ_CHEST_WOOD,  /**< Wooden chest */
-    OBJ_WORKBENCH,   /**< Workbench or crafting table */
-    OBJ_DOOR_WOOD,   /**< Wooden door */
-    OBJ_WALL_STONE,  /**< Stone wall segment */
-    OBJ_DECOR_PLANT, /**< Decorative plant */
-    OBJ_ROCK,        /**< Rock */
-    OBJ_TREE,        /**< Tree */
-    OBJ_DEAD_TREE,   /**< Dead Tree */
-    OBJ_STDBUSH,     /**< Bush */
-    OBJ_STDBUSH_DRY, /**< Dry Bush */
-    OBJ_SULFUR_VENT, /**< Sulfur Vent */
-    OBJ_BONE_PILE,   /**< Bones */
-    OBJ_CRATE,       /**< Crate */
-    OBJ_FIREPIT,     /**< Fire pit (used for OBJ_FIREPIT in object data) */
-    OBJ_ALTAR,       /**< Altar */
-    OBJ_WALL_WOOD,   /**< Wood Wall */
+    OBJ_NONE = 0, /**< Empty space / no object */
 
-    OBJ_COUNT /**< Sentinel value (number of object types) */
+    // --- Furniture ---
+    OBJ_BED_SMALL  = 1, /**< Small bed */
+    OBJ_BED_LARGE  = 2, /**< Large bed */
+    OBJ_TABLE_WOOD = 3, /**< Wooden table */
+    OBJ_CHAIR_WOOD = 4, /**< Wooden chair */
+
+    // --- Utility ---
+    OBJ_TORCH_WALL = 5, /**< Wall-mounted torch */
+    OBJ_WORKBENCH  = 6, /**< Workbench / crafting table */
+
+    // --- Storage ---
+    OBJ_CHEST_WOOD = 7, /**< Wooden chest */
+    OBJ_CRATE      = 8, /**< Crate */
+
+    // --- Structures ---
+    OBJ_DOOR_WOOD  = 9,  /**< Wooden door */
+    OBJ_WALL_STONE = 10, /**< Stone wall */
+    OBJ_WALL_WOOD  = 11, /**< Wooden wall */
+
+    // --- Decoration ---
+    OBJ_DECOR_PLANT = 12, /**< Potted plant */
+    OBJ_BONE_PILE   = 13, /**< Bones */
+
+    // --- Resources / Nature ---
+    OBJ_ROCK        = 14, /**< Rock */
+    OBJ_TREE        = 15, /**< Tree */
+    OBJ_DEAD_TREE   = 16, /**< Dead tree */
+    OBJ_STDBUSH     = 17, /**< Bush */
+    OBJ_STDBUSH_DRY = 18, /**< Dry bush */
+
+    // --- Hazards / Special ---
+    OBJ_SULFUR_VENT = 19, /**< Sulfur vent */
+    OBJ_FIREPIT     = 20, /**< Exterior fire pit */
+    OBJ_ALTAR       = 21, /**< Altar */
+
+    OBJ_COUNT /**< Sentinel (number of object types) */
 } ObjectTypeID;
+
+typedef enum
+{
+    ROOM_NONE = 0,
+    ROOM_BEDROOM,
+    ROOM_KITCHEN,
+    ROOM_HUT,
+    ROOM_CRYPT,
+    ROOM_SANCTUARY,
+    ROOM_HOUSE,
+    ROOM_LARGEROOM,
+    ROOM_COUNT
+} RoomTypeID;
 
 /**
  * @enum TileTypeID
@@ -137,14 +164,16 @@ typedef struct
     const char*  displayName; /**< Human-readable name for UI display */
     const char*  category;    /**< Category string (e.g., "furniture", "structure") */
 
-    int         maxHP;       /**< Maximum hit points */
-    int         comfort;     /**< Comfort rating contribution */
-    int         warmth;      /**< Warmth rating contribution */
-    int         lightLevel;  /**< Light emission level */
-    int         width;       /**< Object width in tiles */
-    int         height;      /**< Object height in tiles */
-    bool        walkable;    /**< Whether the player can walk over it */
-    bool        flammable;   /**< Whether it can catch fire */
+    int         maxHP;      /**< Maximum hit points */
+    int         comfort;    /**< Comfort rating contribution */
+    int         warmth;     /**< Warmth rating contribution */
+    int         lightLevel; /**< Light emission level */
+    int         width;      /**< Object width in tiles */
+    int         height;     /**< Object height in tiles */
+    bool        walkable;   /**< Whether the player can walk over it */
+    bool        flammable;  /**< Whether it can catch fire */
+    bool        isWall;
+    bool        isDoor;
     Color       color;       /**< Default color (fallback if no texture) */
     const char* texturePath; /**< path to texture */
     Texture2D   texture;     /**< Texture used for rendering */
@@ -184,6 +213,7 @@ typedef struct
  */
 typedef struct
 {
+    RoomTypeID               id;
     const char*              name;             /**< Room type name (e.g., "Bedroom") */
     int                      minArea;          /**< Minimum area (in tiles) */
     int                      maxArea;          /**< Maximum area (in tiles) */
@@ -325,6 +355,18 @@ typedef struct
     TileTypeID primary;   /**< The primary tile type of the biome (e.g., main grass, main sand). */
     TileTypeID secondary; /**< A close variant tile type (used for texture variation or subtiles). */
 } BiomeCenter;
+
+typedef struct
+{
+    BiomeKind  kind;
+    TileTypeID primary, secondary;
+    float      tempMin, tempMax;
+    float      humidMin, humidMax;
+    float      heightMin, heightMax;
+    float      treeMul, bushMul, rockMul, structMul;
+    int        maxInstances;
+    int        minInstances;
+} BiomeDef;
 
 /**
  * @brief Enumeration of the different types of world structures.

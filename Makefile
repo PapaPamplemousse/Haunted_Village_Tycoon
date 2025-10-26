@@ -1,7 +1,7 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -std=c99 -Icore/inc -Iworld/inc -Isim/inc -Iui/inc -Iassets -DWORLDGEN_USE_OPENMP -fopenmp
+CFLAGS=-Wall -Wextra -std=c99 -Icore/inc -Iworld/inc -Isim/inc -Iui/inc -Iloader/inc -Iassets -DWORLDGEN_USE_OPENMP -fopenmp
 LDFLAGS=-lraylib -lm -ldl -lGL -lpthread -ldl -lrt -lX11
-SRC=$(wildcard core/src/*.c world/src/*.c sim/src/*.c ui/src/*.c)
+SRC=$(wildcard core/src/*.c world/src/*.c sim/src/*.c ui/src/*.c loader/src/*.c)
 
 # Définition des chemins
 BUILD_DIR=build
