@@ -7,6 +7,8 @@
 // --- helper murs/porte rectangle ---
 static void rect_walls(Map* map, int x, int y, int w, int h, ObjectTypeID wall, ObjectTypeID door)
 {
+    (void)door;
+
     int ex = x + w - 1, ey = y + h - 1;
     for (int i = x; i <= ex; i++)
     {
@@ -40,6 +42,8 @@ void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng)
 {
     int w = 4 + rand() % 3; // 4..6
     int h = 4 + rand() % 3;
+
+    (void)rng;
     rect_walls(map, x, y, w, h, OBJ_WALL_WOOD, OBJ_DOOR_WOOD);
 
     // Décor intérieur (ossements, feu, caisse)
@@ -65,6 +69,9 @@ void build_crypt(Map* map, int x, int y, uint64_t* rng)
 {
     int w = 5 + rand() % 4; // 5..8
     int h = 5 + rand() % 4;
+
+    (void)rng;
+
     rect_walls(map, x, y, w, h, OBJ_WALL_STONE, OBJ_DOOR_WOOD);
 
     int cx = x + w / 2, cy = y + h / 2;
@@ -84,6 +91,9 @@ void build_ruin(Map* map, int x, int y, uint64_t* rng)
 {
     int w = 3 + rand() % 3; // 3..5
     int h = 3 + rand() % 3;
+
+    (void)rng;
+
     rect_walls(map, x, y, w, h, OBJ_WALL_STONE, OBJ_DOOR_WOOD);
 
     // murs “brisés”
@@ -99,6 +109,8 @@ void build_village_house(Map* map, int x, int y, uint64_t* rng)
 {
     int w = 4 + rand() % 2; // 4..5
     int h = 4 + rand() % 2;
+
+    (void)rng;
     rect_walls(map, x, y, w, h, OBJ_WALL_WOOD, OBJ_DOOR_WOOD);
 
     map_place_object(map, OBJ_TABLE_WOOD, x + 1, y + 1);
@@ -115,6 +127,9 @@ void build_temple(Map* map, int x, int y, uint64_t* rng)
 {
     int w = 6 + rand() % 4; // 6..9
     int h = 6 + rand() % 4;
+
+    (void)rng;
+
     rect_walls(map, x, y, w, h, OBJ_WALL_STONE, OBJ_DOOR_WOOD);
 
     map_place_object(map, OBJ_ALTAR, x + w / 2, y + h / 2);
@@ -159,7 +174,9 @@ const BiomeStructureProfile* get_biome_struct_profiles(int* count)
 
 const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng)
 {
-    int                          n   = 0;
+    int n = 0;
+    (void)rng;
+
     const BiomeStructureProfile* all = get_biome_struct_profiles(&n);
     for (int i = 0; i < n; i++)
         if (all[i].biome == biome)

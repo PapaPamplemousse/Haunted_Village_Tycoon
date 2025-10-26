@@ -2,9 +2,9 @@
 #include <stddef.h>
 
 // Nécessite : #include "tile_types.h"
-// Assurez-vous que TILE_COUNT est bien le dernier élément de TileTypeID (valant 12)
+// Assurez-vous que TILE_MAX est bien le dernier élément de TileTypeID (valant 12)
 
-TileType tileTypes[TILE_COUNT] = {
+TileType tileTypes[TILE_MAX] = {
     [TILE_GRASS] = {.name         = "Grass",
                     .id           = TILE_GRASS,
                     .category     = TILE_CATEGORY_GROUND,
@@ -89,19 +89,32 @@ TileType tileTypes[TILE_COUNT] = {
                       .fertility    = 0.3f,
                       .temperature  = 28},
 
-    [TILE_TUNDRA] = {.name         = "Tundra",
-                     .id           = TILE_TUNDRA,
-                     .category     = TILE_CATEGORY_GROUND,
-                     .walkable     = true,
-                     .color        = (Color){176, 196, 222, 255},
-                     .texture      = {0},
-                     .texturePath  = "assets/textures/tundra.png",
-                     .isBreakable  = false,
-                     .durability   = 100,
-                     .movementCost = 2.0f,
-                     .humidity     = 0.2f,
-                     .fertility    = 0.1f,
-                     .temperature  = -10},
+    [TILE_TUNDRA]   = {.name         = "Tundra",
+                       .id           = TILE_TUNDRA,
+                       .category     = TILE_CATEGORY_GROUND,
+                       .walkable     = true,
+                       .color        = (Color){176, 196, 222, 255},
+                       .texture      = {0},
+                       .texturePath  = "assets/textures/tundra.png",
+                       .isBreakable  = false,
+                       .durability   = 100,
+                       .movementCost = 2.0f,
+                       .humidity     = 0.2f,
+                       .fertility    = 0.1f,
+                       .temperature  = -10},
+    [TILE_TUNDRA_2] = {.name         = "Tundra_2",
+                       .id           = TILE_TUNDRA_2,
+                       .category     = TILE_CATEGORY_GROUND,
+                       .walkable     = true,
+                       .color        = (Color){176, 196, 222, 255},
+                       .texture      = {0},
+                       .texturePath  = "assets/textures/tundra_2.png",
+                       .isBreakable  = false,
+                       .durability   = 100,
+                       .movementCost = 2.0f,
+                       .humidity     = 0.2f,
+                       .fertility    = 0.1f,
+                       .temperature  = -10},
 
     [TILE_HELL] = {.name         = "Hell",
                    .id           = TILE_HELL,
@@ -117,7 +130,7 @@ TileType tileTypes[TILE_COUNT] = {
                    .fertility    = 0.0f,
                    .temperature  = 50},
 
-    [TILE_CURSED_FOREST] = {.name         = "Cursed Forest",
+    [TILE_CURSED_FOREST] = {.name         = "Cursed_Forest",
                             .id           = TILE_CURSED_FOREST,
                             .category     = TILE_CATEGORY_GROUND,
                             .walkable     = true,
@@ -181,7 +194,7 @@ void init_tile_types(void)
     // Example: Loading textures (if Texture2D is a handle)
     // tileTypes[TILE_GRASS].texture = LoadTexture("assets/textures/grass.png");
     // tileTypes[TILE_WATER].texture = LoadTexture("textures/water.png");
-    for (int i = 0; i < TILE_COUNT; ++i)
+    for (int i = 0; i < TILE_MAX; ++i)
     {
         if (tileTypes[i].texturePath != NULL)
         {
@@ -196,7 +209,7 @@ void unload_tile_types(void)
 
 TileType* get_tile_type(TileTypeID id)
 {
-    if (id >= 0 && id < TILE_COUNT)
+    if (id >= 0 && id < TILE_MAX)
     {
         return &tileTypes[id];
     }

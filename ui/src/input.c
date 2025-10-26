@@ -4,6 +4,9 @@
 #include <raylib.h>
 #include <stdio.h>
 
+#define MAX_TILES (TILE_MAX)
+#define MAX_OBJECTS (OBJ_COUNT)
+
 void input_init(InputState* input)
 {
     input->selectedTile      = TILE_GRASS;
@@ -31,9 +34,8 @@ void input_update(InputState* input)
     }
     if (IsKeyPressed(KEY_THREE))
     {
-        // input->selectedTile   = TILE_LAVA;
         input->selectedObject = OBJ_STDBUSH;
-        printf("Selected object: Standard bush \n");
+        printf("Selected object: Standard bush\n");
     }
 
     if (IsKeyPressed(KEY_FOUR))
@@ -59,7 +61,7 @@ void input_update(InputState* input)
         printf("Show building names: %s\n", input->showBuildingNames ? "ON" : "OFF");
     }
 
-    // --- Camera movement (keyboard) ---
+    // --- Camera movement ---
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
         input->camera.moveDir.x -= 1.0f;
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
@@ -71,4 +73,21 @@ void input_update(InputState* input)
 
     // --- Camera zoom (mouse wheel) ---
     input->camera.zoomDelta = GetMouseWheelMove();
+}
+
+/**
+ * @brief Updates mouse state (screen → world → tile coordinates).
+ */
+void input_update_mouse(MouseState* mouse, const Camera2D* camera, const Map* map)
+{
+    if (!mouse || !camera || !map)
+        return;
+
+    mouse->screen = GetMousePosition();
+    mouse->world  = GetScreenToWorld2D(mouse->screen, *camera);
+
+    mouse->tileX = (int)(mouse->world.x / TILE_SIZE);
+    mouse->tileY = (int)(mouse->world.y / TILE_SIZE);
+
+    mouse->insideMap = mouse->tileX >= 0 && mouse->tileY >= 0 && mouse->tileX < map->width && mouse->tileY < map->height;
 }

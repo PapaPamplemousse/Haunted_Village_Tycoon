@@ -56,24 +56,4 @@ void chunkgrid_draw_visible(ChunkGrid* cg, Map* map, Camera2D* cam);
  */
 void chunkgrid_evict_far(ChunkGrid* cg, const Camera2D* cam, float maxDistancePx);
 
-// // Global chunk grid (owned by app; exposed to mark dirty from anywhere)
-// extern ChunkGrid* gChunks;
-
-// // Lifecycle
-// ChunkGrid* chunkgrid_create(Map* map);
-// void       chunkgrid_destroy(ChunkGrid* cg);
-
-// // Dirty marking (call when tiles/objects change)
-// void chunkgrid_mark_dirty_tile(ChunkGrid* cg, int x, int y);
-// void chunkgrid_mark_dirty_rect(ChunkGrid* cg, Rectangle tileRect);
-// void chunkgrid_mark_all(ChunkGrid* cg, Map* map);
-
-// // Rebuild all dirty chunks (call once per frame before drawing)
-// void chunkgrid_rebuild_dirty(ChunkGrid* cg, Map* map);
-
-// void chunkgrid_evict_far(ChunkGrid* cg, const Camera2D* cam, float unloadDistancePx);
-
-// // Draw only visible chunks (static layer). Dynamic things should be drawn separately.
-// void chunkgrid_draw_visible(ChunkGrid* cg, Map* map, Camera2D* cam);
-
 #endif // WORLD_CHUNK_H

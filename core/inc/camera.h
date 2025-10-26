@@ -9,6 +9,9 @@
 #include <raylib.h>
 #include "input.h" // Needed for CameraInput
 
+#define ZOOM_MIN 0.9f
+#define ZOOM_MAX 2.5f
+
 /**
  * @brief Initializes a top-down camera centered on the middle of the map.
  *

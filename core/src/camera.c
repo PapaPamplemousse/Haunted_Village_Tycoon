@@ -2,9 +2,6 @@
 #include "map.h"
 #include "raymath.h"
 
-const float ZOOM_MIN = 0.5f;
-const float ZOOM_MAX = 2.5f;
-
 Camera2D init_camera(void)
 {
     Camera2D cam = {0};

@@ -23,16 +23,37 @@ typedef struct
     float   zoomDelta; /**< Zoom variation (positive = zoom in, negative = zoom out). */
 } CameraInput;
 
+typedef enum
+{
+    MODE_TILE,
+    MODE_OBJECT
+} SelectionMode;
+
 /**
  * @brief Stores the current input and editor selection state.
  */
 typedef struct
 {
-    TileTypeID   selectedTile;      /**< Currently selected tile type (for ground painting). */
-    ObjectTypeID selectedObject;    /**< Currently selected object type (for placement). */
-    bool         showBuildingNames; /**< Whether building names are displayed (toggled by TAB). */
-    CameraInput  camera;            /**< Camera movement & zoom input. */
+    TileTypeID    selectedTile;      /**< Currently selected tile type (for ground painting). */
+    ObjectTypeID  selectedObject;    /**< Currently selected object type (for placement). */
+    bool          showBuildingNames; /**< Whether building names are displayed (toggled by TAB). */
+    CameraInput   camera;            /**< Camera movement & zoom input. */
+    SelectionMode currentMode;
+    int           tileIndex;
+    int           objectIndex;
 } InputState;
+
+/**
+ * @brief Stores mouse information relative to the world.
+ */
+typedef struct
+{
+    Vector2 screen;    /**< Mouse position in screen coordinates. */
+    Vector2 world;     /**< Mouse position in world-space coordinates (affected by camera). */
+    int     tileX;     /**< Tile coordinate under the mouse (world.x / TILE_SIZE). */
+    int     tileY;     /**< Tile coordinate under the mouse (world.y / TILE_SIZE). */
+    bool    insideMap; /**< True if within map bounds. */
+} MouseState;
 
 /**
  * @brief Initializes the input state to default values.
@@ -57,5 +78,14 @@ void input_init(InputState* input);
  * @param[in,out] input Pointer to the InputState to update.
  */
 void input_update(InputState* input);
+
+/**
+ * @brief Updates mouse world/tile position based on the camera.
+ *
+ * @param[out] mouse Pointer to MouseState to fill.
+ * @param[in] camera Current camera.
+ * @param[in] map Pointer to the Map (for bounds checking).
+ */
+void input_update_mouse(MouseState* mouse, const Camera2D* camera, const Map* map);
 
 #endif // INPUT_H

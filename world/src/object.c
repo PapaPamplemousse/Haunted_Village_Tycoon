@@ -58,26 +58,26 @@ static ObjectType G_OBJECT_TYPES[OBJ_COUNT] = {
         {OBJ_STDBUSH_DRY, "bush_dry", "Dry Bush", "resource", 30, 0, 0, 0, 1, 1, true, true, (Color){150, 130, 60, 255}, "assets/objects/resource/dry_bush.png", {0}}, // Walkable (solid=false), highly flammable.
     [OBJ_SULFUR_VENT] = {OBJ_SULFUR_VENT, "sulfur_vent", "Sulfur Vent", "hazard", 150, -2, 2, 0, 1, 1, false, false, (Color){220, 200, 40, 255}, "assets/objects/hazard/sulfur_vent.png", {0}}, // Solid, low comfort, minor
                                                                                                                                                                                                 // warmth, no light.
-    [OBJ_BONE_PILE] = {OBJ_BONE_PILE, "bone_pile", "Bones", "decoration", 10, 0, 0, 0, 1, 1, true, false, (Color){200, 200, 200, 255}, NULL, {0}},                                              // Walkable (solid=false),
-                                                                                                                                                   // decoration/minor resource.
+    [OBJ_BONE_PILE] = {OBJ_BONE_PILE, "bone_pile", "Bones", "decoration", 10, 0, 0, 0, 1, 1, true, false, (Color){200, 200, 200, 255}, "assets/objects/decoration/bone_pile.png", {0}},         // Walkable (solid=false),
+                                                                                                                                                                                        // decoration/minor resource.
 
-    [OBJ_CRATE]   = {OBJ_CRATE, "crate", "Crate", "storage", 70, 0, 0, 0, 1, 1, false, true, (Color){160, 110, 60, 255}, NULL, {0}},                     // Solid obstacle, flammable.
-    [OBJ_FIREPIT] = {OBJ_FIREPIT, "firepit_ext", "Exterior Fire Pit", "utility", 50, 0, 3, 2, 2, 2, false, true, (Color){255, 120, 20, 255}, NULL, {0}}, // Solid, warmth, light. (Attention au
-    [OBJ_ALTAR]   = {OBJ_ALTAR, "altar", "Altar", "utility", 250, 0, 0, 0, 2, 1, false, false, (Color){180, 180, 220, 255}, NULL, {0}},                  // Solid, non-flammable structure.
+    [OBJ_CRATE]   = {OBJ_CRATE, "crate", "Crate", "storage", 70, 0, 0, 0, 1, 1, false, true, (Color){160, 110, 60, 255}, "assets/objects/storage/crate.png", {0}},                    // Solid obstacle, flammable.
+    [OBJ_FIREPIT] = {OBJ_FIREPIT, "fireppit", "Exterior Fire Pit", "utility", 50, 0, 3, 2, 2, 2, false, true, (Color){255, 120, 20, 255}, "assets/objects/utility/firepit.png", {0}}, // Solid, warmth, light. (Attention au
+    [OBJ_ALTAR]   = {OBJ_ALTAR, "altar", "Altar", "utility", 250, 0, 0, 0, 2, 1, false, false, (Color){180, 180, 220, 255}, "assets/objects/utility/altar.png", {0}},                 // Solid, non-flammable structure.
 
     // ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     // [OBJ_COUNT] End of table
     // ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 };
 
-static const int WALL_IDS[] = {
+static const ObjectTypeID WALL_IDS[] = {
     OBJ_WALL_STONE, OBJ_WALL_WOOD,
     // OBJ_WALL_BRICK,
     // OBJ_WALL_ICE
 };
 static const size_t NUM_WALL_IDS = sizeof(WALL_IDS) / sizeof(WALL_IDS[0]);
 
-static const int DOOR_IDS[] = {
+static const ObjectTypeID DOOR_IDS[] = {
     OBJ_DOOR_WOOD,
     // OBJ_WALL_BRICK,
     // OBJ_WALL_ICE
@@ -166,7 +166,7 @@ Object* create_object(ObjectTypeID id, int x, int y)
     obj->position = (Vector2){x, y};
     obj->hp       = obj->type->maxHP;
     obj->isActive = true;
-    printf("Create object %d (%s)\n", id, get_object_type(id)->name);
+    // printf("Create object %d (%s)\n", id, get_object_type(id)->name);
 
     return obj;
 }

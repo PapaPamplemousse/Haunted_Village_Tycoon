@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 300
+#define MAP_WIDTH 100
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 300
+#define MAP_HEIGHT 100
 
 /**
  * @def TILE_SIZE
@@ -96,12 +96,13 @@ typedef enum
     TILE_PLAIN,         /**< Open plain */
     TILE_SAVANNA,       /**< Dry savanna grassland */
     TILE_TUNDRA,        /**< Cold tundra (slow movement) */
+    TILE_TUNDRA_2,      /**< Cold tundra (slow movement) */
     TILE_HELL,          /**< Infernal ground (extreme heat) */
     TILE_CURSED_FOREST, /**< Cursed: Rare Forest Variant */
     TILE_SWAMP,         /**< Swamp */
     TILE_DESERT,        /**< Desertt */
     TILE_MOUNTAIN,      /**< Mountain */
-    TILE_COUNT          /**< Total number of defined tile types */
+    TILE_MAX,           /**< Total number of defined tile types */
 } TileTypeID;
 
 /**
@@ -308,7 +309,8 @@ typedef enum
     BIO_SWAMP,    ///< Swamp/Marsh biome.
     BIO_MOUNTAIN, ///< Mountain/High altitude biome.
     BIO_CURSED,   ///< Cursed/Corrupted biome.
-    BIO_HELL      ///< Hell/Infernal biome.
+    BIO_HELL,     ///< Hell/Infernal biome.
+    BIO_MAX       ///< Biome counter
 } BiomeKind;
 
 /**
@@ -341,9 +343,10 @@ typedef enum
 
 typedef struct MapChunk
 {
-    int             cx, cy; // Chunk coordinates (in chunk units, not tiles)
-    RenderTexture2D rt;     // Cached render of this chunk
-    bool            dirty;  // Needs rebuild before being drawn
+    int             cx, cy;     // Chunk coordinates (in chunk units, not tiles)
+    RenderTexture2D rt;         // Cached render of this chunk
+    bool            dirty;      // Needs rebuild before being drawn
+    float           buildTimer; //
 } MapChunk;
 
 typedef struct ChunkGrid

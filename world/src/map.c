@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "world_generation.h"
 #include "world_chunk.h"
+#include "input.h"
 
 static inline int wrap_x(int x)
 {
@@ -53,6 +54,7 @@ void map_init(Map* map, unsigned int seed)
 
 void map_unload(Map* map)
 {
+    (void)map;
 }
 
 TileTypeID map_get_tile(Map* map, int x, int y)
@@ -119,11 +121,4 @@ void draw_map(Map* map, Camera2D* camera)
                 DrawRectangleRec(rect, type->color);
         }
     }
-
-    Vector2   mouse     = GetMousePosition();
-    Vector2   world     = GetScreenToWorld2D(mouse, *camera);
-    int       hoverX    = (int)(world.x / TILE_SIZE);
-    int       hoverY    = (int)(world.y / TILE_SIZE);
-    Rectangle highlight = {(float)hoverX * TILE_SIZE, (float)hoverY * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-    DrawRectangleLinesEx(highlight, 2.0f, YELLOW);
 }
