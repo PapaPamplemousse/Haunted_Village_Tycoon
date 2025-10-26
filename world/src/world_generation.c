@@ -158,6 +158,7 @@ typedef struct Climate
 
 static void climate_build(Climate* c, int W, int H, uint64_t seed)
 {
+    (void)seed;
     c->temperature = (float*)malloc((size_t)W * H * sizeof(float));
     c->humidity    = (float*)malloc((size_t)W * H * sizeof(float));
     c->height      = (float*)malloc((size_t)W * H * sizeof(float));
@@ -744,7 +745,6 @@ void generate_world(Map* map)
     //         }
     //     }
     // 4) Paint tiles with soft biome blending and organic micro-variation
-    const float microFreq  = 0.3f;   // intra-biome patchiness
     const float warpFreq   = 0.004f; // cross-biome warping
     const float featherMin = 0.30f;  // inner blend edge
     const float featherMax = 0.70f;  // outer blend edge
@@ -802,30 +802,6 @@ void generate_world(Map* map)
             float t     = dA / (dA + dB + 0.0001f);
             float blend = t * t * (3.0f - 2.0f * t); // smoothstep(0,1)
             blend       = fminf(1.0f, fmaxf(0.0f, (blend - featherMin) / (featherMax - featherMin)));
-
-            // // --- PRIMARY vs SECONDARY TILE CHOICE (robust & fair) ---
-            // // Deterministic blue-noise hash gives high-frequency variety
-            // float modNoise   = fbm2D(x * 0.015f, y * 0.015f, 2, 2.0f, 0.5f, 1.0f, 0x51u) - 0.5f;
-            // float pSecondary = 0.45f + 0.25f * modNoise; // average 45% coverage
-            // if (A->kind == BIO_TUNDRA)
-            //     pSecondary += 0.10f;
-            // if (A->kind == BIO_DESERT)
-            //     pSecondary -= 0.05f;
-            // if (A->kind == BIO_SWAMP)
-            //     pSecondary += 0.05f;
-            // if (pSecondary < 0.05f)
-            //     pSecondary = 0.05f;
-            // if (pSecondary > 0.95f)
-            //     pSecondary = 0.95f;
-
-            // float rA = hash2i(x, y, 0xC0FFEEu ^ (uint32_t)A->kind);
-            // float rB = hash2i(x, y, 0xDEADC0DEu ^ (uint32_t)B->kind);
-
-            // TileTypeID tileA = (rA < pSecondary) ? pA->secondary : pA->primary;
-            // TileTypeID tileB = (rB < pSecondary) ? pB->secondary : pB->primary;
-            // --- PRIMARY vs SECONDARY TILE CHOICE (organic version) ---
-            // We combine a large-scale patch noise (macro) and fine detail noise (micro),
-            // then warp it slightly to create blobby, natural shapes.
 
             // --- Frequency auto-scaling based on map size ---
             float worldScale = (float)(W + H) * 0.5f;
@@ -916,7 +892,7 @@ void generate_world(Map* map)
             float temp = C.temperature[y * W + x];
             float hum  = C.humidity[y * W + x];
             float h    = C.height[y * W + x];
-
+            (void)temp;
             float fd = g_cfg.feature_density;
 
             // Trees prefer wet & lower alt (avoid deserts, peaks)
@@ -959,6 +935,8 @@ void generate_world(Map* map)
                     break;
                 case BIO_HELL:
                     maybe_place_object(map, x, y, OBJ_SULFUR_VENT, fd * 0.05f, &rs);
+                    break;
+                case BIO_MAX:
                     break;
             }
         }
@@ -1014,6 +992,8 @@ void generate_world(Map* map)
                     break;
                 case BIO_HELL:
                     biomeMult = g_cfg.biome_struct_mult_hell;
+                    break;
+                case BIO_MAX:
                     break;
             }
 
