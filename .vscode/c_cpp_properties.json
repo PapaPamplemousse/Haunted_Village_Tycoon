@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/loader/inc"
+                "${workspaceFolder}/loader/inc",
+                "${workspaceFolder}/sim/inc"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

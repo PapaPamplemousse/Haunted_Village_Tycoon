@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 1600
+#define MAP_WIDTH 100
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 1600
+#define MAP_HEIGHT 100
 
 /**
  * @def TILE_SIZE

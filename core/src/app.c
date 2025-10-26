@@ -13,13 +13,14 @@
 #include "world.h"
 #include "world_chunk.h"
 #include "debug.h"
-
+#include "entity.h"
 // -----------------------------------------------------------------------------
 // Global world data
 // -----------------------------------------------------------------------------
-static Map        G_MAP    = {0};
-static Camera2D   G_CAMERA = {0};
-static InputState G_INPUT  = {0};
+static Map          G_MAP      = {0};
+static Camera2D     G_CAMERA   = {0};
+static InputState   G_INPUT    = {0};
+static EntitySystem G_ENTITIES = {0};
 // ChunkGrid*        gChunks  = NULL;
 
 // -----------------------------------------------------------------------------
@@ -40,6 +41,8 @@ static void app_init(void)
     init_objects();
 
     map_init(&G_MAP, seed);
+    if (!entity_system_init(&G_ENTITIES, &G_MAP, seed ^ 0x13572468u, "data/entities.stv"))
+        TraceLog(LOG_WARNING, "Entity definitions failed to load, using built-in defaults.");
     update_building_detection(&G_MAP);
 
     gChunks  = chunkgrid_create(&G_MAP);
@@ -53,6 +56,8 @@ static void app_update(void)
     ui_update_inventory(&G_INPUT);
     update_camera(&G_CAMERA, &G_INPUT.camera);
 
+    float dt = GetFrameTime();
+    entity_system_update(&G_ENTITIES, &G_MAP, dt);
     bool changed = editor_update(&G_MAP, &G_CAMERA, &G_INPUT);
     if (changed)
     {
@@ -67,7 +72,7 @@ static void app_draw_world(void)
 
     // Draw static geometry (tiles + static objects)
     chunkgrid_draw_visible(gChunks, &G_MAP, &G_CAMERA);
-
+    entity_system_draw(&G_ENTITIES);
     // --- Mouse highlight ---
     MouseState mouse;
     input_update_mouse(&mouse, &G_CAMERA, &G_MAP);
@@ -123,6 +128,7 @@ static void app_cleanup(void)
 {
     unload_tile_types();
     unload_object_textures();
+    entity_system_shutdown(&G_ENTITIES);
     map_unload(&G_MAP);
     chunkgrid_destroy(gChunks);
     gChunks = NULL;

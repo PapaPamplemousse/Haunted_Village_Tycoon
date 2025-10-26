@@ -12,20 +12,6 @@
 // It uses the ObjectTypeID enumeration (e.g., [OBJ_BED_SMALL]) for indexing.
 static ObjectType G_OBJECT_TYPES[OBJ_COUNT] = {0};
 
-static const ObjectTypeID WALL_IDS[] = {
-    OBJ_WALL_STONE, OBJ_WALL_WOOD,
-    // OBJ_WALL_BRICK,
-    // OBJ_WALL_ICE
-};
-static const size_t NUM_WALL_IDS = sizeof(WALL_IDS) / sizeof(WALL_IDS[0]);
-
-static const ObjectTypeID DOOR_IDS[] = {
-    OBJ_DOOR_WOOD,
-    // OBJ_WALL_BRICK,
-    // OBJ_WALL_ICE
-};
-static const size_t NUM_DOOR_IDS = sizeof(DOOR_IDS) / sizeof(DOOR_IDS[0]);
-
 static RoomTypeRule ROOM_TYPE_RULES[ROOM_COUNT] = {0};
 
 void init_objects(void)

@@ -1,0 +1,32 @@
+# ENTITY DEFINITIONS (.stv)
+#
+# Each section represents a type of living entity and its spawn profile.
+# Keys follow the pattern used throughout the project loaders:
+#   id                : internal identifier used in code.
+#   display_name      : optional readable name.
+#   texture           : optional PNG sprite (single frame or strip).
+#   sprite.origin     : pivot in pixels (defaults to texture centre).
+#   sprite.size       : animation frame size.
+#   sprite.frames     : number of frames, frame duration (seconds).
+#   color             : fallback tint when no texture is available.
+#   max_hp, max_speed : gameplay stats.
+#   radius            : collision/render radius in pixels.
+#   flags             : comma or pipe separated list of traits.
+#   spawn.*           : biome/tile aware spawn directives.
+
+[CURSED_ZOMBIE]
+id = cursed_zombie
+display_name = Cursed Zombie
+texture = assets/entities/cursed_zombie.png
+sprite.size = 32, 48
+sprite.origin = 16, 32
+sprite.frames = 4, 0.20
+color = 120, 197, 120, 255
+max_hp = 40
+max_speed = 20
+radius = 14
+flags = hostile|mobile|undead
+spawn.density = 0.035
+spawn.group = 2-5
+spawn.tile = TILE_CURSED_FOREST
+spawn.biome = CURSED
