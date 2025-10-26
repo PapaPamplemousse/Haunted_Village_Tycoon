@@ -3,6 +3,7 @@
 #include "raylib.h"
 
 #include "input.h"
+#include "ui.h"
 #include "editor.h"
 #include "map.h"
 #include "camera.h"
@@ -49,6 +50,7 @@ static void app_init(void)
 static void app_update(void)
 {
     input_update(&G_INPUT);
+    ui_update_inventory(&G_INPUT);
     update_camera(&G_CAMERA, &G_INPUT.camera);
 
     bool changed = editor_update(&G_MAP, &G_CAMERA, &G_INPUT);
@@ -95,8 +97,12 @@ static void app_draw_world(void)
     }
 
     EndMode2D();
+    // Debug biome overlay
     static bool showBiomeDebug = false;
     debug_biome_draw(&G_MAP, &G_CAMERA, &showBiomeDebug);
+
+    // Optional: draw current tile/object selection
+    ui_draw_inventory(&G_INPUT);
 }
 
 // Called periodically to unload far chunks
