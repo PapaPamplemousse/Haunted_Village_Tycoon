@@ -227,5 +227,5 @@ void ui_draw_inventory(const InputState* input, const EntitySystem* entities)
             DrawRectangleLinesEx(slot, 3.0f, YELLOW);
         }
     }
-    DrawText("Use ←/→ to change tabs", panel.x + 10, panel.y + panel.height - 18, 10, LIGHTGRAY);
+    DrawText("Use <-/-> to change tabs", panel.x + 20, panel.y + panel.height, 20, WHITE);
 }
