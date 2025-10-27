@@ -1,3 +1,8 @@
+/**
+ * @file debug.c
+ * @brief Implements debug visualizations for biome distribution.
+ */
+
 #include "debug.h"
 #include "raylib.h"
 #include "tile.h"

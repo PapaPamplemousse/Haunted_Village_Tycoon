@@ -1,3 +1,8 @@
+/**
+ * @file biome_loader.c
+ * @brief Parses biome definitions from configuration files.
+ */
+
 #include "biome_loader.h"
 #include "world_structures.h"
 #include "tile.h"
@@ -11,6 +16,9 @@
 BiomeDef gBiomeDefs[BIO_MAX];
 int      gBiomeCount = 0;
 
+/**
+ * @brief Removes leading and trailing whitespace from a string in-place.
+ */
 static void trim_inplace(char* s)
 {
     if (!s)
@@ -27,6 +35,9 @@ static void trim_inplace(char* s)
         s[--len] = '\0';
 }
 
+/**
+ * @brief Lightweight strdup replacement that works in the sandboxed environment.
+ */
 static char* str_dup(const char* s)
 {
     if (!s)
@@ -38,6 +49,9 @@ static char* str_dup(const char* s)
     return copy;
 }
 
+/**
+ * @brief Truncates a line at the first comment delimiter (# or ;) character.
+ */
 static void strip_inline_comment(char* s)
 {
     if (!s)
@@ -55,6 +69,9 @@ static void strip_inline_comment(char* s)
 
 // Case- and prefix-tolerant resolver:
 // Accepts "TILE_FOREST", "forest", "Forest", etc.
+/**
+ * @brief Resolves a tile identifier from a textual token.
+ */
 static TileTypeID tile_from_name(const char* name)
 {
     if (!name || !*name)
@@ -93,6 +110,9 @@ static TileTypeID tile_from_name(const char* name)
     return TILE_GRASS;
 }
 
+/**
+ * @brief Parses a comma-separated list of structures for a biome definition.
+ */
 static void parse_structure_list(const char* value, BiomeDef* cur, const char* biomeName)
 {
     if (!value || !cur)

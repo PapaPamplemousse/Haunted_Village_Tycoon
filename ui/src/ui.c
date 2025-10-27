@@ -1,4 +1,8 @@
-// ui.c
+/**
+ * @file ui.c
+ * @brief Implements the in-game inventory panel used by the map editor.
+ */
+
 #include "ui.h"
 #include "tile.h"
 #include "object.h"
@@ -10,7 +14,9 @@
 #define SLOT_MARGIN 6
 #define MAX_SLOTS_PER_ROW 10
 
+/** @brief Tracks whether the inventory overlay is visible. */
 static bool inventoryOpen = false;
+/** @brief Tracks the active tab (0 = tiles, 1 = objects). */
 static int  inventoryTab  = 0; // 0 = Tiles, 1 = Objects
 
 void ui_toggle_inventory(void)
@@ -28,6 +34,7 @@ void ui_update_inventory(InputState* input)
     if (!inventoryOpen)
         return;
 
+    // Allow switching tabs with left/right to quickly browse assets.
     if (IsKeyPressed(KEY_LEFT))
         inventoryTab = (inventoryTab + 1) % 2;
     if (IsKeyPressed(KEY_RIGHT))
@@ -58,11 +65,13 @@ void ui_update_inventory(InputState* input)
         {
             if (inventoryTab == 0)
             {
+                // Selecting a tile deselects any object placement.
                 input->selectedTile   = (TileTypeID)i;
                 input->selectedObject = OBJ_NONE;
             }
             else
             {
+                // Selecting an object ensures a sensible default tile is used.
                 input->selectedTile   = TILE_GRASS;
                 input->selectedObject = (ObjectTypeID)i;
             }

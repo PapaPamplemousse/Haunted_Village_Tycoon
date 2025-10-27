@@ -1,3 +1,8 @@
+/**
+ * @file input.c
+ * @brief Implements input collection and conversion helpers.
+ */
+
 #include "input.h"
 #include "tile.h"
 #include "object.h"
@@ -10,6 +15,7 @@
 
 void input_init(InputState* input)
 {
+    // Default to the first tile so the player can immediately paint terrain.
     input->selectedTile      = TILE_MAX;
     input->selectedObject    = OBJ_NONE;
     input->showBuildingNames = false;
@@ -19,6 +25,7 @@ void input_init(InputState* input)
 
 void input_update(InputState* input)
 {
+    // Reset per-frame input accumulation.
     input->camera.moveDir   = (Vector2){0};
     input->camera.zoomDelta = 0.0f;
 

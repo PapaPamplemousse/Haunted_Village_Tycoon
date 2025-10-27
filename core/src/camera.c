@@ -1,3 +1,8 @@
+/**
+ * @file camera.c
+ * @brief Implements helper routines for controlling the top-down camera.
+ */
+
 #include "camera.h"
 #include "map.h"
 #include "raymath.h"
@@ -5,10 +10,13 @@
 Camera2D init_camera(void)
 {
     Camera2D cam = {0};
-    cam.target   = (Vector2){(MAP_WIDTH * TILE_SIZE) / 2.0f, (MAP_HEIGHT * TILE_SIZE) / 2.0f};
-    cam.offset   = (Vector2){GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f};
+
+    // Start centered on the map so the player immediately sees the settlement.
+    cam.target = (Vector2){(MAP_WIDTH * TILE_SIZE) / 2.0f, (MAP_HEIGHT * TILE_SIZE) / 2.0f};
+    cam.offset = (Vector2){GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f};
     cam.rotation = 0.0f;
 
+    // Compute a comfortable zoom that shows most of the map while allowing leeway.
     float zoomX = (float)GetScreenWidth() / (MAP_WIDTH * TILE_SIZE);
     float zoomY = (float)GetScreenHeight() / (MAP_HEIGHT * TILE_SIZE);
     cam.zoom    = fminf(zoomX, zoomY) * 1.2f;
@@ -32,6 +40,7 @@ void update_camera(Camera2D* camera, const CameraInput* input)
     // --- Apply movement ---
     if (input->moveDir.x != 0 || input->moveDir.y != 0)
     {
+        // Normalize to keep a consistent speed even when moving diagonally.
         Vector2 dir    = Vector2Normalize(input->moveDir);
         Vector2 move   = Vector2Scale(dir, moveSpeed * dt / camera->zoom);
         camera->target = Vector2Add(camera->target, move);
@@ -53,6 +62,7 @@ void update_camera(Camera2D* camera, const CameraInput* input)
     // --- Zoom ---
     if (input->zoomDelta != 0.0f)
     {
+        // Apply smooth zooming and clamp the result to avoid overstretching visuals.
         camera->zoom += input->zoomDelta * zoomSpeed;
         if (camera->zoom < ZOOM_MIN)
             camera->zoom = ZOOM_MIN;

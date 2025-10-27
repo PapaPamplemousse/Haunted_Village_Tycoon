@@ -1,5 +1,5 @@
 /**
- * @file tile_loader.h
+ * @file tiles_loader.h
  * @brief Function for loading tile definitions from an external file.
  */
 #ifndef TILE_LOADER_H

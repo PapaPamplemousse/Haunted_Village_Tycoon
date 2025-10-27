@@ -1,3 +1,8 @@
+/**
+ * @file tiles_loader.c
+ * @brief Loads tile type definitions from STV configuration files.
+ */
+
 #include "tiles_loader.h"
 #include "raylib.h"
 #include <stdio.h>
@@ -5,6 +10,9 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdint.h>
+/**
+ * @brief Simple strdup helper for portability.
+ */
 static char* str_dup(const char* s)
 {
     if (!s)
@@ -16,6 +24,9 @@ static char* str_dup(const char* s)
     return copy;
 }
 
+/**
+ * @brief Trims whitespace from both ends of the provided string.
+ */
 static void trim(char* s)
 {
     if (!s)
@@ -30,6 +41,9 @@ static void trim(char* s)
         s[--n] = '\0';
 }
 
+/**
+ * @brief Converts a textual tile category into the corresponding enum value.
+ */
 static TileCategory parse_tile_category(const char* s)
 {
     if (strcmp(s, "ground") == 0)

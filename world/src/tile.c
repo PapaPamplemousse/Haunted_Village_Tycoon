@@ -1,3 +1,8 @@
+/**
+ * @file tile.c
+ * @brief Manages tile definitions and associated textures.
+ */
+
 #include "tile.h"
 #include <stddef.h>
 #include "tiles_loader.h"
@@ -7,6 +12,7 @@ TileType tileTypes[TILE_MAX] = {0};
 
 void init_tile_types(void)
 {
+    // Load tile metadata from disk before uploading textures.
     (void)load_tiles_from_stv("data/tiles.stv", tileTypes, TILE_MAX);
     for (int i = 0; i < TILE_MAX; ++i)
     {
@@ -21,6 +27,15 @@ void init_tile_types(void)
 
 void unload_tile_types(void)
 {
+    // Release textures that were created during initialization.
+    for (int i = 0; i < TILE_MAX; ++i)
+    {
+        if (tileTypes[i].texture.id != 0)
+        {
+            UnloadTexture(tileTypes[i].texture);
+            tileTypes[i].texture.id = 0;
+        }
+    }
 }
 
 TileType* get_tile_type(TileTypeID id)

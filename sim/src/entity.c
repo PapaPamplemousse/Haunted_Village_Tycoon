@@ -1,3 +1,8 @@
+/**
+ * @file entity.c
+ * @brief Implements the runtime entity pool and basic AI behaviours.
+ */
+
 #include "entity.h"
 
 #include <ctype.h>

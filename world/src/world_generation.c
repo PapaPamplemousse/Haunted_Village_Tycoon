@@ -1,3 +1,8 @@
+/**
+ * @file world_generation.c
+ * @brief Generates terrain, climate maps, and structures for the world.
+ */
+
 #include "world_generation.h"
 #include "tile.h"
 #include "object.h"

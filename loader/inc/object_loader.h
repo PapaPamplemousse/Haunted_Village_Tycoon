@@ -1,9 +1,9 @@
 /**
- * @file loader.h
+ * @file object_loader.h
  * @brief Functions for loading object and room definitions from .stv files.
  */
-#ifndef LOADER_H
-#define LOADER_H
+#ifndef OBJECT_LOADER_H
+#define OBJECT_LOADER_H
 
 #include "world.h"
 #include "object.h"
@@ -54,4 +54,4 @@ void debug_print_rooms(const RoomTypeRule* rooms, int roomCount, const ObjectTyp
  */
 void debug_print_objects(const ObjectType* objects, int count);
 
-#endif // LOADER_H
+#endif // OBJECT_LOADER_H

@@ -1,3 +1,8 @@
+/**
+ * @file world_chunk.c
+ * @brief Implements chunk-based caching to accelerate world rendering.
+ */
+
 #include "world_chunk.h"
 #include "tile.h"
 #include "object.h"

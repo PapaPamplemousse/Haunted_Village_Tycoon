@@ -1,3 +1,8 @@
+/**
+ * @file world_structures.c
+ * @brief Provides procedural structure builders and lookup helpers.
+ */
+
 #include "world_structures.h"
 #include "building.h" // register_building_from_bounds
 #include <stdlib.h>

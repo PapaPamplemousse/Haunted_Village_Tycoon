@@ -1,3 +1,8 @@
+/**
+ * @file map.c
+ * @brief Implements world map manipulation routines.
+ */
+
 #include "map.h"
 #include "tile.h"
 #include "object.h"
@@ -22,6 +27,7 @@ void map_init(Map* map, unsigned int seed)
     map->width  = MAP_WIDTH;
     map->height = MAP_HEIGHT;
 
+    // Configure the generation pipeline before creating terrain content.
     worldgen_seed(seed);
     WorldGenParams cfg = {
         .min_biome_radius           = (MAP_WIDTH + MAP_HEIGHT) / 8,
@@ -66,6 +72,7 @@ void map_set_tile(Map* map, int x, int y, TileTypeID id)
 {
     map->tiles[wrap_y(y)][wrap_x(x)] = id;
     // chunkgrid_mark_dirty_tile(gChunks, x, y);
+    // Trigger a redraw so cached chunks reflect the new terrain.
     chunkgrid_redraw_cell(gChunks, map, x, y);
 }
 
@@ -79,6 +86,7 @@ void map_place_object(Map* map, ObjectTypeID id, int x, int y)
     map->objects[wy][wx] = create_object(id, x, y);
 
     // chunkgrid_mark_dirty_tile(gChunks, wx, wy);
+    // Refresh rendering cache so the new object appears immediately.
     chunkgrid_redraw_cell(gChunks, map, x, y);
 }
 
@@ -93,6 +101,7 @@ void map_remove_object(Map* map, int x, int y)
         map->objects[wy][wx] = NULL;
 
         // chunkgrid_mark_dirty_tile(gChunks, wx, wy);
+        // Force a redraw because the tile visuals changed.
         chunkgrid_redraw_cell(gChunks, map, x, y);
     }
 }
@@ -119,8 +128,10 @@ void draw_map(Map* map, Camera2D* camera)
             Rectangle rect = {x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE};
 
             if (type->texture.id != 0)
+                // Draw textured tiles with scaling that matches tile size.
                 DrawTextureEx(type->texture, (Vector2){rect.x, rect.y}, 0.0f, (float)TILE_SIZE / type->texture.width, WHITE);
             else
+                // Fallback to flat colored rectangles when no texture is available.
                 DrawRectangleRec(rect, type->color);
         }
     }

@@ -1,3 +1,8 @@
+/**
+ * @file world_chunk.h
+ * @brief Declares functions for chunked world rendering and streaming.
+ */
+
 #ifndef WORLD_CHUNK_H
 #define WORLD_CHUNK_H
 
@@ -34,6 +39,14 @@ void chunkgrid_destroy(ChunkGrid* cg);
  */
 void chunkgrid_mark_dirty_tile(ChunkGrid* cg, int tileX, int tileY);
 
+/**
+ * @brief Forces the chunk covering the given tile to refresh its cached texture.
+ *
+ * @param cg Chunk grid managing the tile cache.
+ * @param map Source map containing the latest tile/object data.
+ * @param x Tile coordinate on the X axis.
+ * @param y Tile coordinate on the Y axis.
+ */
 void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y);
 
 /**
