@@ -30,3 +30,20 @@ spawn.density = 0.035
 spawn.group = 2-5
 spawn.tile = TILE_CURSED_FOREST
 spawn.biome = CURSED
+
+[CANNIBAL]
+id = cannibal
+display_name = Cannibal
+texture = assets/entities/cannibal.png
+sprite.size = 32, 48
+sprite.origin = 16, 32
+sprite.frames = 4, 0.20
+color = 137, 81, 41, 255
+max_hp = 80
+max_speed = 42
+radius = 14
+flags = hostile|mobile
+spawn.density = 0.035
+spawn.group = 2-3
+spawn.tile = TILE_SAVANNA
+spawn.biome = SAVANNA
