@@ -5,27 +5,28 @@
 
 #include "entity.h"
 
-#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include "world.h"
-#include "biome_loader.h"
 
+#include "entities_loader.h"
+#include "zombie.h"
+#include "cannibal.h"
 #include "tile.h"
 
 #ifndef PI
 #define PI 3.14159265358979323846f
 #endif
+#ifndef RAD2DEG
 #define RAD2DEG (180.0f / PI)
-
+#endif
 // -----------------------------------------------------------------------------
 // Local helpers & utilities
 // -----------------------------------------------------------------------------
 
-static unsigned int entity_rand(EntitySystem* sys)
+unsigned int entity_random(EntitySystem* sys)
 {
     unsigned int x = sys->rngState;
     if (x == 0)
@@ -37,20 +38,20 @@ static unsigned int entity_rand(EntitySystem* sys)
     return x;
 }
 
-static float entity_randf(EntitySystem* sys, float min, float max)
+float entity_randomf(EntitySystem* sys, float min, float max)
 {
     if (max <= min)
         return min;
-    float t = (float)(entity_rand(sys) & 0xFFFFFF) / (float)0xFFFFFF;
+    float t = (float)(entity_random(sys) & 0xFFFFFF) / (float)0xFFFFFF;
     return min + t * (max - min);
 }
 
-static int entity_randi(EntitySystem* sys, int min, int max)
+int entity_randomi(EntitySystem* sys, int min, int max)
 {
     if (max < min)
         return min;
     unsigned int span = (unsigned int)(max - min + 1);
-    return min + (int)(entity_rand(sys) % (span ? span : 1));
+    return min + (int)(entity_random(sys) % (span ? span : 1));
 }
 
 static void entity_system_reset(EntitySystem* sys)
@@ -99,28 +100,6 @@ static void entity_load_sprite(EntitySprite* sprite)
         sprite->frameCount = 1;
 }
 
-static inline TileTypeID clamp_tile_index(const Map* map, int x, int y, bool* inside)
-{
-    if (!map)
-    {
-        if (inside)
-            *inside = false;
-        return TILE_GRASS;
-    }
-
-    if (x < 0 || y < 0 || x >= map->width || y >= map->height)
-    {
-        if (inside)
-            *inside = false;
-        return TILE_GRASS;
-    }
-
-    if (inside)
-        *inside = true;
-
-    return map->tiles[y][x];
-}
-
 static BiomeKind infer_biome_from_tile(TileTypeID tile)
 {
     switch (tile)
@@ -155,91 +134,6 @@ static BiomeKind infer_biome_from_tile(TileTypeID tile)
 // Behaviour helpers
 // -----------------------------------------------------------------------------
 
-typedef struct ZombieBrain
-{
-    float wanderTimer;
-} ZombieBrain;
-
-static void zombie_pick_direction(EntitySystem* sys, Entity* e, ZombieBrain* brain)
-{
-    if (!sys || !e || !e->type || !brain)
-        return;
-
-    float angle = entity_randf(sys, 0.0f, 2.0f * PI);
-    float speed = e->type->maxSpeed * entity_randf(sys, 0.45f, 1.0f);
-
-    e->velocity.x      = cosf(angle) * speed;
-    e->velocity.y      = sinf(angle) * speed;
-    e->orientation     = angle;
-    brain->wanderTimer = entity_randf(sys, 1.2f, 3.6f);
-}
-
-static void zombie_on_spawn(EntitySystem* sys, Entity* e)
-{
-    (void)sys;
-    if (!e)
-        return;
-
-    memset(e->brain, 0, ENTITY_BRAIN_BYTES);
-    e->hp        = e->type ? e->type->maxHP : 10;
-    e->animFrame = 0;
-    e->animTime  = 0.0f;
-}
-
-static void zombie_on_update(EntitySystem* sys, Entity* e, const Map* map, float dt)
-{
-    if (!sys || !e || !map || !e->type)
-        return;
-
-    ZombieBrain* brain = (ZombieBrain*)e->brain;
-    if (sizeof(ZombieBrain) > ENTITY_BRAIN_BYTES)
-        return;
-
-    if (brain->wanderTimer <= 0.0f || (fabsf(e->velocity.x) < 0.1f && fabsf(e->velocity.y) < 0.1f))
-        zombie_pick_direction(sys, e, brain);
-    else
-        brain->wanderTimer -= dt;
-
-    Vector2 next = {
-        e->position.x + e->velocity.x * dt,
-        e->position.y + e->velocity.y * dt,
-    };
-
-    int tileX = (int)floorf(next.x / TILE_SIZE);
-    int tileY = (int)floorf(next.y / TILE_SIZE);
-
-    bool       inside = false;
-    TileTypeID tid    = clamp_tile_index(map, tileX, tileY, &inside);
-
-    if (!inside)
-    {
-        e->velocity.x      = -e->velocity.x;
-        e->velocity.y      = -e->velocity.y;
-        brain->wanderTimer = 0.0f;
-        return;
-    }
-
-    TileType* tt = get_tile_type(tid);
-    if (!tt || !tt->walkable)
-    {
-        e->velocity.x      = -e->velocity.x;
-        e->velocity.y      = -e->velocity.y;
-        brain->wanderTimer = 0.0f;
-        return;
-    }
-
-    e->position = next;
-    if (fabsf(e->velocity.x) > 1e-3f || fabsf(e->velocity.y) > 1e-3f)
-        e->orientation = atan2f(e->velocity.y, e->velocity.x);
-}
-
-static const EntityBehavior G_ZOMBIE_BEHAVIOR = {
-    .onSpawn   = zombie_on_spawn,
-    .onUpdate  = zombie_on_update,
-    .onDespawn = NULL,
-    .brainSize = sizeof(ZombieBrain),
-};
-
 static void entity_assign_builtin_behaviours(EntitySystem* sys)
 {
     if (!sys)
@@ -248,399 +142,129 @@ static void entity_assign_builtin_behaviours(EntitySystem* sys)
     for (int i = 0; i < sys->typeCount; ++i)
     {
         EntityType* type = &sys->types[i];
-        if (strcmp(type->id, "cursed_zombie") == 0)
-            type->behavior = &G_ZOMBIE_BEHAVIOR;
-    }
-}
-
-// -----------------------------------------------------------------------------
-// Loader utilities (.stv parsing)
-// -----------------------------------------------------------------------------
-
-static void trim_inplace(char* s)
-{
-    if (!s)
-        return;
-    size_t len = strlen(s);
-    while (len > 0 && isspace((unsigned char)s[len - 1]))
-        s[--len] = '\0';
-    char* start = s;
-    while (*start && isspace((unsigned char)*start))
-        ++start;
-    if (start != s)
-        memmove(s, start, strlen(start) + 1);
-}
-
-static void strip_inline_comment(char* line)
-{
-    if (!line)
-        return;
-    for (char* p = line; *p; ++p)
-    {
-        if (*p == '#' || *p == ';')
+        switch (type->id)
         {
-            *p = '\0';
-            break;
+            case ENTITY_TYPE_CURSED_ZOMBIE:
+                type->behavior = entity_zombie_behavior();
+                break;
+            case ENTITY_TYPE_CANNIBAL:
+                type->behavior = entity_cannibal_behavior();
+                break;
+            default:
+                break;
         }
     }
 }
 
-static Color parse_color(const char* value, bool* ok)
-{
-    Color result = {255, 255, 255, 255};
-    if (ok)
-        *ok = false;
-    if (!value)
-        return result;
+// -----------------------------------------------------------------------------
+// Registry helpers (shared with loader)
+// -----------------------------------------------------------------------------
 
-    int r = 255, g = 255, b = 255, a = 255;
-    if (sscanf(value, " %d , %d , %d , %d", &r, &g, &b, &a) >= 3)
-    {
-        if (ok)
-            *ok = true;
-        result = (Color){(unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a};
-    }
-    return result;
+static void entity_type_apply_defaults(EntityType* type)
+{
+    if (!type)
+        return;
+    if (type->tint.a == 0)
+        type->tint = (Color){200, 200, 200, 255};
+    if (type->radius <= 0.0f)
+        type->radius = 12.0f;
+    if (type->maxHP <= 0)
+        type->maxHP = 10;
+    if (type->maxSpeed <= 0.0f)
+        type->maxSpeed = 24.0f;
+    if (type->identifier[0] == '\0')
+        snprintf(type->identifier, sizeof(type->identifier), "type_%d", type->id);
+    if (type->displayName[0] == '\0')
+        snprintf(type->displayName, sizeof(type->displayName), "%s", type->identifier);
 }
 
-static Vector2 parse_vector2(const char* value, bool* ok)
+void entity_spawn_rule_init(EntitySpawnRule* rule)
 {
-    Vector2 out = {0};
-    if (ok)
-        *ok = false;
-    if (!value)
-        return out;
+    if (!rule)
+        return;
 
-    float x = 0.0f, y = 0.0f;
-    if (sscanf(value, " %f , %f", &x, &y) == 2)
-    {
-        out = (Vector2){x, y};
-        if (ok)
-            *ok = true;
-    }
-    return out;
-}
-
-static EntityFlags parse_flags(const char* value)
-{
-    if (!value)
-        return 0;
-
-    EntityFlags flags = 0;
-    char        buf[128];
-    snprintf(buf, sizeof(buf), "%s", value);
-
-    char* token = strtok(buf, "|, ");
-    while (token)
-    {
-        if (strcasecmp(token, "hostile") == 0)
-            flags |= ENTITY_FLAG_HOSTILE;
-        else if (strcasecmp(token, "mobile") == 0)
-            flags |= ENTITY_FLAG_MOBILE;
-        else if (strcasecmp(token, "intelligent") == 0 || strcasecmp(token, "smart") == 0)
-            flags |= ENTITY_FLAG_INTELLIGENT;
-        else if (strcasecmp(token, "undead") == 0)
-            flags |= ENTITY_FLAG_UNDEAD;
-        else if (strcasecmp(token, "merchant") == 0)
-            flags |= ENTITY_FLAG_MERCHANT;
-        else if (strcasecmp(token, "animal") == 0)
-            flags |= ENTITY_FLAG_ANIMAL;
-        token = strtok(NULL, "|, ");
-    }
-    return flags;
-}
-
-static TileTypeID tile_from_string(const char* value)
-{
-    if (!value || !*value)
-        return TILE_MAX;
-
-    char token[64];
-    snprintf(token, sizeof(token), "%s", value);
-    trim_inplace(token);
-
-    if (strncasecmp(token, "TILE_", 5) == 0)
-        memmove(token, token + 5, strlen(token + 5) + 1);
-
-    for (int i = 0; i < TILE_MAX; ++i)
-    {
-        const TileType* tt = get_tile_type((TileTypeID)i);
-        if (tt && tt->name && strcasecmp(tt->name, token) == 0)
-            return (TileTypeID)i;
-    }
-
-    return TILE_MAX;
-}
-
-static void apply_spawn_rule_defaults(EntitySpawnRule* rule)
-{
     memset(rule, 0, sizeof(*rule));
-    rule->type      = NULL;
-    rule->typeId[0] = '\0';
-    rule->biome     = BIO_MAX;
-    rule->tile      = TILE_MAX;
-    rule->density   = 0.0f;
-    rule->groupMin  = 1;
-    rule->groupMax  = 1;
+    rule->type     = NULL;
+    rule->id       = ENTITY_TYPE_INVALID;
+    rule->biome    = BIO_MAX;
+    rule->tile     = TILE_MAX;
+    rule->density  = 0.0f;
+    rule->groupMin = 1;
+    rule->groupMax = 1;
 }
 
-static bool entity_register_type(EntitySystem* sys, const EntityType* def, const EntitySpawnRule* spawn)
+bool entity_system_register_type(EntitySystem* sys, const EntityType* def, const EntitySpawnRule* spawn)
 {
-    if (!sys || !def || def->id[0] == '\0')
+    if (!sys || !def)
         return false;
 
-    if (sys->typeCount >= ENTITY_MAX_TYPES)
+    if (def->id <= ENTITY_TYPE_INVALID || def->id >= ENTITY_TYPE_COUNT)
     {
-        printf("⚠️  Entity registry full, ignoring '%s'\n", def->id);
+        printf("⚠️  Invalid entity id %d ignored\n", def->id);
         return false;
     }
 
-    EntityType* dst = &sys->types[sys->typeCount++];
-    *dst            = *def;
+    EntityType* dst = NULL;
+    for (int i = 0; i < sys->typeCount; ++i)
+    {
+        if (sys->types[i].id == def->id)
+        {
+            dst = &sys->types[i];
+            entity_unload_sprite(&dst->sprite);
+            break;
+        }
+    }
 
-    if (dst->tint.a == 0)
-        dst->tint = (Color){200, 200, 200, 255};
-    if (dst->radius <= 0.0f)
-        dst->radius = 12.0f;
-    if (dst->maxHP <= 0)
-        dst->maxHP = 10;
-    if (dst->maxSpeed <= 0.0f)
-        dst->maxSpeed = 24.0f;
+    if (!dst)
+    {
+        if (sys->typeCount >= ENTITY_MAX_TYPES)
+        {
+            printf("⚠️  Entity registry full, ignoring id %d\n", def->id);
+            return false;
+        }
+        dst = &sys->types[sys->typeCount++];
+    }
 
-    dst->sprite.texture.id = 0; // ensure texture gets loaded once
+    *dst = *def;
+    entity_type_apply_defaults(dst);
+
+    dst->sprite.texture.id = 0;
     entity_load_sprite(&dst->sprite);
 
-    if (spawn && spawn->density > 0.0f && sys->spawnRuleCount < ENTITY_MAX_SPAWN_RULES)
+    if (spawn && spawn->density > 0.0f)
     {
-        EntitySpawnRule* sr = &sys->spawnRules[sys->spawnRuleCount++];
-        *sr                 = *spawn;
-        sr->type            = dst;
-        if (sr->groupMin <= 0)
-            sr->groupMin = 1;
-        if (sr->groupMax < sr->groupMin)
-            sr->groupMax = sr->groupMin;
+        if (sys->spawnRuleCount >= ENTITY_MAX_SPAWN_RULES)
+        {
+            printf("⚠️  Spawn rule list full, ignoring rule for entity %d\n", def->id);
+        }
+        else
+        {
+            EntitySpawnRule rule = *spawn;
+            if (rule.id == ENTITY_TYPE_INVALID)
+                rule.id = dst->id;
+            if (rule.groupMin <= 0)
+                rule.groupMin = 1;
+            if (rule.groupMax < rule.groupMin)
+                rule.groupMax = rule.groupMin;
+            rule.type                              = (rule.id == dst->id) ? dst : entity_find_type(sys, rule.id);
+            sys->spawnRules[sys->spawnRuleCount++] = rule;
+        }
     }
 
     return true;
 }
 
-static bool parse_group_range(const char* value, int* outMin, int* outMax)
-{
-    if (!value)
-        return false;
-    int min = 0, max = 0;
-    if (sscanf(value, " %d - %d", &min, &max) == 2)
-    {
-        if (min <= 0)
-            min = 1;
-        if (max < min)
-            max = min;
-        *outMin = min;
-        *outMax = max;
-        return true;
-    }
-    if (sscanf(value, " %d", &min) == 1)
-    {
-        if (min <= 0)
-            min = 1;
-        *outMin = min;
-        *outMax = min;
-        return true;
-    }
-    return false;
-}
-
-static bool entity_registry_load(EntitySystem* sys, const char* path)
-{
-    if (!sys || !path)
-        return false;
-
-    FILE* f = fopen(path, "r");
-    if (!f)
-    {
-        printf("⚠️  Could not open entity definitions '%s'\n", path);
-        return false;
-    }
-
-    EntityType      currentType;
-    EntitySpawnRule currentSpawn;
-    memset(&currentType, 0, sizeof(currentType));
-    apply_spawn_rule_defaults(&currentSpawn);
-
-    bool inSection                         = false;
-    char sectionName[ENTITY_TYPE_NAME_MAX] = {0};
-    char line[256];
-    bool anyLoaded = false;
-
-    while (fgets(line, sizeof(line), f))
-    {
-        strip_inline_comment(line);
-        trim_inplace(line);
-
-        if (line[0] == '\0')
-            continue;
-
-        if (line[0] == '[')
-        {
-            if (inSection && sectionName[0])
-            {
-                if (!currentType.id[0])
-                    snprintf(currentType.id, sizeof(currentType.id), "%s", sectionName);
-                if (!currentType.displayName[0])
-                    snprintf(currentType.displayName, sizeof(currentType.displayName), "%s", currentType.id);
-                entity_register_type(sys, &currentType, &currentSpawn);
-                anyLoaded = true;
-            }
-
-            memset(&currentType, 0, sizeof(currentType));
-            apply_spawn_rule_defaults(&currentSpawn);
-
-            if (sscanf(line, "[%31[^]]", sectionName) == 1)
-            {
-                inSection = true;
-                snprintf(currentType.id, sizeof(currentType.id), "%s", sectionName);
-            }
-            else
-            {
-                sectionName[0] = '\0';
-                inSection      = false;
-            }
-            continue;
-        }
-
-        if (!inSection)
-            continue;
-
-        char key[64];
-        char value[160];
-        if (sscanf(line, "%63[^=]=%159[^\n]", key, value) != 2)
-            continue;
-
-        trim_inplace(key);
-        trim_inplace(value);
-
-        if (strcasecmp(key, "id") == 0)
-        {
-            snprintf(currentType.id, sizeof(currentType.id), "%s", value);
-        }
-        else if (strcasecmp(key, "display_name") == 0)
-        {
-            snprintf(currentType.displayName, sizeof(currentType.displayName), "%s", value);
-        }
-        else if (strcasecmp(key, "max_hp") == 0)
-        {
-            currentType.maxHP = atoi(value);
-            if (currentType.maxHP <= 0)
-                currentType.maxHP = 10;
-        }
-        else if (strcasecmp(key, "max_speed") == 0)
-        {
-            currentType.maxSpeed = (float)atof(value);
-        }
-        else if (strcasecmp(key, "radius") == 0)
-        {
-            currentType.radius = (float)atof(value);
-            if (currentType.radius <= 0.0f)
-                currentType.radius = 12.0f;
-        }
-        else if (strcasecmp(key, "color") == 0)
-        {
-            bool  ok = false;
-            Color c  = parse_color(value, &ok);
-            if (ok)
-                currentType.tint = c;
-        }
-        else if (strcasecmp(key, "texture") == 0)
-        {
-            snprintf(currentType.sprite.texturePath, sizeof(currentType.sprite.texturePath), "%s", value);
-        }
-        else if (strcasecmp(key, "sprite.origin") == 0)
-        {
-            bool ok                   = false;
-            currentType.sprite.origin = parse_vector2(value, &ok);
-        }
-        else if (strcasecmp(key, "sprite.size") == 0)
-        {
-            int w = 0, h = 0;
-            if (sscanf(value, " %d , %d", &w, &h) == 2)
-            {
-                currentType.sprite.frameWidth  = w;
-                currentType.sprite.frameHeight = h;
-            }
-        }
-        else if (strcasecmp(key, "sprite.frames") == 0)
-        {
-            int   count = 0;
-            float dur   = 0.0f;
-            if (sscanf(value, " %d , %f", &count, &dur) >= 1)
-            {
-                currentType.sprite.frameCount    = (count > 0) ? count : 1;
-                currentType.sprite.frameDuration = (dur > 0.0f) ? dur : currentType.sprite.frameDuration;
-            }
-        }
-        else if (strcasecmp(key, "flags") == 0)
-        {
-            currentType.flags = parse_flags(value);
-        }
-        else if (strcasecmp(key, "spawn.biome") == 0)
-        {
-            currentSpawn.biome = biome_kind_from_string(value);
-        }
-        else if (strcasecmp(key, "spawn.tile") == 0)
-        {
-            currentSpawn.tile = tile_from_string(value);
-        }
-        else if (strcasecmp(key, "spawn.density") == 0)
-        {
-            currentSpawn.density = (float)atof(value);
-            if (currentSpawn.density < 0.0f)
-                currentSpawn.density = 0.0f;
-            if (currentSpawn.density > 1.0f)
-                currentSpawn.density = 1.0f;
-        }
-        else if (strcasecmp(key, "spawn.group") == 0)
-        {
-            parse_group_range(value, &currentSpawn.groupMin, &currentSpawn.groupMax);
-        }
-        else if (strcasecmp(key, "spawn.type") == 0)
-        {
-            snprintf(currentSpawn.typeId, sizeof(currentSpawn.typeId), "%s", value);
-        }
-    }
-
-    if (inSection && sectionName[0])
-    {
-        if (!currentType.id[0])
-            snprintf(currentType.id, sizeof(currentType.id), "%s", sectionName);
-        if (!currentType.displayName[0])
-            snprintf(currentType.displayName, sizeof(currentType.displayName), "%s", currentType.id);
-        entity_register_type(sys, &currentType, &currentSpawn);
-        anyLoaded = true;
-    }
-
-    fclose(f);
-
-    // fix up spawn rules that referenced explicit type ids
-    for (int i = 0; i < sys->spawnRuleCount; ++i)
-    {
-        EntitySpawnRule* sr = &sys->spawnRules[i];
-        if (sr->type)
-            continue;
-        if (sr->typeId[0] == '\0')
-            continue;
-        sr->type = entity_find_type(sys, sr->typeId);
-    }
-
-    return anyLoaded;
-}
-
+// -----------------------------------------------------------------------------
+// Loader utilities (.stv parsing)
+// -----------------------------------------------------------------------------
 static void entity_register_fallbacks(EntitySystem* sys)
 {
     if (!sys)
         return;
 
     EntityType zombie = {0};
-    snprintf(zombie.id, sizeof(zombie.id), "%s", "cursed_zombie");
+    zombie.id         = ENTITY_TYPE_CURSED_ZOMBIE;
+    snprintf(zombie.identifier, sizeof(zombie.identifier), "%s", "cursed_zombie");
     snprintf(zombie.displayName, sizeof(zombie.displayName), "%s", "Cursed Zombie");
     zombie.flags                = ENTITY_FLAG_HOSTILE | ENTITY_FLAG_MOBILE | ENTITY_FLAG_UNDEAD;
     zombie.maxHP                = 35;
@@ -651,15 +275,37 @@ static void entity_register_fallbacks(EntitySystem* sys)
     zombie.sprite.frameDuration = 0.0f;
 
     EntitySpawnRule rule;
-    apply_spawn_rule_defaults(&rule);
-    snprintf(rule.typeId, sizeof(rule.typeId), "%s", zombie.id);
+    entity_spawn_rule_init(&rule);
+    rule.id       = zombie.id;
     rule.density  = 0.025f;
     rule.groupMin = 2;
     rule.groupMax = 4;
     rule.tile     = TILE_CURSED_FOREST;
     rule.biome    = BIO_CURSED;
 
-    entity_register_type(sys, &zombie, &rule);
+    entity_system_register_type(sys, &zombie, &rule);
+
+    EntityType cannibal = {0};
+    cannibal.id         = ENTITY_TYPE_CANNIBAL;
+    snprintf(cannibal.identifier, sizeof(cannibal.identifier), "%s", "cannibal");
+    snprintf(cannibal.displayName, sizeof(cannibal.displayName), "%s", "Cannibal");
+    cannibal.flags                = ENTITY_FLAG_HOSTILE | ENTITY_FLAG_MOBILE;
+    cannibal.maxHP                = 80;
+    cannibal.maxSpeed             = 42.0f;
+    cannibal.radius               = 14.0f;
+    cannibal.tint                 = (Color){137, 81, 41, 255};
+    cannibal.sprite.frameCount    = 1;
+    cannibal.sprite.frameDuration = 0.0f;
+
+    entity_spawn_rule_init(&rule);
+    rule.id       = cannibal.id;
+    rule.density  = 0.02f;
+    rule.groupMin = 1;
+    rule.groupMax = 3;
+    rule.tile     = TILE_SAVANNA;
+    rule.biome    = BIO_SAVANNA;
+
+    entity_system_register_type(sys, &cannibal, &rule);
 }
 
 // -----------------------------------------------------------------------------
@@ -676,7 +322,7 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
 
     bool loaded = false;
     if (definitionsPath)
-        loaded = entity_registry_load(sys, definitionsPath);
+        loaded = entities_loader_load(sys, definitionsPath);
 
     if (!loaded)
     {
@@ -690,8 +336,8 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
     {
         for (int i = 0; i < sys->spawnRuleCount; ++i)
         {
-            if (!sys->spawnRules[i].type && sys->spawnRules[i].typeId[0])
-                sys->spawnRules[i].type = entity_find_type(sys, sys->spawnRules[i].typeId);
+            if (!sys->spawnRules[i].type && sys->spawnRules[i].id > ENTITY_TYPE_INVALID)
+                sys->spawnRules[i].type = entity_find_type(sys, sys->spawnRules[i].id);
         }
 
         // Seed the world with initial spawns
@@ -716,19 +362,19 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
                             continue;
                     }
 
-                    float roll = entity_randf(sys, 0.0f, 1.0f);
+                    float roll = entity_randomf(sys, 0.0f, 1.0f);
                     if (roll > rule->density)
                         continue;
 
-                    int group = entity_randi(sys, rule->groupMin, rule->groupMax);
+                    int group = entity_randomi(sys, rule->groupMin, rule->groupMax);
                     if (group <= 0)
                         group = 1;
 
                     for (int g = 0; g < group; ++g)
                     {
                         Vector2 spawnPos = {
-                            (x + 0.5f) * TILE_SIZE + entity_randf(sys, -TILE_SIZE * 0.3f, TILE_SIZE * 0.3f),
-                            (y + 0.5f) * TILE_SIZE + entity_randf(sys, -TILE_SIZE * 0.3f, TILE_SIZE * 0.3f),
+                            (x + 0.5f) * TILE_SIZE + entity_randomf(sys, -TILE_SIZE * 0.3f, TILE_SIZE * 0.3f),
+                            (y + 0.5f) * TILE_SIZE + entity_randomf(sys, -TILE_SIZE * 0.3f, TILE_SIZE * 0.3f),
                         };
                         if (entity_spawn(sys, rule->type->id, spawnPos) == ENTITY_ID_INVALID)
                             break;
@@ -834,9 +480,9 @@ void entity_system_draw(const EntitySystem* sys)
     }
 }
 
-uint16_t entity_spawn(EntitySystem* sys, const char* typeId, Vector2 position)
+uint16_t entity_spawn(EntitySystem* sys, EntitiesTypeID typeId, Vector2 position)
 {
-    if (!sys || !typeId)
+    if (!sys || typeId <= ENTITY_TYPE_INVALID)
         return ENTITY_ID_INVALID;
 
     const EntityType* type = entity_find_type(sys, typeId);
@@ -863,7 +509,7 @@ uint16_t entity_spawn(EntitySystem* sys, const char* typeId, Vector2 position)
 
         if (e->behavior && e->behavior->brainSize > ENTITY_BRAIN_BYTES)
         {
-            printf("⚠️  Behaviour '%s' requires %zu bytes, but only %d are available\n", type->id, e->behavior->brainSize, ENTITY_BRAIN_BYTES);
+            printf("⚠️  Behaviour '%s' requires %zu bytes, but only %d are available\n", type->identifier, e->behavior->brainSize, ENTITY_BRAIN_BYTES);
         }
 
         if (e->behavior && e->behavior->onSpawn)
@@ -875,7 +521,7 @@ uint16_t entity_spawn(EntitySystem* sys, const char* typeId, Vector2 position)
         return e->id;
     }
 
-    printf("⚠️  Entity pool exhausted, cannot spawn '%s'\n", typeId);
+    printf("⚠️  Entity pool exhausted, cannot spawn entity %d\n", typeId);
     return ENTITY_ID_INVALID;
 }
 
@@ -919,14 +565,14 @@ const Entity* entity_get(const EntitySystem* sys, uint16_t id)
     return e->active ? e : NULL;
 }
 
-const EntityType* entity_find_type(const EntitySystem* sys, const char* typeId)
+const EntityType* entity_find_type(const EntitySystem* sys, EntitiesTypeID typeId)
 {
-    if (!sys || !typeId)
+    if (!sys || typeId <= ENTITY_TYPE_INVALID)
         return NULL;
 
     for (int i = 0; i < sys->typeCount; ++i)
     {
-        if (strcmp(sys->types[i].id, typeId) == 0)
+        if (sys->types[i].id == typeId)
             return &sys->types[i];
     }
     return NULL;

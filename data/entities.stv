@@ -15,7 +15,8 @@
 #   spawn.*           : biome/tile aware spawn directives.
 
 [CURSED_ZOMBIE]
-id = cursed_zombie
+id = 0
+name = cursed_zombie
 display_name = Cursed Zombie
 texture = assets/entities/cursed_zombie.png
 sprite.size = 32, 48
@@ -32,7 +33,8 @@ spawn.tile = TILE_CURSED_FOREST
 spawn.biome = CURSED
 
 [CANNIBAL]
-id = cannibal
+id = 1
+name = cannibal
 display_name = Cannibal
 texture = assets/entities/cannibal.png
 sprite.size = 32, 48

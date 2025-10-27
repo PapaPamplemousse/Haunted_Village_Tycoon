@@ -48,6 +48,16 @@
 
 typedef enum
 {
+    ENTITY_TYPE_INVALID = -1,
+
+    ENTITY_TYPE_CURSED_ZOMBIE = 0,
+    ENTITY_TYPE_CANNIBAL,
+
+    ENTITY_TYPE_COUNT
+} EntitiesTypeID;
+
+typedef enum
+{
     ENTITY_FLAG_HOSTILE     = 1u << 0,
     ENTITY_FLAG_MOBILE      = 1u << 1,
     ENTITY_FLAG_INTELLIGENT = 1u << 2,
@@ -96,7 +106,8 @@ typedef struct EntitySprite
 
 typedef struct EntityType
 {
-    char                  id[ENTITY_TYPE_NAME_MAX];          /**< Internal identifier used in code & config. */
+    EntitiesTypeID        id;                                /**< Unique numeric identifier. */
+    char                  identifier[ENTITY_TYPE_NAME_MAX];  /**< Internal identifier used in debug logs. */
     char                  displayName[ENTITY_TYPE_NAME_MAX]; /**< Optional human readable name. */
     EntityFlags           flags;                             /**< Capability & faction tags. */
     float                 maxSpeed;                          /**< Maximum locomotion speed (px/s). */
@@ -124,7 +135,7 @@ typedef struct Entity
 
 typedef struct EntitySpawnRule
 {
-    char              typeId[ENTITY_TYPE_NAME_MAX];
+    EntitiesTypeID    id; /**< Unique numeric identifier. */
     const EntityType* type;
     BiomeKind         biome;    /**< BIO_MAX indicates "any". */
     TileTypeID        tile;     /**< TILE_MAX indicates "any". */
@@ -187,11 +198,11 @@ void entity_system_draw(const EntitySystem* sys);
  * @brief Spawns a new entity of the specified type.
  *
  * @param sys Entity system that owns the pool.
- * @param typeId Identifier of the entity type to create.
+ * @param typeId Numeric identifier of the entity type to create (EntitiesTypeID).
  * @param position World position for the spawn.
  * @return Runtime identifier of the new entity, or ENTITY_ID_INVALID on failure.
  */
-uint16_t entity_spawn(EntitySystem* sys, const char* typeId, Vector2 position);
+uint16_t entity_spawn(EntitySystem* sys, EntitiesTypeID typeId, Vector2 position);
 
 /**
  * @brief Removes an entity from the simulation.
@@ -226,6 +237,23 @@ const Entity* entity_get(const EntitySystem* sys, uint16_t id);
  * @param typeId Identifier to search.
  * @return Pointer to the type definition or NULL if not found.
  */
-const EntityType* entity_find_type(const EntitySystem* sys, const char* typeId);
+const EntityType* entity_find_type(const EntitySystem* sys, EntitiesTypeID typeId);
+
+/**
+ * @brief Initializes a spawn rule structure with default values.
+ */
+void entity_spawn_rule_init(EntitySpawnRule* rule);
+
+/**
+ * @brief Registers a new entity type within the system (used by loaders).
+ */
+bool entity_system_register_type(EntitySystem* sys, const EntityType* def, const EntitySpawnRule* spawn);
+
+/**
+ * @brief Generates deterministic random values tied to the entity system.
+ */
+unsigned int entity_random(EntitySystem* sys);
+float        entity_randomf(EntitySystem* sys, float min, float max);
+int          entity_randomi(EntitySystem* sys, int min, int max);
 
 #endif /* ENTITY_H */
