@@ -13,6 +13,7 @@
 #define INPUT_H
 
 #include "world.h"
+#include "entity.h"
 
 /**
  * @brief Represents user camera control input (movement and zoom).
@@ -26,7 +27,8 @@ typedef struct
 typedef enum
 {
     MODE_TILE,
-    MODE_OBJECT
+    MODE_OBJECT,
+    MODE_ENTITY
 } SelectionMode;
 
 /**
@@ -34,13 +36,14 @@ typedef enum
  */
 typedef struct
 {
-    TileTypeID    selectedTile;      /**< Currently selected tile type (for ground painting). */
-    ObjectTypeID  selectedObject;    /**< Currently selected object type (for placement). */
-    bool          showBuildingNames; /**< Whether building names are displayed (toggled by TAB). */
-    CameraInput   camera;            /**< Camera movement & zoom input. */
-    SelectionMode currentMode;
-    int           tileIndex;
-    int           objectIndex;
+    TileTypeID     selectedTile;      /**< Currently selected tile type (for ground painting). */
+    ObjectTypeID   selectedObject;    /**< Currently selected object type (for placement). */
+    EntitiesTypeID selectedEntity;    /**< Currently selected entity type for spawning. */
+    bool           showBuildingNames; /**< Whether building names are displayed (toggled by TAB). */
+    CameraInput    camera;            /**< Camera movement & zoom input. */
+    SelectionMode  currentMode;
+    int            tileIndex;
+    int            objectIndex;
 } InputState;
 
 /**

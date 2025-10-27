@@ -70,6 +70,6 @@ void update_building_detection(Map* map);
  * @param bounds Axis-aligned rectangle delimiting the building interior in tiles.
  * @return Pointer to the registered building data, or NULL on failure.
  */
-Building* register_building_from_bounds(Map* map, Rectangle bounds);
+Building* register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind);
 
 #endif /* BUILDING_H */

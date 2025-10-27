@@ -52,9 +52,9 @@ static void app_init(void)
 
     // Build the world and load entity definitions.
     map_init(&G_MAP, seed);
+    update_building_detection(&G_MAP);
     if (!entity_system_init(&G_ENTITIES, &G_MAP, seed ^ 0x13572468u, "data/entities.stv"))
         TraceLog(LOG_WARNING, "Entity definitions failed to load, using built-in defaults.");
-    update_building_detection(&G_MAP);
 
     // Set up world chunk streaming, the camera and initial input state.
     gChunks  = chunkgrid_create(&G_MAP);
@@ -69,13 +69,13 @@ static void app_update(void)
 {
     // Gather user input for the frame and update UI state that depends on it.
     input_update(&G_INPUT);
-    ui_update_inventory(&G_INPUT);
+    ui_update_inventory(&G_INPUT, &G_ENTITIES);
     update_camera(&G_CAMERA, &G_INPUT.camera);
 
     // Advance gameplay systems using the frame time delta.
     float dt = GetFrameTime();
     entity_system_update(&G_ENTITIES, &G_MAP, dt);
-    bool changed = editor_update(&G_MAP, &G_CAMERA, &G_INPUT);
+    bool changed = editor_update(&G_MAP, &G_CAMERA, &G_INPUT, &G_ENTITIES);
     if (changed)
     {
         update_building_detection(&G_MAP);
@@ -129,7 +129,7 @@ static void app_draw_world(void)
     debug_biome_draw(&G_MAP, &G_CAMERA, &showBiomeDebug);
 
     // Optional: draw current tile/object selection
-    ui_draw_inventory(&G_INPUT);
+    ui_draw_inventory(&G_INPUT, &G_ENTITIES);
 }
 
 /**

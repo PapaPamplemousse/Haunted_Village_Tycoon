@@ -7,20 +7,21 @@
 #include "input.h"
 #include <stdbool.h>
 #include <raylib.h>
+#include "entity.h"
 
 /**
  * @brief Updates the inventory UI state based on user input.
  *
  * @param[in,out] input Mutable input state that stores selection and toggle information.
  */
-void ui_update_inventory(InputState* input);
+void ui_update_inventory(InputState* input, const EntitySystem* entities);
 
 /**
  * @brief Draws the inventory window and selection hints.
  *
  * @param[in] input Current input state used to highlight active selections.
  */
-void ui_draw_inventory(const InputState* input);
+void ui_draw_inventory(const InputState* input, const EntitySystem* entities);
 
 /**
  * @brief Toggles the visibility of the inventory window.

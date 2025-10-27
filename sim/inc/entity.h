@@ -27,6 +27,15 @@
 /** Maximum amount of entity types that can be loaded from configuration. */
 #define ENTITY_MAX_TYPES 32
 
+/** Maximum number of custom personality traits per entity type. */
+#define ENTITY_MAX_TRAITS 8
+
+/** Maximum length (including null terminator) of a single trait name. */
+#define ENTITY_TRAIT_NAME_MAX 32
+
+/** Maximum length (including null terminator) of the entity category label. */
+#define ENTITY_CATEGORY_NAME_MAX 32
+
 /** Maximum amount of spawn rules that can be defined across all types. */
 #define ENTITY_MAX_SPAWN_RULES 64
 
@@ -106,16 +115,20 @@ typedef struct EntitySprite
 
 typedef struct EntityType
 {
-    EntitiesTypeID        id;                                /**< Unique numeric identifier. */
-    char                  identifier[ENTITY_TYPE_NAME_MAX];  /**< Internal identifier used in debug logs. */
-    char                  displayName[ENTITY_TYPE_NAME_MAX]; /**< Optional human readable name. */
-    EntityFlags           flags;                             /**< Capability & faction tags. */
-    float                 maxSpeed;                          /**< Maximum locomotion speed (px/s). */
-    float                 radius;                            /**< Collision/render radius (px). */
-    int                   maxHP;                             /**< Maximum hit points. */
-    Color                 tint;                              /**< Fallback render colour (no texture). */
-    EntitySprite          sprite;                            /**< Sprite description (texture/animation). */
-    const EntityBehavior* behavior;                          /**< Optional default behaviour. */
+    EntitiesTypeID        id;                                               /**< Unique numeric identifier. */
+    char                  identifier[ENTITY_TYPE_NAME_MAX];                 /**< Internal identifier used in debug logs. */
+    char                  displayName[ENTITY_TYPE_NAME_MAX];                /**< Optional human readable name. */
+    EntityFlags           flags;                                            /**< Capability & faction tags. */
+    char                  category[ENTITY_CATEGORY_NAME_MAX];               /**< Normalised faction/category label. */
+    int                   traitCount;                                       /**< Number of active trait labels. */
+    char                  traits[ENTITY_MAX_TRAITS][ENTITY_TRAIT_NAME_MAX]; /**< Normalised trait labels. */
+    float                 maxSpeed;                                         /**< Maximum locomotion speed (px/s). */
+    float                 radius;                                           /**< Collision/render radius (px). */
+    int                   maxHP;                                            /**< Maximum hit points. */
+    Color                 tint;                                             /**< Fallback render colour (no texture). */
+    EntitySprite          sprite;                                           /**< Sprite description (texture/animation). */
+    const EntityBehavior* behavior;                                         /**< Optional default behaviour. */
+    StructureKind         referredStructure;                                /**< Optional structure affinity. */
 } EntityType;
 
 typedef struct Entity
@@ -131,6 +144,8 @@ typedef struct Entity
     const EntityType*     type;                      /**< Pointer to immutable type definition. */
     const EntityBehavior* behavior;                  /**< Behaviour handlers (AI/state). */
     uint8_t               brain[ENTITY_BRAIN_BYTES]; /**< Inline behaviour state storage. */
+    Vector2               home;                      /**< Preferred anchor position in world space. */
+    StructureKind         homeStructure;             /**< Structure affinity used for behaviour. */
 } Entity;
 
 typedef struct EntitySpawnRule
@@ -255,5 +270,40 @@ bool entity_system_register_type(EntitySystem* sys, const EntityType* def, const
 unsigned int entity_random(EntitySystem* sys);
 float        entity_randomf(EntitySystem* sys, float min, float max);
 int          entity_randomi(EntitySystem* sys, int min, int max);
+
+/**
+ * @brief Queries whether an entity type declares a specific trait.
+ */
+bool entity_type_has_trait(const EntityType* type, const char* trait);
+
+/**
+ * @brief Checks if an entity type belongs to the specified category label.
+ */
+bool entity_type_is_category(const EntityType* type, const char* category);
+
+/**
+ * @brief Convenience wrapper for checking traits on a runtime entity instance.
+ */
+bool entity_has_trait(const Entity* entity, const char* trait);
+
+/**
+ * @brief Convenience wrapper for category comparisons on a runtime entity instance.
+ */
+bool entity_is_category(const Entity* entity, const char* category);
+
+/**
+ * @brief Returns the number of registered entity types.
+ */
+int entity_system_type_count(const EntitySystem* sys);
+
+/**
+ * @brief Provides indexed access to the registered entity type definitions.
+ */
+const EntityType* entity_system_type_at(const EntitySystem* sys, int index);
+
+/**
+ * @brief Tests whether a position is traversable for an entity with the provided radius.
+ */
+bool entity_position_is_walkable(const Map* map, Vector2 position, float radius);
 
 #endif /* ENTITY_H */

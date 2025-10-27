@@ -70,7 +70,7 @@ void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng)
 
     // Liaison auto au système de rooms (bounds = extérieur des murs)
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
-    register_building_from_bounds(map, bounds); // détecte et nomme via RoomTypeRule
+    register_building_from_bounds(map, bounds, STRUCT_HUT_CANNIBAL); // détecte et nomme via RoomTypeRule
     // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
@@ -92,7 +92,7 @@ void build_crypt(Map* map, int x, int y, uint64_t* rng)
     }
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
-    register_building_from_bounds(map, bounds);
+    register_building_from_bounds(map, bounds, STRUCT_CRYPT);
     // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
@@ -110,7 +110,8 @@ void build_ruin(Map* map, int x, int y, uint64_t* rng)
         map_place_object(map, OBJ_BONE_PILE, x + 1, y + 1);
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
-    register_building_from_bounds(map, bounds);
+    register_building_from_bounds(map, bounds, STRUCT_RUIN);
+
     // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
@@ -127,7 +128,7 @@ void build_village_house(Map* map, int x, int y, uint64_t* rng)
     map_place_object(map, OBJ_BED_SMALL, x + 1, y + 2);
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
-    register_building_from_bounds(map, bounds);
+    register_building_from_bounds(map, bounds, STRUCT_VILLAGE_HOUSE);
 
     // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
@@ -146,7 +147,7 @@ void build_temple(Map* map, int x, int y, uint64_t* rng)
     map_place_object(map, OBJ_TORCH_WALL, x + w - 2, y + 1);
 
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
-    register_building_from_bounds(map, bounds);
+    register_building_from_bounds(map, bounds, STRUCT_TEMPLE);
     // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 

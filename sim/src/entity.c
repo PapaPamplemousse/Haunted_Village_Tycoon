@@ -4,13 +4,14 @@
  */
 
 #include "entity.h"
-
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "world.h"
-
+#include "building.h"
+#include "object.h"
 #include "entities_loader.h"
 #include "zombie.h"
 #include "cannibal.h"
@@ -130,6 +131,65 @@ static BiomeKind infer_biome_from_tile(TileTypeID tile)
     }
 }
 
+static void normalize_label(const char* src, char* dst, size_t cap)
+{
+    if (!dst || cap == 0)
+        return;
+
+    if (!src)
+    {
+        dst[0] = '\0';
+        return;
+    }
+
+    size_t len = 0;
+    while (*src && len + 1 < cap)
+    {
+        unsigned char c = (unsigned char)*src++;
+        if (c == ' ' || c == '-' || c == '\t')
+            c = '_';
+        dst[len++] = (char)tolower(c);
+    }
+    dst[len] = '\0';
+}
+
+bool entity_position_is_walkable(const Map* map, Vector2 position, float radius)
+{
+    if (!map)
+        return false;
+
+    if (radius < 0.0f)
+        radius = 0.0f;
+
+    int minX = (int)floorf((position.x - radius) / TILE_SIZE);
+    int maxX = (int)floorf((position.x + radius) / TILE_SIZE);
+    int minY = (int)floorf((position.y - radius) / TILE_SIZE);
+    int maxY = (int)floorf((position.y + radius) / TILE_SIZE);
+
+    for (int y = minY; y <= maxY; ++y)
+    {
+        if (y < 0 || y >= map->height)
+            return false;
+
+        for (int x = minX; x <= maxX; ++x)
+        {
+            if (x < 0 || x >= map->width)
+                return false;
+
+            TileTypeID tid = map->tiles[y][x];
+            TileType*  tt  = get_tile_type(tid);
+            if (!tt || !tt->walkable)
+                return false;
+
+            Object* obj = map->objects[y][x];
+            if (obj && obj->type && !obj->type->walkable)
+                return false;
+        }
+    }
+
+    return true;
+}
+
 // -----------------------------------------------------------------------------
 // Behaviour helpers
 // -----------------------------------------------------------------------------
@@ -176,6 +236,14 @@ static void entity_type_apply_defaults(EntityType* type)
         snprintf(type->identifier, sizeof(type->identifier), "type_%d", type->id);
     if (type->displayName[0] == '\0')
         snprintf(type->displayName, sizeof(type->displayName), "%s", type->identifier);
+    if (type->category[0] == '\0')
+        snprintf(type->category, sizeof(type->category), "%s", "unknown");
+    if (type->traitCount < 0)
+        type->traitCount = 0;
+    if (type->traitCount > ENTITY_MAX_TRAITS)
+        type->traitCount = ENTITY_MAX_TRAITS;
+    if (type->referredStructure < 0 || type->referredStructure >= STRUCT_COUNT)
+        type->referredStructure = STRUCT_COUNT;
 }
 
 void entity_spawn_rule_init(EntitySpawnRule* rule)
@@ -226,6 +294,10 @@ bool entity_system_register_type(EntitySystem* sys, const EntityType* def, const
     }
 
     *dst = *def;
+    if (dst->traitCount < 0)
+        dst->traitCount = 0;
+    if (dst->traitCount > ENTITY_MAX_TRAITS)
+        dst->traitCount = ENTITY_MAX_TRAITS;
     entity_type_apply_defaults(dst);
 
     dst->sprite.texture.id = 0;
@@ -273,6 +345,10 @@ static void entity_register_fallbacks(EntitySystem* sys)
     zombie.tint                 = (Color){120, 197, 120, 255};
     zombie.sprite.frameCount    = 1;
     zombie.sprite.frameDuration = 0.0f;
+    normalize_label("undead", zombie.category, sizeof(zombie.category));
+    zombie.traitCount = 1;
+    normalize_label("undead", zombie.traits[0], sizeof(zombie.traits[0]));
+    zombie.referredStructure = STRUCT_COUNT;
 
     EntitySpawnRule rule;
     entity_spawn_rule_init(&rule);
@@ -296,6 +372,10 @@ static void entity_register_fallbacks(EntitySystem* sys)
     cannibal.tint                 = (Color){137, 81, 41, 255};
     cannibal.sprite.frameCount    = 1;
     cannibal.sprite.frameDuration = 0.0f;
+    normalize_label("humanoid", cannibal.category, sizeof(cannibal.category));
+    cannibal.traitCount = 1;
+    normalize_label("cannibal", cannibal.traits[0], sizeof(cannibal.traits[0]));
+    cannibal.referredStructure = STRUCT_HUT_CANNIBAL;
 
     entity_spawn_rule_init(&rule);
     rule.id       = cannibal.id;
@@ -306,6 +386,75 @@ static void entity_register_fallbacks(EntitySystem* sys)
     rule.biome    = BIO_SAVANNA;
 
     entity_system_register_type(sys, &cannibal, &rule);
+}
+
+static bool entity_spawn_near_structures(EntitySystem* sys, const EntitySpawnRule* rule, const Map* map)
+{
+    if (!sys || !rule || !rule->type || !map)
+        return false;
+
+    if (rule->type->referredStructure == STRUCT_COUNT)
+        return false;
+
+    bool spawnedAny = false;
+    for (int b = 0; b < buildingCount; ++b)
+    {
+        const Building* building = &buildings[b];
+        if (!building || building->structureKind != rule->type->referredStructure)
+            continue;
+
+        Vector2 home  = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
+        int     group = entity_randomi(sys, rule->groupMin, rule->groupMax);
+        if (group <= 0)
+            group = 1;
+
+        for (int g = 0; g < group; ++g)
+        {
+            bool placed = false;
+            for (int attempt = 0; attempt < 6 && !placed; ++attempt)
+            {
+                float   angle     = entity_randomf(sys, 0.0f, 2.0f * PI);
+                float   distTiles = entity_randomf(sys, 0.5f, 3.5f);
+                Vector2 spawnPos  = {
+                    home.x + cosf(angle) * distTiles * TILE_SIZE,
+                    home.y + sinf(angle) * distTiles * TILE_SIZE,
+                };
+
+                if (!entity_position_is_walkable(map, spawnPos, rule->type->radius))
+                    continue;
+
+                uint16_t id = entity_spawn(sys, rule->type->id, spawnPos);
+                if (id == ENTITY_ID_INVALID)
+                    continue;
+
+                Entity* ent = entity_acquire(sys, id);
+                if (ent)
+                {
+                    ent->home          = home;
+                    ent->homeStructure = rule->type->referredStructure;
+                }
+                spawnedAny = true;
+                placed     = true;
+            }
+
+            if (!placed && entity_position_is_walkable(map, home, rule->type->radius))
+            {
+                uint16_t id = entity_spawn(sys, rule->type->id, home);
+                if (id != ENTITY_ID_INVALID)
+                {
+                    Entity* ent = entity_acquire(sys, id);
+                    if (ent)
+                    {
+                        ent->home          = home;
+                        ent->homeStructure = rule->type->referredStructure;
+                    }
+                    spawnedAny = true;
+                }
+            }
+        }
+    }
+
+    return spawnedAny;
 }
 
 // -----------------------------------------------------------------------------
@@ -347,6 +496,12 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
             if (!rule->type)
                 continue;
 
+            if (rule->type->referredStructure != STRUCT_COUNT)
+            {
+                entity_spawn_near_structures(sys, rule, map);
+                continue;
+            }
+
             for (int y = 0; y < map->height; ++y)
             {
                 for (int x = 0; x < map->width; ++x)
@@ -376,6 +531,8 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
                             (x + 0.5f) * TILE_SIZE + entity_randomf(sys, -TILE_SIZE * 0.3f, TILE_SIZE * 0.3f),
                             (y + 0.5f) * TILE_SIZE + entity_randomf(sys, -TILE_SIZE * 0.3f, TILE_SIZE * 0.3f),
                         };
+                        if (!entity_position_is_walkable(map, spawnPos, rule->type->radius))
+                            continue;
                         if (entity_spawn(sys, rule->type->id, spawnPos) == ENTITY_ID_INVALID)
                             break;
                     }
@@ -496,15 +653,17 @@ uint16_t entity_spawn(EntitySystem* sys, EntitiesTypeID typeId, Vector2 position
             continue;
 
         entity_clear_slot(sys, i);
-        e->active      = true;
-        e->position    = position;
-        e->type        = type;
-        e->behavior    = type->behavior;
-        e->hp          = (type->maxHP > 0) ? type->maxHP : 10;
-        e->orientation = 0.0f;
-        e->velocity    = (Vector2){0};
-        e->animFrame   = 0;
-        e->animTime    = 0.0f;
+        e->active        = true;
+        e->position      = position;
+        e->type          = type;
+        e->behavior      = type->behavior;
+        e->hp            = (type->maxHP > 0) ? type->maxHP : 10;
+        e->orientation   = 0.0f;
+        e->velocity      = (Vector2){0};
+        e->animFrame     = 0;
+        e->animTime      = 0.0f;
+        e->home          = position;
+        e->homeStructure = type->referredStructure;
         memset(e->brain, 0, sizeof(e->brain));
 
         if (e->behavior && e->behavior->brainSize > ENTITY_BRAIN_BYTES)
@@ -576,4 +735,56 @@ const EntityType* entity_find_type(const EntitySystem* sys, EntitiesTypeID typeI
             return &sys->types[i];
     }
     return NULL;
+}
+
+int entity_system_type_count(const EntitySystem* sys)
+{
+    return sys ? sys->typeCount : 0;
+}
+
+const EntityType* entity_system_type_at(const EntitySystem* sys, int index)
+{
+    if (!sys || index < 0 || index >= sys->typeCount)
+        return NULL;
+    return &sys->types[index];
+}
+
+bool entity_type_has_trait(const EntityType* type, const char* trait)
+{
+    if (!type || !trait)
+        return false;
+
+    char needle[ENTITY_TRAIT_NAME_MAX];
+    normalize_label(trait, needle, sizeof(needle));
+    if (needle[0] == '\0')
+        return false;
+
+    for (int i = 0; i < type->traitCount; ++i)
+    {
+        if (strcmp(type->traits[i], needle) == 0)
+            return true;
+    }
+    return false;
+}
+
+bool entity_type_is_category(const EntityType* type, const char* category)
+{
+    if (!type || !category)
+        return false;
+
+    char normalized[ENTITY_CATEGORY_NAME_MAX];
+    normalize_label(category, normalized, sizeof(normalized));
+    if (normalized[0] == '\0')
+        return false;
+    return strcmp(type->category, normalized) == 0;
+}
+
+bool entity_has_trait(const Entity* entity, const char* trait)
+{
+    return entity && entity->type ? entity_type_has_trait(entity->type, trait) : false;
+}
+
+bool entity_is_category(const Entity* entity, const char* category)
+{
+    return entity && entity->type ? entity_type_is_category(entity->type, category) : false;
 }

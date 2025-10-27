@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-
+#include "world_structures.h"
 #include "biome_loader.h"
 #include "tile.h"
 
@@ -22,6 +22,68 @@ static void trim_inplace(char* s)
         ++start;
     if (start != s)
         memmove(s, start, strlen(start) + 1);
+}
+
+static void normalize_label(const char* src, char* dst, size_t cap)
+{
+    if (!dst || cap == 0)
+        return;
+
+    if (!src)
+    {
+        dst[0] = '\0';
+        return;
+    }
+
+    size_t len = 0;
+    while (*src && len + 1 < cap)
+    {
+        unsigned char c = (unsigned char)*src++;
+        if (c == ' ' || c == '-' || c == '\t')
+            c = '_';
+        dst[len++] = (char)tolower(c);
+    }
+    dst[len] = '\0';
+}
+
+static void entity_type_add_trait(EntityType* type, const char* trait)
+{
+    if (!type || !trait)
+        return;
+
+    if (type->traitCount >= ENTITY_MAX_TRAITS)
+        return;
+
+    char normalized[ENTITY_TRAIT_NAME_MAX];
+    normalize_label(trait, normalized, sizeof(normalized));
+    if (normalized[0] == '\0')
+        return;
+
+    for (int i = 0; i < type->traitCount; ++i)
+    {
+        if (strcmp(type->traits[i], normalized) == 0)
+            return;
+    }
+
+    snprintf(type->traits[type->traitCount], ENTITY_TRAIT_NAME_MAX, "%s", normalized);
+    type->traitCount++;
+}
+
+static void parse_traits_line(EntityType* type, const char* value)
+{
+    if (!type || !value)
+        return;
+
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "%s", value);
+
+    char* token = strtok(buffer, "|,");
+    while (token)
+    {
+        trim_inplace(token);
+        entity_type_add_trait(type, token);
+        token = strtok(NULL, "|,");
+    }
 }
 
 static void strip_inline_comment(char* line)
@@ -179,7 +241,8 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
     EntityType      currentType;
     EntitySpawnRule currentSpawn;
     memset(&currentType, 0, sizeof(currentType));
-    currentType.id = ENTITY_TYPE_INVALID;
+    currentType.id                = ENTITY_TYPE_INVALID;
+    currentType.referredStructure = STRUCT_COUNT;
     entity_spawn_rule_init(&currentSpawn);
 
     bool inSection                         = false;
@@ -210,7 +273,8 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
             }
 
             memset(&currentType, 0, sizeof(currentType));
-            currentType.id = ENTITY_TYPE_INVALID;
+            currentType.id                = ENTITY_TYPE_INVALID;
+            currentType.referredStructure = STRUCT_COUNT;
             entity_spawn_rule_init(&currentSpawn);
 
             if (sscanf(line, "[%31[^]]", sectionName) == 1)
@@ -247,6 +311,14 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
         else if (strcasecmp(key, "display_name") == 0)
         {
             snprintf(currentType.displayName, sizeof(currentType.displayName), "%s", value);
+        }
+        else if (strcasecmp(key, "category") == 0)
+        {
+            normalize_label(value, currentType.category, sizeof(currentType.category));
+        }
+        else if (strcasecmp(key, "traits") == 0)
+        {
+            parse_traits_line(&currentType, value);
         }
         else if (strcasecmp(key, "max_hp") == 0)
         {
@@ -298,6 +370,11 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
         else if (strcasecmp(key, "flags") == 0)
         {
             currentType.flags = parse_flags(value);
+        }
+        else if (strcasecmp(key, "referred.structure") == 0 || strcasecmp(key, "referred_structure") == 0)
+        {
+            StructureKind kind            = structure_kind_from_string(value);
+            currentType.referredStructure = kind;
         }
         else if (strcasecmp(key, "spawn.biome") == 0)
         {

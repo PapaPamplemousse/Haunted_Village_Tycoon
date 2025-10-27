@@ -13,7 +13,7 @@
 
 #include "map.h"
 #include "input.h"
-
+#include "entity.h"
 /**
  * @brief Processes user interactions and updates the map accordingly.
  *
@@ -27,6 +27,6 @@
  * @param[in] input Current input state (selected tile/object).
  * @return true if the map content changed (e.g., tiles or objects were modified).
  */
-bool editor_update(Map* map, Camera2D* camera, InputState* input);
+bool editor_update(Map* map, Camera2D* camera, InputState* input, EntitySystem* entities);
 
 #endif // EDITOR_H

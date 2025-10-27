@@ -18,9 +18,13 @@ void input_init(InputState* input)
     // Default to the first tile so the player can immediately paint terrain.
     input->selectedTile      = TILE_MAX;
     input->selectedObject    = OBJ_NONE;
+    input->selectedEntity    = ENTITY_TYPE_INVALID;
     input->showBuildingNames = false;
     input->camera.moveDir    = (Vector2){0};
     input->camera.zoomDelta  = 0.0f;
+    input->currentMode       = MODE_TILE;
+    input->tileIndex         = 0;
+    input->objectIndex       = 0;
 }
 
 void input_update(InputState* input)

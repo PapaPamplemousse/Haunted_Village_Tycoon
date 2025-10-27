@@ -7,7 +7,7 @@
 #include "ui.h"
 #include <raylib.h>
 
-bool editor_update(Map* map, Camera2D* camera, InputState* input)
+bool editor_update(Map* map, Camera2D* camera, InputState* input, EntitySystem* entities)
 {
     if (!ui_is_inventory_open())
     {
@@ -22,7 +22,29 @@ bool editor_update(Map* map, Camera2D* camera, InputState* input)
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
-            // Left click places either an object or a tile depending on selection.
+            if (input->selectedEntity != ENTITY_TYPE_INVALID && entities)
+            {
+                const EntityType* type = entity_find_type(entities, input->selectedEntity);
+                if (type)
+                {
+                    Vector2 spawnPos = {(cellX + 0.5f) * TILE_SIZE, (cellY + 0.5f) * TILE_SIZE};
+                    if (entity_position_is_walkable(map, spawnPos, type->radius))
+                    {
+                        uint16_t id = entity_spawn(entities, input->selectedEntity, spawnPos);
+                        if (id != ENTITY_ID_INVALID)
+                        {
+                            Entity* ent = entity_acquire(entities, id);
+                            if (ent)
+                            {
+                                ent->home = spawnPos;
+                                if (type->referredStructure != STRUCT_COUNT)
+                                    ent->homeStructure = type->referredStructure;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
             if (input->selectedObject != OBJ_NONE)
                 map_place_object(map, input->selectedObject, cellX, cellY);
             else if (input->selectedTile != TILE_MAX)

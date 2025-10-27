@@ -11,7 +11,10 @@
 #   color             : fallback tint when no texture is available.
 #   max_hp, max_speed : gameplay stats.
 #   radius            : collision/render radius in pixels.
-#   flags             : comma or pipe separated list of traits.
+#   category          : faction/category label (e.g., "humanoid", "undead").
+#   traits            : comma-separated list of behavioural tags.
+#   flags             : comma or pipe separated list of built-in capability flags.
+#   referred.structure: optional structure kind binding (e.g., "hut_cannibal").
 #   spawn.*           : biome/tile aware spawn directives.
 
 [CURSED_ZOMBIE]
@@ -26,6 +29,8 @@ color = 120, 197, 120, 255
 max_hp = 40
 max_speed = 20
 radius = 14
+category = undead
+traits = undead,infected
 flags = hostile|mobile|undead
 spawn.density = 0.035
 spawn.group = 2-5
@@ -44,6 +49,9 @@ color = 137, 81, 41, 255
 max_hp = 80
 max_speed = 42
 radius = 14
+category = humanoid
+traits = cannibal,aggressive
+referred.structure = hut_cannibal
 flags = hostile|mobile
 spawn.density = 0.035
 spawn.group = 2-3

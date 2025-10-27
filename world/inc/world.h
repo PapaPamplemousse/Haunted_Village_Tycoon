@@ -146,6 +146,37 @@ typedef enum
     TILE_CATEGORY_HAZARD    /**< Hazardous terrain (lava, poison) */
 } TileCategory;
 
+/**
+ * @brief Enumeration of all possible biome types in the game world.
+ */
+typedef enum
+{
+    BIO_FOREST,   ///< Forest biome.
+    BIO_PLAIN,    ///< Plain/Grassland biome.
+    BIO_SAVANNA,  ///< Savanna biome.
+    BIO_TUNDRA,   ///< Tundra/Frozen biome.
+    BIO_DESERT,   ///< Desert/Arid biome.
+    BIO_SWAMP,    ///< Swamp/Marsh biome.
+    BIO_MOUNTAIN, ///< Mountain/High altitude biome.
+    BIO_CURSED,   ///< Cursed/Corrupted biome.
+    BIO_HELL,     ///< Hell/Infernal biome.
+    BIO_MAX       ///< Biome counter
+} BiomeKind;
+
+/**
+ * @brief Enumeration of the different types of world structures.
+ *
+ * This list defines the specific structure blueprints available for generation.
+ */
+typedef enum
+{
+    STRUCT_HUT_CANNIBAL,  ///< A small, primitive hut, typically for cannibals.
+    STRUCT_CRYPT,         ///< An underground tomb or burial chamber.
+    STRUCT_RUIN,          ///< Remains of a destroyed building or wall.
+    STRUCT_VILLAGE_HOUSE, ///< A standard residential building in a village.
+    STRUCT_TEMPLE,        ///< A large, religious building.
+    STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
+} StructureKind;
 // -----------------------------------------------------------------------------
 // STRUCTURES
 // -----------------------------------------------------------------------------
@@ -230,14 +261,15 @@ typedef struct
  */
 typedef struct Building
 {
-    int                 id;          /**< Unique building identifier */
-    Rectangle           bounds;      /**< Bounding box (in tile coordinates) */
-    Vector2             center;      /**< Geometric center (in tile coordinates) */
-    int                 area;        /**< Interior area in tiles */
-    char                name[64];    /**< Inferred or generic building name */
-    int                 objectCount; /**< Number of objects inside */
-    Object**            objects;     /**< Pointer to a dynamic list of object instances */
-    const RoomTypeRule* roomType;    /**< Detected room type (optional) */
+    int                 id;            /**< Unique building identifier */
+    Rectangle           bounds;        /**< Bounding box (in tile coordinates) */
+    Vector2             center;        /**< Geometric center (in tile coordinates) */
+    int                 area;          /**< Interior area in tiles */
+    char                name[64];      /**< Inferred or generic building name */
+    int                 objectCount;   /**< Number of objects inside */
+    Object**            objects;       /**< Pointer to a dynamic list of object instances */
+    const RoomTypeRule* roomType;      /**< Detected room type (optional) */
+    StructureKind       structureKind; /**< Optional originating structure blueprint. */
 } Building;
 
 /**
@@ -325,38 +357,6 @@ typedef struct
     float biome_struct_mult_cursed;   ///< Structure chance multiplier for the Cursed biome.
     float biome_struct_mult_hell;     ///< Structure chance multiplier for the Hell biome.
 } WorldGenParams;
-
-/**
- * @brief Enumeration of all possible biome types in the game world.
- */
-typedef enum
-{
-    BIO_FOREST,   ///< Forest biome.
-    BIO_PLAIN,    ///< Plain/Grassland biome.
-    BIO_SAVANNA,  ///< Savanna biome.
-    BIO_TUNDRA,   ///< Tundra/Frozen biome.
-    BIO_DESERT,   ///< Desert/Arid biome.
-    BIO_SWAMP,    ///< Swamp/Marsh biome.
-    BIO_MOUNTAIN, ///< Mountain/High altitude biome.
-    BIO_CURSED,   ///< Cursed/Corrupted biome.
-    BIO_HELL,     ///< Hell/Infernal biome.
-    BIO_MAX       ///< Biome counter
-} BiomeKind;
-
-/**
- * @brief Enumeration of the different types of world structures.
- *
- * This list defines the specific structure blueprints available for generation.
- */
-typedef enum
-{
-    STRUCT_HUT_CANNIBAL,  ///< A small, primitive hut, typically for cannibals.
-    STRUCT_CRYPT,         ///< An underground tomb or burial chamber.
-    STRUCT_RUIN,          ///< Remains of a destroyed building or wall.
-    STRUCT_VILLAGE_HOUSE, ///< A standard residential building in a village.
-    STRUCT_TEMPLE,        ///< A large, religious building.
-    STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
-} StructureKind;
 
 /**
  * @brief Defines the properties of a single biome cell or center point.

@@ -227,15 +227,16 @@ static bool is_valid_building_area(const FloodResult* r)
 /* ===========================================
  * 4. Initialization and collection
  * =========================================== */
-static void init_building_structure(Building* b, int id, const FloodResult* res)
+static void init_building_structure(Building* b, int id, const FloodResult* res, StructureKind kind)
 {
-    b->id          = id;
-    b->bounds      = res->bounds;
-    b->area        = res->area;
-    b->center      = (Vector2){res->bounds.x + res->bounds.width / 2.0f, res->bounds.y + res->bounds.height / 2.0f};
-    b->objectCount = 0;
-    b->objects     = NULL;
-    b->roomType    = NULL;
+    b->id            = id;
+    b->bounds        = res->bounds;
+    b->area          = res->area;
+    b->center        = (Vector2){res->bounds.x + res->bounds.width / 2.0f, res->bounds.y + res->bounds.height / 2.0f};
+    b->objectCount   = 0;
+    b->objects       = NULL;
+    b->roomType      = NULL;
+    b->structureKind = kind;
 }
 
 static void collect_building_objects(Map* map, Building* b, const FloodResult* res, const bool visited[MAP_HEIGHT][MAP_WIDTH])
@@ -313,7 +314,7 @@ void update_building_detection(Map* map)
                 continue;
 
             Building* b = &buildings[buildingCount];
-            init_building_structure(b, nextId, &res);
+            init_building_structure(b, nextId, &res, STRUCT_COUNT);
             collect_building_objects(map, b, &res, visited);
 
             // Classification
@@ -335,7 +336,7 @@ void update_building_detection(Map* map)
     }
 }
 
-Building* register_building_from_bounds(Map* map, Rectangle bounds)
+Building* register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind)
 {
     if (buildingCount >= MAX_BUILDINGS)
         return NULL;
@@ -358,7 +359,7 @@ Building* register_building_from_bounds(Map* map, Rectangle bounds)
     res.touchesBorder        = false;
 
     Building* b = &buildings[buildingCount];
-    init_building_structure(b, buildingCount + 1, &res);
+    init_building_structure(b, buildingCount + 1, &res, kind);
 
     // Collecte des objets intérieurs uniquement
     Object** temp  = (Object**)malloc((size_t)(iw * ih) * sizeof(Object*));
