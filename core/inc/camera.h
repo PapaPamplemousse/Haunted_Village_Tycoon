@@ -7,9 +7,11 @@
 #define CAMERA_H
 
 #include <raylib.h>
-#include "input.h" // Needed for CameraInput
+#include "input.h"  // Needed for CameraInput
 
+/** @brief Smallest allowed zoom factor for the top-down camera. */
 #define ZOOM_MIN 0.9f
+/** @brief Largest allowed zoom factor for the top-down camera. */
 #define ZOOM_MAX 4.5f
 
 /**

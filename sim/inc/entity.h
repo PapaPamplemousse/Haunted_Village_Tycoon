@@ -151,16 +151,81 @@ typedef struct EntitySystem
 // API
 // -----------------------------------------------------------------------------
 
+/**
+ * @brief Initializes the entity system and loads type definitions.
+ *
+ * @param sys Entity system to initialize.
+ * @param map Map used for initial spawn context.
+ * @param seed Seed used for deterministic RNG.
+ * @param definitionsPath Path to the entity definition STV file.
+ * @return true if initialization succeeded.
+ */
 bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, const char* definitionsPath);
+
+/**
+ * @brief Releases resources associated with the entity system.
+ */
 void entity_system_shutdown(EntitySystem* sys);
+
+/**
+ * @brief Advances entity logic by one frame.
+ *
+ * @param sys Entity system to update.
+ * @param map Current map used for collision and spawning context.
+ * @param dt Delta time in seconds.
+ */
 void entity_system_update(EntitySystem* sys, const Map* map, float dt);
+
+/**
+ * @brief Renders all active entities.
+ *
+ * @param sys Entity system to draw.
+ */
 void entity_system_draw(const EntitySystem* sys);
 
-uint16_t      entity_spawn(EntitySystem* sys, const char* typeId, Vector2 position);
-void          entity_despawn(EntitySystem* sys, uint16_t id);
-Entity*       entity_acquire(EntitySystem* sys, uint16_t id);
+/**
+ * @brief Spawns a new entity of the specified type.
+ *
+ * @param sys Entity system that owns the pool.
+ * @param typeId Identifier of the entity type to create.
+ * @param position World position for the spawn.
+ * @return Runtime identifier of the new entity, or ENTITY_ID_INVALID on failure.
+ */
+uint16_t entity_spawn(EntitySystem* sys, const char* typeId, Vector2 position);
+
+/**
+ * @brief Removes an entity from the simulation.
+ *
+ * @param sys Entity system that owns the pool.
+ * @param id Identifier returned by @ref entity_spawn.
+ */
+void entity_despawn(EntitySystem* sys, uint16_t id);
+
+/**
+ * @brief Provides mutable access to an entity by id.
+ *
+ * @param sys Entity system owning the entity.
+ * @param id Identifier returned by @ref entity_spawn.
+ * @return Pointer to the entity or NULL if not active.
+ */
+Entity* entity_acquire(EntitySystem* sys, uint16_t id);
+
+/**
+ * @brief Provides read-only access to an entity by id.
+ *
+ * @param sys Entity system owning the entity.
+ * @param id Identifier returned by @ref entity_spawn.
+ * @return Pointer to the entity or NULL if not active.
+ */
 const Entity* entity_get(const EntitySystem* sys, uint16_t id);
 
+/**
+ * @brief Searches for an entity type definition by identifier.
+ *
+ * @param sys Entity system containing the registered types.
+ * @param typeId Identifier to search.
+ * @return Pointer to the type definition or NULL if not found.
+ */
 const EntityType* entity_find_type(const EntitySystem* sys, const char* typeId);
 
 #endif /* ENTITY_H */

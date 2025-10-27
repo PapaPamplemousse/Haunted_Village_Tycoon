@@ -1,3 +1,8 @@
+/**
+ * @file building.c
+ * @brief Implements building detection and classification logic.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

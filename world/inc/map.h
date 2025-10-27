@@ -29,6 +29,7 @@
  * all object references.
  *
  * @param[out] map Pointer to the map structure to initialize.
+ * @param seed Random seed used for deterministic generation.
  *
  * @note This function should be called once before any rendering
  *       or world update occurs.

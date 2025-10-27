@@ -55,10 +55,29 @@ const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng);
 /**
  * @brief Retrieves the immutable definition associated with a structure kind.
  */
+/**
+ * @brief Retrieves the immutable definition associated with a structure kind.
+ *
+ * @param kind Structure identifier to look up.
+ * @return Pointer to the definition or NULL if the kind is unknown.
+ */
 const StructureDef* get_structure_def(StructureKind kind);
 
+/**
+ * @brief Converts a textual structure identifier into its enumeration value.
+ *
+ * @param name Case-insensitive string representation.
+ * @return Matching structure kind, or STRUCT_COUNT if not recognized.
+ */
 StructureKind structure_kind_from_string(const char* name);
-const char*   structure_kind_to_string(StructureKind kind);
+
+/**
+ * @brief Converts a structure enumeration value to its textual identifier.
+ *
+ * @param kind Structure kind to stringify.
+ * @return Static string describing the kind, or "UNKNOWN" for invalid values.
+ */
+const char* structure_kind_to_string(StructureKind kind);
 
 /// @name Concrete Structure Generators
 /// @brief Functions that implement the actual map modifications for specific structures.

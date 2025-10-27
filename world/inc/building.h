@@ -63,6 +63,13 @@ extern int buildingCount;
  */
 void update_building_detection(Map* map);
 
+/**
+ * @brief Adds a building entry using an explicit bounding box.
+ *
+ * @param[in,out] map Pointer to the current world map.
+ * @param bounds Axis-aligned rectangle delimiting the building interior in tiles.
+ * @return Pointer to the registered building data, or NULL on failure.
+ */
 Building* register_building_from_bounds(Map* map, Rectangle bounds);
 
 #endif /* BUILDING_H */

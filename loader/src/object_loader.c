@@ -1,9 +1,17 @@
+/**
+ * @file object_loader.c
+ * @brief Deserializes object and room type definitions from STV files.
+ */
+
 #include "object_loader.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 
+/**
+ * @brief Removes leading and trailing whitespace from a string.
+ */
 static void trim(char* s)
 {
     if (!s)
@@ -18,6 +26,9 @@ static void trim(char* s)
         s[--n] = '\0';
 }
 
+/**
+ * @brief Local strdup helper to avoid portability issues.
+ */
 static char* str_dup(const char* s)
 {
     if (!s)
@@ -75,6 +86,9 @@ const ObjectType* find_object_by_name(const ObjectType* objects, int count, cons
     return NULL;
 }
 
+/**
+ * @brief Parses an RGBA color in "r,g,b,a" format.
+ */
 static bool parse_color(const char* value, Color* out)
 {
     int r, g, b, a;
@@ -186,6 +200,9 @@ static const RoomTypeEntry ROOM_TYPE_NAMES[] = {
 };
 
 // Lookup de l’ID à partir du nom
+/**
+ * @brief Translates a room name in the STV file to the corresponding enum value.
+ */
 static RoomTypeID get_room_id_by_name(const char* name)
 {
     for (int i = 0; ROOM_TYPE_NAMES[i].name; ++i)

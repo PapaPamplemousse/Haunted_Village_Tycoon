@@ -1,3 +1,8 @@
+/**
+ * @file object.c
+ * @brief Provides object lifecycle management and room analysis helpers.
+ */
+
 #include "object.h"
 #include "object_loader.h"
 #include "building.h"

@@ -1,7 +1,7 @@
-#include "editor.h"
-#include <raylib.h>
-
-#include "ui.h" // ajoute en haut si pas encore fait
+/**
+ * @file editor.c
+ * @brief Connects input events with map editing actions.
+ */
 
 #include "editor.h"
 #include "ui.h"
@@ -11,6 +11,7 @@ bool editor_update(Map* map, Camera2D* camera, InputState* input)
 {
     if (!ui_is_inventory_open())
     {
+        // Convert the mouse cursor to a tile coordinate inside the grid.
         Vector2 mouse = GetMousePosition();
         Vector2 world = GetScreenToWorld2D(mouse, *camera);
         int     cellX = (int)(world.x / TILE_SIZE);
@@ -21,6 +22,7 @@ bool editor_update(Map* map, Camera2D* camera, InputState* input)
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
+            // Left click places either an object or a tile depending on selection.
             if (input->selectedObject != OBJ_NONE)
                 map_place_object(map, input->selectedObject, cellX, cellY);
             else if (input->selectedTile != TILE_MAX)
@@ -29,6 +31,7 @@ bool editor_update(Map* map, Camera2D* camera, InputState* input)
         }
         else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
         {
+            // Right click clears any object occupying the cell.
             map_remove_object(map, cellX, cellY);
             return true;
         }

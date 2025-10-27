@@ -21,8 +21,14 @@
 // FUNCTION DECLARATIONS
 // -----------------------------------------------------------------------------
 
+/**
+ * @brief Initializes object definitions and loads their textures.
+ */
 void init_objects(void);
 
+/**
+ * @brief Releases textures and resources associated with object definitions.
+ */
 void unload_object_textures(void);
 
 /**
