@@ -16,7 +16,7 @@
 
 #include "raylib.h"
 #include <stdbool.h>
-
+#include <stdint.h>
 /**
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
@@ -40,6 +40,15 @@
  * @brief Maximum number of buildings that can be tracked simultaneously.
  */
 #define MAX_BUILDINGS 100
+
+/** Maximum characters allowed for structure aura names. */
+#define STRUCTURE_AURA_NAME_MAX 64
+/** Maximum characters allowed for structure aura description text. */
+#define STRUCTURE_AURA_DESC_MAX 160
+/** Maximum characters allowed for structure occupant description text. */
+#define STRUCTURE_OCCUPANT_DESC_MAX 128
+/** Maximum characters allowed for structure trigger/action description text. */
+#define STRUCTURE_TRIGGER_DESC_MAX 192
 
 // Tune for your target GPU. 128×128 balances rebuild cost vs draw calls.
 // You can go 64×64 on very low-end GPUs or 256×256 for fewer textures.
@@ -90,9 +99,16 @@ typedef enum
     OBJ_STDBUSH_DRY = 18, /**< Dry bush */
 
     // --- Hazards / Special ---
-    OBJ_SULFUR_VENT = 19, /**< Sulfur vent */
-    OBJ_FIREPIT     = 20, /**< Exterior fire pit */
-    OBJ_ALTAR       = 21, /**< Altar */
+    OBJ_SULFUR_VENT   = 19, /**< Sulfur vent */
+    OBJ_FIREPIT       = 20, /**< Exterior fire pit */
+    OBJ_ALTAR         = 21, /**< Altar */
+    OBJ_CAULDRON      = 22, /**< Bubbling witch cauldron */
+    OBJ_TOTEM_BLOOD   = 23, /**< Bloodied totem pole */
+    OBJ_RITUAL_CIRCLE = 24, /**< Ritual circle marker */
+    OBJ_GALLOW        = 25, /**< Execution gallows */
+    OBJ_MEAT_HOOK     = 26, /**< Rusted meat hook rack */
+    OBJ_VOID_OBELISK  = 27, /**< Void-touched obelisk */
+    OBJ_PLAGUE_POD    = 28, /**< Bloated plague pod */
 
     OBJ_COUNT /**< Sentinel (number of object types) */
 } ObjectTypeID;
@@ -170,13 +186,40 @@ typedef enum
  */
 typedef enum
 {
-    STRUCT_HUT_CANNIBAL,  ///< A small, primitive hut, typically for cannibals.
-    STRUCT_CRYPT,         ///< An underground tomb or burial chamber.
-    STRUCT_RUIN,          ///< Remains of a destroyed building or wall.
-    STRUCT_VILLAGE_HOUSE, ///< A standard residential building in a village.
-    STRUCT_TEMPLE,        ///< A large, religious building.
-    STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
+    STRUCT_HUT_CANNIBAL,   ///< A small, primitive hut, typically for cannibals.
+    STRUCT_CRYPT,          ///< An underground tomb or burial chamber.
+    STRUCT_RUIN,           ///< Remains of a destroyed building or wall.
+    STRUCT_VILLAGE_HOUSE,  ///< A standard residential building in a village.
+    STRUCT_TEMPLE,         ///< A large, religious building.
+    STRUCT_WITCH_HOVEL,    ///< Fetid hut where occult rituals take place.
+    STRUCT_GALLOWS,        ///< Execution site flanked by ominous effigies.
+    STRUCT_BLOOD_GARDEN,   ///< Ritual garden drenched in blood offerings.
+    STRUCT_FLESH_PIT,      ///< Grisly pit where butchers discard offerings.
+    STRUCT_VOID_OBELISK,   ///< Obelisk radiating oppressive void energy.
+    STRUCT_PLAGUE_NURSERY, ///< Cocoon cluster breeding the cursed.
+    STRUCT_COUNT           ///< The total number of defined structure kinds (must be the last entry).
 } StructureKind;
+
+typedef enum
+{
+    ENTITY_TYPE_INVALID = -1,
+
+    ENTITY_TYPE_CURSED_ZOMBIE = 0,
+    ENTITY_TYPE_CANNIBAL,
+
+    ENTITY_TYPE_COUNT
+} EntitiesTypeID;
+
+typedef enum
+{
+    ENTITY_FLAG_HOSTILE     = 1u << 0,
+    ENTITY_FLAG_MOBILE      = 1u << 1,
+    ENTITY_FLAG_INTELLIGENT = 1u << 2,
+    ENTITY_FLAG_UNDEAD      = 1u << 3,
+    ENTITY_FLAG_MERCHANT    = 1u << 4,
+    ENTITY_FLAG_ANIMAL      = 1u << 5
+} EntityFlags;
+
 // -----------------------------------------------------------------------------
 // STRUCTURES
 // -----------------------------------------------------------------------------
@@ -253,26 +296,6 @@ typedef struct
 } RoomTypeRule;
 
 /**
- * @struct Building
- * @brief Represents a detected building or enclosed room within the world.
- *
- * Contains metadata such as its bounding box, contained objects,
- * computed center, and classification according to room rules.
- */
-typedef struct Building
-{
-    int                 id;            /**< Unique building identifier */
-    Rectangle           bounds;        /**< Bounding box (in tile coordinates) */
-    Vector2             center;        /**< Geometric center (in tile coordinates) */
-    int                 area;          /**< Interior area in tiles */
-    char                name[64];      /**< Inferred or generic building name */
-    int                 objectCount;   /**< Number of objects inside */
-    Object**            objects;       /**< Pointer to a dynamic list of object instances */
-    const RoomTypeRule* roomType;      /**< Detected room type (optional) */
-    StructureKind       structureKind; /**< Optional originating structure blueprint. */
-} Building;
-
-/**
  * @struct TileType
  * @brief Defines a type of terrain tile with rendering and interaction properties.
  */
@@ -306,6 +329,76 @@ typedef struct
     TileTypeID tiles[MAP_HEIGHT][MAP_WIDTH];   /**< 2D grid of terrain tiles */
     Object*    objects[MAP_HEIGHT][MAP_WIDTH]; /**< 2D grid of placed objects */
 } Map;
+
+/**
+ * @brief Generic, data-driven descriptor for a world structure.
+ *
+ * This structure holds all the metadata required to define a type of structure,
+ * including its size constraints, relative rarity for generation, and the
+ * concrete function used to build it.
+ */
+typedef struct StructureDef
+{
+    char          name[64];             ///< Descriptive display name of the structure.
+    StructureKind kind;                 ///< The type/classification of the structure.
+    int           minWidth, maxWidth;   ///< Minimum and maximum width in map tiles.
+    int           minHeight, maxHeight; ///< Minimum and maximum height in map tiles.
+    float         rarity;               ///< Relative weight for drawing/picking this structure (higher = more common).
+    /**
+     * @brief Concrete construction callback.
+     *
+     * This function is responsible for placing walls, doors, objects, and
+     * other details that constitute the structure on the map.
+     * @param map The map where the structure will be built.
+     * @param x The top-left X coordinate of the structure's bounding box.
+     * @param y The top-left Y coordinate of the structure's bounding box.
+     * @param rng Pointer to the random number generator state.
+     */
+    void (*build)(Map* map, int x, int y, uint64_t* rng);
+    int minInstances; ///< Guaranteed minimum number of instances to spawn per world.
+
+    char  auraName[STRUCTURE_AURA_NAME_MAX];        ///< Short aura label.
+    char  auraDescription[STRUCTURE_AURA_DESC_MAX]; ///< Long form aura description.
+    float auraRadius;                               ///< Aura influence radius (in tiles).
+    float auraIntensity;                            ///< Aura intensity score (arbitrary units).
+
+    EntitiesTypeID occupantType;                                     ///< Default resident type.
+    int            occupantMin;                                      ///< Minimum number of residents.
+    int            occupantMax;                                      ///< Maximum number of residents.
+    char           occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX]; ///< Resident label/description.
+    char           triggerDescription[STRUCTURE_TRIGGER_DESC_MAX];   ///< Description of the structure's triggered action/effect.
+} StructureDef;
+
+/**
+ * @struct Building
+ * @brief Represents a detected building or enclosed room within the world.
+ *
+ * Contains metadata such as its bounding box, contained objects,
+ * computed center, and classification according to room rules.
+ */
+typedef struct Building
+{
+    int                        id;            /**< Unique building identifier */
+    Rectangle                  bounds;        /**< Bounding box (in tile coordinates) */
+    Vector2                    center;        /**< Geometric center (in tile coordinates) */
+    int                        area;          /**< Interior area in tiles */
+    char                       name[64];      /**< Inferred or generic building name */
+    int                        objectCount;   /**< Number of objects inside */
+    Object**                   objects;       /**< Pointer to a dynamic list of object instances */
+    const RoomTypeRule*        roomType;      /**< Detected room type (optional) */
+    StructureKind              structureKind; /**< Optional originating structure blueprint. */
+    const struct StructureDef* structureDef;  /**< Back-reference to immutable structure definition. */
+    char                       auraName[STRUCTURE_AURA_NAME_MAX];
+    char                       auraDescription[STRUCTURE_AURA_DESC_MAX];
+    float                      auraRadius;
+    float                      auraIntensity;
+    EntitiesTypeID             occupantType;    /**< Default resident type linked to this structure. */
+    int                        occupantMin;     /**< Minimum intended number of occupants. */
+    int                        occupantMax;     /**< Maximum intended number of occupants. */
+    int                        occupantCurrent; /**< Deterministic resident count used for spawning. */
+    char                       occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX];
+    char                       triggerDescription[STRUCTURE_TRIGGER_DESC_MAX]; /**< Narrative of the structure's special action. */
+} Building;
 
 /**
  * @brief Parameters for world generation.

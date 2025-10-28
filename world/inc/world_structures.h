@@ -15,33 +15,6 @@
 #include "object.h"
 
 /**
- * @brief Generic, data-driven descriptor for a world structure.
- *
- * This structure holds all the metadata required to define a type of structure,
- * including its size constraints, relative rarity for generation, and the
- * concrete function used to build it.
- */
-typedef struct
-{
-    const char*   name;                 ///< Descriptive name of the structure (e.g., "Cannibal Hut").
-    StructureKind kind;                 ///< The type/classification of the structure.
-    int           minWidth, maxWidth;   ///< Minimum and maximum width in map tiles.
-    int           minHeight, maxHeight; ///< Minimum and maximum height in map tiles.
-    float         rarity;               ///< Relative weight for drawing/picking this structure (higher = more common).
-    /**
-     * @brief Concrete construction callback.
-     *
-     * This function is responsible for placing walls, doors, objects, and
-     * other details that constitute the structure on the map.
-     * @param map The map where the structure will be built.
-     * @param x The top-left X coordinate of the structure's bounding box.
-     * @param y The top-left Y coordinate of the structure's bounding box.
-     * @param rng Pointer to the random number generator state.
-     */
-    void (*build)(Map* map, int x, int y, uint64_t* rng);
-} StructureDef;
-
-/**
  * @brief Selects a random structure definition appropriate for a given biome.
  *
  * The selection is weighted by the @c rarity field of the StructureDef.
@@ -79,6 +52,11 @@ StructureKind structure_kind_from_string(const char* name);
  */
 const char* structure_kind_to_string(StructureKind kind);
 
+/**
+ * @brief Loads metadata overrides for structures from an STV file.
+ */
+void load_structure_metadata(const char* path);
+
 /// @name Concrete Structure Generators
 /// @brief Functions that implement the actual map modifications for specific structures.
 /// @note These functions are implemented in @c world_structures.c and are
@@ -89,5 +67,11 @@ void build_crypt(Map* map, int x, int y, uint64_t* rng);
 void build_ruin(Map* map, int x, int y, uint64_t* rng);
 void build_village_house(Map* map, int x, int y, uint64_t* rng);
 void build_temple(Map* map, int x, int y, uint64_t* rng);
+void build_witch_hovel(Map* map, int x, int y, uint64_t* rng);
+void build_gallows(Map* map, int x, int y, uint64_t* rng);
+void build_blood_garden(Map* map, int x, int y, uint64_t* rng);
+void build_flesh_pit(Map* map, int x, int y, uint64_t* rng);
+void build_void_obelisk(Map* map, int x, int y, uint64_t* rng);
+void build_plague_nursery(Map* map, int x, int y, uint64_t* rng);
 
 #endif // WORLD_STRUCTURES_H
