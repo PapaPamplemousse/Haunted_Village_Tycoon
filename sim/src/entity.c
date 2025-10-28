@@ -457,6 +457,78 @@ static bool entity_spawn_near_structures(EntitySystem* sys, const EntitySpawnRul
     return spawnedAny;
 }
 
+static void entity_spawn_structure_residents(EntitySystem* sys, const Map* map)
+{
+    if (!sys || !map)
+        return;
+
+    for (int b = 0; b < buildingCount; ++b)
+    {
+        Building* building = &buildings[b];
+        if (!building || !building->structureDef)
+            continue;
+        if (building->occupantType <= ENTITY_TYPE_INVALID)
+            continue;
+        if (building->occupantCurrent <= 0)
+            continue;
+
+        const EntityType* type = entity_find_type(sys, building->occupantType);
+        if (!type)
+            continue;
+
+        Vector2 home      = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
+        int     toSpawn   = building->occupantCurrent;
+        int     spawned   = 0;
+
+        for (int i = 0; i < toSpawn; ++i)
+        {
+            bool placed = false;
+            for (int attempt = 0; attempt < 8 && !placed; ++attempt)
+            {
+                float   angle    = entity_randomf(sys, 0.0f, 2.0f * PI);
+                float   dist     = entity_randomf(sys, 0.2f, 1.6f);
+                Vector2 spawnPos = {
+                    home.x + cosf(angle) * dist * TILE_SIZE,
+                    home.y + sinf(angle) * dist * TILE_SIZE,
+                };
+
+                if (!entity_position_is_walkable(map, spawnPos, type->radius))
+                    continue;
+
+                uint16_t id = entity_spawn(sys, type->id, spawnPos);
+                if (id == ENTITY_ID_INVALID)
+                    continue;
+
+                Entity* ent = entity_acquire(sys, id);
+                if (ent)
+                {
+                    ent->home          = home;
+                    ent->homeStructure = building->structureKind;
+                }
+                spawned++;
+                placed = true;
+            }
+
+            if (!placed && entity_position_is_walkable(map, home, type->radius))
+            {
+                uint16_t id = entity_spawn(sys, type->id, home);
+                if (id != ENTITY_ID_INVALID)
+                {
+                    Entity* ent = entity_acquire(sys, id);
+                    if (ent)
+                    {
+                        ent->home          = home;
+                        ent->homeStructure = building->structureKind;
+                    }
+                    spawned++;
+                }
+            }
+        }
+
+        building->occupantCurrent = spawned;
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Core system operations
 // -----------------------------------------------------------------------------
@@ -539,6 +611,8 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
                 }
             }
         }
+
+        entity_spawn_structure_residents(sys, map);
     }
 
     return loaded;

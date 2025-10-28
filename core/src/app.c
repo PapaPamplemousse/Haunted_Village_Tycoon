@@ -113,13 +113,62 @@ static void app_draw_world(void)
         if (textY < 0)
             textY = 0;
 
-        char label[128];
         if (G_INPUT.showBuildingNames)
-            snprintf(label, sizeof(label), "%d: %s", b->id, b->name);
-        else
-            snprintf(label, sizeof(label), "%d", b->id);
+        {
+            const char* displayName = (b->name[0] != '\0') ? b->name : "Structure";
+            char        header[128];
+            snprintf(header, sizeof(header), "#%d %s", b->id, displayName);
+            DrawText(header, textX, textY, 12, WHITE);
 
-        DrawText(label, textX, textY, 10, WHITE);
+            int infoY = textY + 14;
+            if (b->structureDef)
+            {
+                if (b->auraName[0])
+                {
+                    char auraLine[160];
+                    snprintf(auraLine,
+                             sizeof(auraLine),
+                             "Aura: %s (r=%.1f, pwr=%.1f)",
+                             b->auraName,
+                             b->auraRadius,
+                             b->auraIntensity);
+                    DrawText(auraLine, textX, infoY, 10, ColorAlpha(WHITE, 0.85f));
+                    infoY += 12;
+
+                    if (b->auraDescription[0])
+                    {
+                        DrawText(b->auraDescription, textX, infoY, 9, ColorAlpha(WHITE, 0.7f));
+                        infoY += 11;
+                    }
+                }
+
+                if (b->occupantType > ENTITY_TYPE_INVALID && b->occupantMax > 0)
+                {
+                    char occLine[160];
+                    snprintf(occLine,
+                             sizeof(occLine),
+                             "Residents: %d (min %d, max %d) %s",
+                             b->occupantCurrent,
+                             b->occupantMin,
+                             b->occupantMax,
+                             b->occupantDescription[0] ? b->occupantDescription : "residents");
+                    DrawText(occLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
+                    infoY += 12;
+                }
+
+                if (b->triggerDescription[0])
+                {
+                    DrawText(b->triggerDescription, textX, infoY, 10, ColorAlpha(WHITE, 0.8f));
+                    infoY += 12;
+                }
+            }
+        }
+        else
+        {
+            char label[32];
+            snprintf(label, sizeof(label), "%d", b->id);
+            DrawText(label, textX, textY, 10, WHITE);
+        }
     }
 
     EndMode2D();
