@@ -195,9 +195,21 @@ typedef struct RoomTypeEntry
 } RoomTypeEntry;
 
 // Table de correspondance nom → enum
-static const RoomTypeEntry ROOM_TYPE_NAMES[] = {
-    {"Bedroom", ROOM_BEDROOM}, {"Kitchen", ROOM_KITCHEN}, {"Hut", ROOM_HUT}, {"Crypt", ROOM_CRYPT}, {"Sanctuary", ROOM_SANCTUARY}, {"House", ROOM_HOUSE}, {"LargeRoom", ROOM_LARGEROOM}, {NULL, ROOM_NONE}, // fin de table
-};
+static const RoomTypeEntry ROOM_TYPE_NAMES[] = {{"Bedroom", ROOM_BEDROOM},
+                                               {"Kitchen", ROOM_KITCHEN},
+                                               {"Hut", ROOM_HUT},
+                                               {"Crypt", ROOM_CRYPT},
+                                               {"Sanctuary", ROOM_SANCTUARY},
+                                               {"House", ROOM_HOUSE},
+                                               {"LargeRoom", ROOM_LARGEROOM},
+                                               {"Ruin", ROOM_RUIN},
+                                               {"Witch Hovel", ROOM_WITCH_HOVEL},
+                                               {"Gallows", ROOM_GALLOWS},
+                                               {"Blood Garden", ROOM_BLOOD_GARDEN},
+                                               {"Flesh Pit", ROOM_FLESH_PIT},
+                                               {"Void Obelisk", ROOM_VOID_OBELISK},
+                                               {"Plague Nursery", ROOM_PLAGUE_NURSERY},
+                                               {NULL, ROOM_NONE}}; // fin de table
 
 // Lookup de l’ID à partir du nom
 /**

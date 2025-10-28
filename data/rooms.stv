@@ -5,12 +5,24 @@
 #
 # Fields:
 #   name        = internal name (optional, usually same as section name)
+#   id          = optional explicit RoomTypeID override
 #   min_area    = minimum area in tiles
 #   max_area    = maximum area in tiles (0 = no limit)
 #   requirement = object_name:min_count, object_name:min_count, ...
 #
-# The loader will resolve each object_name via the ObjectType array
-# previously loaded from objects.stv.
+# Optional structure metadata (used when structure_kind is provided):
+#   structure_kind       = StructureKind identifier (e.g., HUT_CANNIBAL)
+#   display_name         = In-game display name override
+#   min_instances        = Minimum guaranteed instances per world
+#   aura_name            = Aura label
+#   aura_description     = Aura flavour text
+#   aura_radius          = Aura radius in tiles
+#   aura_intensity       = Aura strength indicator
+#   occupant_type        = Default resident type (CANNIBAL, CURSED_ZOMBIE, NONE)
+#   occupant_min         = Minimum resident count
+#   occupant_max         = Maximum resident count
+#   occupant_description = Description of the resident group
+#   entity_action        = Description of triggered actions or spawns
 # =========================================================
 
 [Bedroom]
@@ -26,30 +38,204 @@ max_area     = 40
 requirement  = table_wood:1, chair_wood:2, firepit:1
 
 [Hut]
-id           = 3
-min_area     = 6
-max_area     = 36
-requirement  = firepit:1, crate:1, bone_pile:1
+id                   = 3
+structure_kind       = HUT_CANNIBAL
+display_name         = Cannibal Den
+min_instances        = 3
+aura_name            = Reeking Butchery
+aura_description     = The stench of butchered flesh gnaws at nearby sanity.
+aura_radius          = 4.5
+aura_intensity       = 2.8
+occupant_type        = CANNIBAL
+occupant_min         = 1
+occupant_max         = 3
+occupant_description = Cannibal raiding party
+entity_action        = Spawns 1-3 cannibal raiders hungry for flesh.
+min_area             = 6
+max_area             = 36
+requirement          = firepit:1, crate:1, bone_pile:1
 
 [Crypt]
-id           = 4
-min_area     = 9
-max_area     = 64
-requirement  = altar:1, bone_pile:1
+id                   = 4
+structure_kind       = CRYPT
+display_name         = Whispering Crypt
+min_instances        = 2
+aura_name            = Grave Chill
+aura_description     = Freezing whispers and spectral drafts sap warmth from travellers.
+aura_radius          = 5.5
+aura_intensity       = 3.2
+occupant_type        = CURSED_ZOMBIE
+occupant_min         = 2
+occupant_max         = 4
+occupant_description = Restless dead custodians
+entity_action        = Releases 2-4 cursed zombies to defend the catacombs.
+min_area             = 9
+max_area             = 64
+requirement          = altar:1, bone_pile:1
 
 [Sanctuary]
-id           = 5
-min_area     = 12
-max_area     = 128
-requirement  = altar:1, torch_wall:2
+id                   = 5
+structure_kind       = TEMPLE
+display_name         = Bloodbound Temple
+min_instances        = 1
+aura_name            = Zealous Chant
+aura_description     = Feverish hymns empower the faithful and unnerve intruders.
+aura_radius          = 6.0
+aura_intensity       = 2.6
+occupant_type        = CURSED_ZOMBIE
+occupant_min         = 1
+occupant_max         = 2
+occupant_description = Fanatical guardians
+entity_action        = Summons 1-2 zealots to guard the altar.
+min_area             = 12
+max_area             = 128
+requirement          = altar:1, torch_wall:2
 
 [House]
-id           = 6
-min_area     = 8
-max_area     = 49
-requirement  = bed_small:1, table_wood:1, chair_wood:1
+id                   = 6
+structure_kind       = VILLAGE_HOUSE
+display_name         = Deserted Homestead
+min_instances        = 2
+aura_name            = Faded Hearth
+aura_description     = Embers of ordinary life barely push back the gloom.
+aura_radius          = 2.5
+aura_intensity       = 0.6
+occupant_type        = NONE
+occupant_min         = 0
+occupant_max         = 0
+occupant_description = Vacant shelter
+entity_action        = Offers respite but no stationed inhabitants.
+min_area             = 8
+max_area             = 49
+requirement          = bed_small:1, table_wood:1, chair_wood:1
 
 [LargeRoom]
 id           = 7
 min_area     = 40
 max_area     = 0
+
+[Ruin]
+id                   = 8
+structure_kind       = RUIN
+display_name         = Forsaken Ruin
+min_instances        = 4
+aura_name            = Lingering Echoes
+aura_description     = Shattered stones echo with memories of suffering.
+aura_radius          = 3.5
+aura_intensity       = 1.2
+occupant_type        = NONE
+occupant_min         = 0
+occupant_max         = 0
+occupant_description = Abandoned husk
+entity_action        = Serves as eerie cover with no resident defenders.
+min_area             = 6
+max_area             = 36
+requirement          = bone_pile:1
+
+[Witch Hovel]
+id                   = 9
+structure_kind       = WITCH_HOVEL
+display_name         = Hexspeaker Hovel
+min_instances        = 2
+aura_name            = Hexed Vapours
+aura_description     = Poisonous fumes warp minds and embolden occult rites.
+aura_radius          = 4.8
+aura_intensity       = 3.1
+occupant_type        = CANNIBAL
+occupant_min         = 1
+occupant_max         = 2
+occupant_description = Occult devotees
+entity_action        = Calls cultists that brew hexes within.
+min_area             = 9
+max_area             = 49
+requirement          = cauldron:1, totem_blood:1
+
+[Gallows]
+id                   = 10
+structure_kind       = GALLOWS
+display_name         = Sorrow Gallows
+min_instances        = 1
+aura_name            = Lingering Terror
+aura_description     = The air is heavy with dread where countless executions occurred.
+aura_radius          = 5.0
+aura_intensity       = 2.0
+occupant_type        = NONE
+occupant_min         = 0
+occupant_max         = 0
+occupant_description = Desolate scaffold
+entity_action        = Spreads dread, lowering resolve near executions.
+min_area             = 20
+max_area             = 64
+requirement          = gallow:1
+
+[Blood Garden]
+id                   = 11
+structure_kind       = BLOOD_GARDEN
+display_name         = Bloodrose Garden
+min_instances        = 2
+aura_name            = Blood Bloom
+aura_description     = Crimson spores invigorate undead flesh while draining the living.
+aura_radius          = 6.2
+aura_intensity       = 3.4
+occupant_type        = CURSED_ZOMBIE
+occupant_min         = 2
+occupant_max         = 4
+occupant_description = Blood-drunk shamblers
+entity_action        = Grows 2-4 undead guardians from the crimson blooms.
+min_area             = 25
+max_area             = 81
+requirement          = ritual_circle:1, bone_pile:2
+
+[Flesh Pit]
+id                   = 12
+structure_kind       = FLESH_PIT
+display_name         = Flesh Pit
+min_instances        = 2
+aura_name            = Blood Sickness
+aura_description     = Fetid gore clouds infect the air and weaken outsiders.
+aura_radius          = 5.8
+aura_intensity       = 3.6
+occupant_type        = CANNIBAL
+occupant_min         = 2
+occupant_max         = 5
+occupant_description = Butchers and thralls
+entity_action        = Breeds 2-5 cannibal butchers who patrol the pit.
+min_area             = 25
+max_area             = 81
+requirement          = meat_hook:2, firepit:1
+
+[Void Obelisk]
+id                   = 13
+structure_kind       = VOID_OBELISK
+display_name         = Void Obelisk
+min_instances        = 1
+aura_name            = Void Resonance
+aura_description     = A crushing hum distorts minds and lures occultists.
+aura_radius          = 6.5
+aura_intensity       = 3.8
+occupant_type        = NONE
+occupant_min         = 0
+occupant_max         = 0
+occupant_description = Dormant monolith
+entity_action        = Emits void pulses empowering nearby occult rituals.
+min_area             = 25
+max_area             = 64
+requirement          = void_obelisk:1, ritual_circle:1
+
+[Plague Nursery]
+id                   = 14
+structure_kind       = PLAGUE_NURSERY
+display_name         = Plague Nursery
+min_instances        = 2
+aura_name            = Plague Spores
+aura_description     = Toxic spores cling to lungs and invigorate the cursed within.
+aura_radius          = 5.0
+aura_intensity       = 3.1
+occupant_type        = CURSED_ZOMBIE
+occupant_min         = 3
+occupant_max         = 6
+occupant_description = Plaguebound husks
+entity_action        = Incubates 3-6 plague husks ready to burst forth.
+min_area             = 16
+max_area             = 64
+requirement          = cauldron:1, plague_pod:2

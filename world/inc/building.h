@@ -72,4 +72,9 @@ void update_building_detection(Map* map);
  */
 Building* register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind);
 
+/**
+ * @brief Clears structure kind markers stored on the map grid.
+ */
+void building_clear_structure_markers(void);
+
 #endif /* BUILDING_H */

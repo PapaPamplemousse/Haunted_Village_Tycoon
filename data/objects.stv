@@ -434,3 +434,129 @@ is_wall      = false
 is_door      = false
 color        = 180,180,220,255
 texture      = assets/objects/utility/altar.png
+
+[CAULDRON]
+id           = 22
+name         = cauldron
+display_name = Witch Cauldron
+category     = utility
+max_hp       = 120
+comfort      = 0
+warmth       = 2
+light        = 1
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 60,80,90,255
+texture      = none
+
+[TOTEM_BLOOD]
+id           = 23
+name         = totem_blood
+display_name = Blood Totem
+category     = structure
+max_hp       = 180
+comfort      = 0
+warmth       = 0
+light        = 1
+width        = 1
+height       = 2
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 150,20,40,255
+texture      = none
+
+[RITUAL_CIRCLE]
+id           = 24
+name         = ritual_circle
+display_name = Ritual Circle
+category     = decoration
+max_hp       = 80
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 2
+height       = 2
+walkable     = true
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 200,30,90,200
+texture      = none
+
+[GALLOW]
+id           = 25
+name         = gallows
+display_name = Execution Gallows
+category     = structure
+max_hp       = 220
+comfort      = -2
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 90,60,40,255
+texture      = none
+
+[MEAT_HOOK]
+id           = 26
+name         = meat_hook
+display_name = Meat Hook Rack
+category     = decoration
+max_hp       = 160
+comfort      = -3
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 150,30,30,255
+texture      = none
+
+[VOID_OBELISK]
+id           = 27
+name         = void_obelisk
+display_name = Void Obelisk
+category     = structure
+max_hp       = 400
+comfort      = -4
+warmth       = 0
+light        = 2
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 60,0,120,255
+texture      = none
+
+[PLAGUE_POD]
+id           = 28
+name         = plague_pod
+display_name = Plague Pod
+category     = hazard
+max_hp       = 180
+comfort      = -5
+warmth       = 0
+light        = 0
+width        = 1
+height       = 1
+walkable     = false
+flammable    = false
+is_wall      = false
+is_door      = false
+color        = 120,180,60,255
+texture      = none

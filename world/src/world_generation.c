@@ -530,6 +530,80 @@ static void generate_lakes(Map* map, const Climate* C, uint64_t* rng)
     }
 }
 
+typedef struct
+{
+    int           x;
+    int           y;
+    StructureKind kind;
+} PlacedStructure;
+
+static bool structure_allowed_in_biome(BiomeKind biome, StructureKind kind)
+{
+    const BiomeDef* def = get_biome_def(biome);
+    if (!def || def->structureCount <= 0 || !def->structures)
+        return false;
+
+    for (int i = 0; i < def->structureCount; ++i)
+    {
+        if (def->structures[i].kind == kind)
+            return true;
+    }
+    return false;
+}
+
+static bool respects_structure_spacing(int x, int y, const PlacedStructure* placed, int placedCount)
+{
+    if (g_cfg.structure_min_spacing <= 0)
+        return true;
+
+    int minSq = g_cfg.structure_min_spacing * g_cfg.structure_min_spacing;
+    for (int i = 0; i < placedCount; ++i)
+    {
+        int dx = x - placed[i].x;
+        int dy = y - placed[i].y;
+        if (dx * dx + dy * dy < minSq)
+            return false;
+    }
+    return true;
+}
+
+static bool attempt_spawn_structure(Map* map,
+                                    const StructureDef* def,
+                                    int x,
+                                    int y,
+                                    uint64_t* rng,
+                                    PlacedStructure* placed,
+                                    int* placedCount,
+                                    int placedCap,
+                                    int* structureCounts)
+{
+    if (!map || !def)
+        return false;
+
+    if (x < 1 || y < 1)
+        return false;
+    if (x + def->maxWidth + 1 >= map->width || y + def->maxHeight + 1 >= map->height)
+        return false;
+
+    if (!respects_structure_spacing(x, y, placed, *placedCount))
+        return false;
+
+    def->build(map, x, y, rng);
+
+    if (structureCounts)
+        structureCounts[def->kind]++;
+
+    if (*placedCount < placedCap)
+    {
+        placed[*placedCount].x    = x;
+        placed[*placedCount].y    = y;
+        placed[*placedCount].kind = def->kind;
+        (*placedCount)++;
+    }
+
+    return true;
+}
+
 // --- Local neighborhood 2-nearest centers with bi-frequency warp ---
 // Search only the 3x3 macro-cell neighborhood to keep it fast.
 static void pick_two_centers_from_neighbors(int* outBest1, int* outBest2, int x, int y, // tile coords
@@ -614,6 +688,7 @@ void generate_world(Map* map)
         return;
     const int W = map->width, H = map->height;
 
+    load_structure_metadata("data/rooms.stv");
     load_biome_definitions("data/biomes.stv");
     // 1) Build climate maps (coherent drivers)
     Climate C = {0};
@@ -870,12 +945,10 @@ void generate_world(Map* map)
     // 7) Structures — data driven & scattered with spacing. We keep your API.
     //    Slightly reduced scan density by stepping over tiles (grid stride) to save time.
     //    Still deterministic, and spacing still enforced.
-    typedef struct
-    {
-        int x, y;
-    } P2i;
-    P2i placed[1024];
-    int placedCount = 0;
+    PlacedStructure placed[1024];
+    int             placedCount              = 0;
+    int             structureCounts[STRUCT_COUNT] = {0};
+    const int       placedCap                = (int)(sizeof(placed) / sizeof(placed[0]));
 
     const int STRIDE = 3; // check 1/STRIDE^2 of tiles as anchor candidates
     for (int y = 2; y < H - 10; y += STRIDE)
@@ -922,28 +995,75 @@ void generate_world(Map* map)
             float finalChance = g_cfg.structure_chance * biomeMult;
             if (rng01(&rs) < finalChance)
             {
-                // spacing check against previous anchors
-                int ok = 1;
-                for (int i = 0; i < placedCount; i++)
-                {
-                    int dx = x - placed[i].x, dy = y - placed[i].y;
-                    if (dx * dx + dy * dy < g_cfg.structure_min_spacing * g_cfg.structure_min_spacing)
-                    {
-                        ok = 0;
-                        break;
-                    }
-                }
-                if (!ok)
-                    continue;
-
                 const StructureDef* def = pick_structure_for_biome(kind, &rs);
                 if (def)
                 {
-                    def->build(map, x, y, &rs); // your builder records Building, uses map_place_object()
-                    if (placedCount < (int)(sizeof(placed) / sizeof(placed[0])))
-                        placed[placedCount++] = (P2i){x, y};
+                    attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts);
                 }
             }
+        }
+    }
+
+    for (int k = 0; k < STRUCT_COUNT; ++k)
+    {
+        const StructureDef* def = get_structure_def((StructureKind)k);
+        if (!def || def->minInstances <= 0)
+            continue;
+
+        int attempts    = 0;
+        int maxAttempts = 1200;
+        while (structureCounts[k] < def->minInstances && attempts < maxAttempts)
+        {
+            int maxX = W - def->maxWidth - 2;
+            int maxY = H - def->maxHeight - 2;
+            if (maxX <= 2 || maxY <= 2)
+                break;
+
+            int rangeX = maxX - 1;
+            int rangeY = maxY - 1;
+            if (rangeX <= 0 || rangeY <= 0)
+                break;
+
+            int x = 1 + (int)(rng01(&rs) * (float)rangeX);
+            int y = 1 + (int)(rng01(&rs) * (float)rangeY);
+
+            int cellX = x / MC;
+            int cellY = y / MC;
+            if (cellX < 0 || cellX >= cellsX || cellY < 0 || cellY >= cellsY)
+            {
+                attempts++;
+                continue;
+            }
+
+            int centerIndex = cellCenterIdx[cellY * cellsX + cellX];
+            if (centerIndex < 0 || centerIndex >= nC)
+            {
+                attempts++;
+                continue;
+            }
+
+            BiomeKind biome = centers[centerIndex].kind;
+            if (!structure_allowed_in_biome(biome, def->kind))
+            {
+                attempts++;
+                continue;
+            }
+
+            if (attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts))
+            {
+                attempts = 0;
+                continue;
+            }
+
+            attempts++;
+        }
+
+        if (structureCounts[k] < def->minInstances)
+        {
+            printf("⚠️  Unable to satisfy minimum %d instances for structure %s (placed %d)\n",
+                   def->minInstances,
+                   def->name,
+                   structureCounts[k]);
         }
     }
 

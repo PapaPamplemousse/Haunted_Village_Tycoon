@@ -23,7 +23,7 @@
  */
 typedef struct
 {
-    const char*   name;                 ///< Descriptive name of the structure (e.g., "Cannibal Hut").
+    char          name[64];             ///< Descriptive display name of the structure.
     StructureKind kind;                 ///< The type/classification of the structure.
     int           minWidth, maxWidth;   ///< Minimum and maximum width in map tiles.
     int           minHeight, maxHeight; ///< Minimum and maximum height in map tiles.
@@ -39,6 +39,18 @@ typedef struct
      * @param rng Pointer to the random number generator state.
      */
     void (*build)(Map* map, int x, int y, uint64_t* rng);
+    int   minInstances; ///< Guaranteed minimum number of instances to spawn per world.
+
+    char  auraName[STRUCTURE_AURA_NAME_MAX];       ///< Short aura label.
+    char  auraDescription[STRUCTURE_AURA_DESC_MAX];///< Long form aura description.
+    float auraRadius;                              ///< Aura influence radius (in tiles).
+    float auraIntensity;                           ///< Aura intensity score (arbitrary units).
+
+    EntitiesTypeID occupantType;                         ///< Default resident type.
+    int            occupantMin;                          ///< Minimum number of residents.
+    int            occupantMax;                          ///< Maximum number of residents.
+    char           occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX]; ///< Resident label/description.
+    char           triggerDescription[STRUCTURE_TRIGGER_DESC_MAX];   ///< Description of the structure's triggered action/effect.
 } StructureDef;
 
 /**
@@ -79,6 +91,11 @@ StructureKind structure_kind_from_string(const char* name);
  */
 const char* structure_kind_to_string(StructureKind kind);
 
+/**
+ * @brief Loads metadata overrides for structures from an STV file.
+ */
+void load_structure_metadata(const char* path);
+
 /// @name Concrete Structure Generators
 /// @brief Functions that implement the actual map modifications for specific structures.
 /// @note These functions are implemented in @c world_structures.c and are
@@ -89,5 +106,11 @@ void build_crypt(Map* map, int x, int y, uint64_t* rng);
 void build_ruin(Map* map, int x, int y, uint64_t* rng);
 void build_village_house(Map* map, int x, int y, uint64_t* rng);
 void build_temple(Map* map, int x, int y, uint64_t* rng);
+void build_witch_hovel(Map* map, int x, int y, uint64_t* rng);
+void build_gallows(Map* map, int x, int y, uint64_t* rng);
+void build_blood_garden(Map* map, int x, int y, uint64_t* rng);
+void build_flesh_pit(Map* map, int x, int y, uint64_t* rng);
+void build_void_obelisk(Map* map, int x, int y, uint64_t* rng);
+void build_plague_nursery(Map* map, int x, int y, uint64_t* rng);
 
 #endif // WORLD_STRUCTURES_H

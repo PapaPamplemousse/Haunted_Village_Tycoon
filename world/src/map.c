@@ -10,6 +10,7 @@
 #include "world_generation.h"
 #include "world_chunk.h"
 #include "input.h"
+#include "building.h"
 
 static inline int wrap_x(int x)
 {
@@ -55,6 +56,7 @@ void map_init(Map* map, unsigned int seed)
     };
     worldgen_config(&cfg);
 
+    building_clear_structure_markers();
     generate_world(map);
 }
 

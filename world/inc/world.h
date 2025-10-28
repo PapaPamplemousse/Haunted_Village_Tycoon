@@ -41,6 +41,15 @@
  */
 #define MAX_BUILDINGS 100
 
+/** Maximum characters allowed for structure aura names. */
+#define STRUCTURE_AURA_NAME_MAX 64
+/** Maximum characters allowed for structure aura description text. */
+#define STRUCTURE_AURA_DESC_MAX 160
+/** Maximum characters allowed for structure occupant description text. */
+#define STRUCTURE_OCCUPANT_DESC_MAX 128
+/** Maximum characters allowed for structure trigger/action description text. */
+#define STRUCTURE_TRIGGER_DESC_MAX 192
+
 // Tune for your target GPU. 128×128 balances rebuild cost vs draw calls.
 // You can go 64×64 on very low-end GPUs or 256×256 for fewer textures.
 
@@ -92,7 +101,14 @@ typedef enum
     // --- Hazards / Special ---
     OBJ_SULFUR_VENT = 19, /**< Sulfur vent */
     OBJ_FIREPIT     = 20, /**< Exterior fire pit */
-    OBJ_ALTAR       = 21, /**< Altar */
+    OBJ_ALTAR        = 21, /**< Altar */
+    OBJ_CAULDRON     = 22, /**< Bubbling witch cauldron */
+    OBJ_TOTEM_BLOOD  = 23, /**< Bloodied totem pole */
+    OBJ_RITUAL_CIRCLE = 24, /**< Ritual circle marker */
+    OBJ_GALLOW        = 25, /**< Execution gallows */
+    OBJ_MEAT_HOOK     = 26, /**< Rusted meat hook rack */
+    OBJ_VOID_OBELISK  = 27, /**< Void-touched obelisk */
+    OBJ_PLAGUE_POD    = 28, /**< Bloated plague pod */
 
     OBJ_COUNT /**< Sentinel (number of object types) */
 } ObjectTypeID;
@@ -107,6 +123,13 @@ typedef enum
     ROOM_SANCTUARY,
     ROOM_HOUSE,
     ROOM_LARGEROOM,
+    ROOM_RUIN,
+    ROOM_WITCH_HOVEL,
+    ROOM_GALLOWS,
+    ROOM_BLOOD_GARDEN,
+    ROOM_FLESH_PIT,
+    ROOM_VOID_OBELISK,
+    ROOM_PLAGUE_NURSERY,
     ROOM_COUNT
 } RoomTypeID;
 
@@ -175,8 +198,17 @@ typedef enum
     STRUCT_RUIN,          ///< Remains of a destroyed building or wall.
     STRUCT_VILLAGE_HOUSE, ///< A standard residential building in a village.
     STRUCT_TEMPLE,        ///< A large, religious building.
+    STRUCT_WITCH_HOVEL,   ///< Fetid hut where occult rituals take place.
+    STRUCT_GALLOWS,        ///< Execution site flanked by ominous effigies.
+    STRUCT_BLOOD_GARDEN,   ///< Ritual garden drenched in blood offerings.
+    STRUCT_FLESH_PIT,      ///< Grisly pit where butchers discard offerings.
+    STRUCT_VOID_OBELISK,   ///< Obelisk radiating oppressive void energy.
+    STRUCT_PLAGUE_NURSERY, ///< Cocoon cluster breeding the cursed.
     STRUCT_COUNT          ///< The total number of defined structure kinds (must be the last entry).
 } StructureKind;
+
+typedef enum EntitiesTypeID EntitiesTypeID;
+struct StructureDef;
 // -----------------------------------------------------------------------------
 // STRUCTURES
 // -----------------------------------------------------------------------------
@@ -270,6 +302,17 @@ typedef struct Building
     Object**            objects;       /**< Pointer to a dynamic list of object instances */
     const RoomTypeRule* roomType;      /**< Detected room type (optional) */
     StructureKind       structureKind; /**< Optional originating structure blueprint. */
+    const struct StructureDef* structureDef; /**< Back-reference to immutable structure definition. */
+    char                auraName[STRUCTURE_AURA_NAME_MAX];
+    char                auraDescription[STRUCTURE_AURA_DESC_MAX];
+    float               auraRadius;
+    float               auraIntensity;
+    EntitiesTypeID      occupantType;  /**< Default resident type linked to this structure. */
+    int                 occupantMin;   /**< Minimum intended number of occupants. */
+    int                 occupantMax;   /**< Maximum intended number of occupants. */
+    int                 occupantCurrent; /**< Deterministic resident count used for spawning. */
+    char                occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX];
+    char                triggerDescription[STRUCTURE_TRIGGER_DESC_MAX]; /**< Narrative of the structure's special action. */
 } Building;
 
 /**
