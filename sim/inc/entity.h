@@ -55,26 +55,6 @@
 // ENUMS & FLAGS
 // -----------------------------------------------------------------------------
 
-typedef enum
-{
-    ENTITY_TYPE_INVALID = -1,
-
-    ENTITY_TYPE_CURSED_ZOMBIE = 0,
-    ENTITY_TYPE_CANNIBAL,
-
-    ENTITY_TYPE_COUNT
-} EntitiesTypeID;
-
-typedef enum
-{
-    ENTITY_FLAG_HOSTILE     = 1u << 0,
-    ENTITY_FLAG_MOBILE      = 1u << 1,
-    ENTITY_FLAG_INTELLIGENT = 1u << 2,
-    ENTITY_FLAG_UNDEAD      = 1u << 3,
-    ENTITY_FLAG_MERCHANT    = 1u << 4,
-    ENTITY_FLAG_ANIMAL      = 1u << 5
-} EntityFlags;
-
 // -----------------------------------------------------------------------------
 // FORWARD DECLARATIONS
 // -----------------------------------------------------------------------------

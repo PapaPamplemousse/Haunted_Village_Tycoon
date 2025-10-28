@@ -15,45 +15,6 @@
 #include "object.h"
 
 /**
- * @brief Generic, data-driven descriptor for a world structure.
- *
- * This structure holds all the metadata required to define a type of structure,
- * including its size constraints, relative rarity for generation, and the
- * concrete function used to build it.
- */
-typedef struct
-{
-    char          name[64];             ///< Descriptive display name of the structure.
-    StructureKind kind;                 ///< The type/classification of the structure.
-    int           minWidth, maxWidth;   ///< Minimum and maximum width in map tiles.
-    int           minHeight, maxHeight; ///< Minimum and maximum height in map tiles.
-    float         rarity;               ///< Relative weight for drawing/picking this structure (higher = more common).
-    /**
-     * @brief Concrete construction callback.
-     *
-     * This function is responsible for placing walls, doors, objects, and
-     * other details that constitute the structure on the map.
-     * @param map The map where the structure will be built.
-     * @param x The top-left X coordinate of the structure's bounding box.
-     * @param y The top-left Y coordinate of the structure's bounding box.
-     * @param rng Pointer to the random number generator state.
-     */
-    void (*build)(Map* map, int x, int y, uint64_t* rng);
-    int   minInstances; ///< Guaranteed minimum number of instances to spawn per world.
-
-    char  auraName[STRUCTURE_AURA_NAME_MAX];       ///< Short aura label.
-    char  auraDescription[STRUCTURE_AURA_DESC_MAX];///< Long form aura description.
-    float auraRadius;                              ///< Aura influence radius (in tiles).
-    float auraIntensity;                           ///< Aura intensity score (arbitrary units).
-
-    EntitiesTypeID occupantType;                         ///< Default resident type.
-    int            occupantMin;                          ///< Minimum number of residents.
-    int            occupantMax;                          ///< Maximum number of residents.
-    char           occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX]; ///< Resident label/description.
-    char           triggerDescription[STRUCTURE_TRIGGER_DESC_MAX];   ///< Description of the structure's triggered action/effect.
-} StructureDef;
-
-/**
  * @brief Selects a random structure definition appropriate for a given biome.
  *
  * The selection is weighted by the @c rarity field of the StructureDef.
