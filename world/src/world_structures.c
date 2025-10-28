@@ -74,6 +74,55 @@ static EntitiesTypeID parse_entity_type(const char* token)
     return ENTITY_TYPE_INVALID;
 }
 
+static BiomeKind parse_biome_token(const char* token, bool* outIsWildcard)
+{
+    if (!token)
+        return BIO_MAX;
+
+    if (outIsWildcard)
+        *outIsWildcard = false;
+
+    char normalized[32];
+    size_t len = 0;
+    for (const char* p = token; *p && len + 1 < sizeof(normalized); ++p)
+    {
+        unsigned char c = (unsigned char)*p;
+        if (c == '\r' || c == '\n')
+            continue;
+        if (c == ' ' || c == '-' || c == '\t')
+            c = '_';
+        normalized[len++] = (char)toupper(c);
+    }
+    normalized[len] = '\0';
+
+    if (strcmp(normalized, "FOREST") == 0)
+        return BIO_FOREST;
+    if (strcmp(normalized, "PLAIN") == 0)
+        return BIO_PLAIN;
+    if (strcmp(normalized, "SAVANNA") == 0)
+        return BIO_SAVANNA;
+    if (strcmp(normalized, "TUNDRA") == 0)
+        return BIO_TUNDRA;
+    if (strcmp(normalized, "DESERT") == 0)
+        return BIO_DESERT;
+    if (strcmp(normalized, "SWAMP") == 0)
+        return BIO_SWAMP;
+    if (strcmp(normalized, "MOUNTAIN") == 0)
+        return BIO_MOUNTAIN;
+    if (strcmp(normalized, "CURSED") == 0)
+        return BIO_CURSED;
+    if (strcmp(normalized, "HELL") == 0)
+        return BIO_HELL;
+    if (strcmp(normalized, "ANY") == 0 || strcmp(normalized, "ALL") == 0)
+    {
+        if (outIsWildcard)
+            *outIsWildcard = true;
+        return BIO_MAX;
+    }
+
+    return BIO_MAX;
+}
+
 // --- helper murs/porte rectangle ---
 static void rect_walls(Map* map, int x, int y, int w, int h, ObjectTypeID wall, ObjectTypeID door)
 {
@@ -400,6 +449,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 1.0f,
         .build              = build_hut_cannibal,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Stench of Flesh",
         .auraDescription    = "Rotten smoke unsettles anyone nearby.",
         .auraRadius         = 4.0f,
@@ -420,6 +471,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.8f,
         .build              = build_crypt,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Chill of the Grave",
         .auraDescription    = "Freezing whispers sap warmth and courage.",
         .auraRadius         = 5.0f,
@@ -440,6 +493,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 1.2f,
         .build              = build_ruin,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Lingering Echoes",
         .auraDescription    = "Anxious murmurs haunt the broken stones.",
         .auraRadius         = 3.0f,
@@ -460,6 +515,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 1.0f,
         .build              = build_village_house,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Faded Hearth",
         .auraDescription    = "Old warmth lingers but offers little comfort.",
         .auraRadius         = 2.5f,
@@ -480,6 +537,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.3f,
         .build              = build_temple,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Zealous Chant",
         .auraDescription    = "Chanting reverberates, bolstering fanatic fervour.",
         .auraRadius         = 6.0f,
@@ -500,6 +559,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.5f,
         .build              = build_witch_hovel,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Hexed Vapours",
         .auraDescription    = "Toxic fumes erode sanity and resolve.",
         .auraRadius         = 4.5f,
@@ -520,6 +581,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.4f,
         .build              = build_gallows,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Lingering Terror",
         .auraDescription    = "The memory of executions chills survivors to the bone.",
         .auraRadius         = 5.0f,
@@ -540,6 +603,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.45f,
         .build              = build_blood_garden,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Blood Bloom",
         .auraDescription    = "Crimson spores invigorate the undead.",
         .auraRadius         = 6.0f,
@@ -560,6 +625,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.35f,
         .build              = build_flesh_pit,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Blood Sickness",
         .auraDescription    = "Stagnant gore breeds feverish malaise.",
         .auraRadius         = 5.5f,
@@ -580,6 +647,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.25f,
         .build              = build_void_obelisk,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Void Resonance",
         .auraDescription    = "Low hum saps courage and draws in darkness.",
         .auraRadius         = 6.0f,
@@ -600,6 +669,8 @@ static StructureDef STRUCTURES[STRUCT_COUNT] = {
         .rarity             = 0.30f,
         .build              = build_plague_nursery,
         .minInstances       = 0,
+        .maxInstances       = 0,
+        .allowedBiomesMask  = 0,
         .auraName           = "Plague Spores",
         .auraDescription    = "Miasma infects lungs and fortifies the cursed.",
         .auraRadius         = 4.8f,
@@ -763,6 +834,12 @@ void load_structure_metadata(const char* path)
             if (def->minInstances < 0)
                 def->minInstances = 0;
         }
+        else if (strcasecmp(key, "max_instances") == 0)
+        {
+            def->maxInstances = atoi(value);
+            if (def->maxInstances < 0)
+                def->maxInstances = 0;
+        }
         else if (strcasecmp(key, "aura_name") == 0)
         {
             snprintf(def->auraName, sizeof(def->auraName), "%s", value);
@@ -808,12 +885,55 @@ void load_structure_metadata(const char* path)
         {
             snprintf(def->triggerDescription, sizeof(def->triggerDescription), "%s", value);
         }
+        else if (strcasecmp(key, "allowed_biomes") == 0)
+        {
+            char buffer[256];
+            strncpy(buffer, value, sizeof(buffer) - 1);
+            buffer[sizeof(buffer) - 1] = '\0';
+
+            def->allowedBiomesMask = 0;
+            bool unrestricted      = false;
+            bool anyAssigned       = false;
+
+            char* token = strtok(buffer, ",");
+            while (token)
+            {
+                trim_inplace(token);
+                if (*token == '\0')
+                {
+                    token = strtok(NULL, ",");
+                    continue;
+                }
+
+                bool      wildcard = false;
+                BiomeKind bk       = parse_biome_token(token, &wildcard);
+                if (wildcard)
+                {
+                    unrestricted = true;
+                    break;
+                }
+                if (bk == BIO_MAX)
+                {
+                    printf("⚠️  Unknown biome token '%s' in structure metadata, ignoring\n", token);
+                }
+                else
+                {
+                    def->allowedBiomesMask |= (1u << bk);
+                    anyAssigned             = true;
+                }
+
+                token = strtok(NULL, ",");
+            }
+
+            if (unrestricted || !anyAssigned)
+                def->allowedBiomesMask = 0;
+        }
     }
 
     fclose(f);
 }
 
-const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng)
+const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng, const int* structureCounts)
 {
     (void)rng;
     const BiomeDef* def = get_biome_def(biome);
@@ -821,11 +941,18 @@ const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng)
         return NULL;
 
     float totalWeight = 0.0f;
+    uint32_t biomeMask = 1u << biome;
     for (int i = 0; i < def->structureCount; ++i)
     {
         const BiomeStructureEntry* entry = &def->structures[i];
         const StructureDef*        sDef  = get_structure_def(entry->kind);
         if (!sDef)
+            continue;
+
+        if (sDef->allowedBiomesMask != 0 && (sDef->allowedBiomesMask & biomeMask) == 0)
+            continue;
+
+        if (structureCounts && sDef->maxInstances > 0 && structureCounts[sDef->kind] >= sDef->maxInstances)
             continue;
 
         float w = entry->weight;
@@ -848,6 +975,12 @@ const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng)
         if (!sDef)
             continue;
 
+        if (sDef->allowedBiomesMask != 0 && (sDef->allowedBiomesMask & biomeMask) == 0)
+            continue;
+
+        if (structureCounts && sDef->maxInstances > 0 && structureCounts[sDef->kind] >= sDef->maxInstances)
+            continue;
+
         float w = entry->weight;
         if (w <= 0.0f)
             continue;
@@ -861,6 +994,12 @@ const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng)
     for (int i = def->structureCount - 1; i >= 0; --i)
     {
         const StructureDef* sDef = get_structure_def(def->structures[i].kind);
+        if (!sDef)
+            continue;
+        if (sDef->allowedBiomesMask != 0 && (sDef->allowedBiomesMask & biomeMask) == 0)
+            continue;
+        if (structureCounts && sDef->maxInstances > 0 && structureCounts[sDef->kind] >= sDef->maxInstances)
+            continue;
         if (sDef)
             return sDef;
     }

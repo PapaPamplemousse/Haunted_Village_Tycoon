@@ -105,11 +105,15 @@ static void app_draw_world(void)
     }
 
     // --- Building labels ---
-    for (int i = 0; i < buildingCount; i++)
+    int totalBuildings = building_total_count();
+    for (int i = 0; i < totalBuildings; i++)
     {
-        Building* b     = &buildings[i];
-        int       textX = (int)(b->center.x * TILE_SIZE);
-        int       textY = (int)(b->center.y * TILE_SIZE) - 5;
+        const Building* b = building_get(i);
+        if (!b)
+            continue;
+
+        int textX = (int)(b->center.x * TILE_SIZE);
+        int textY = (int)(b->center.y * TILE_SIZE) - 5;
         if (textY < 0)
             textY = 0;
 

@@ -355,7 +355,9 @@ typedef struct StructureDef
      * @param rng Pointer to the random number generator state.
      */
     void (*build)(Map* map, int x, int y, uint64_t* rng);
-    int minInstances; ///< Guaranteed minimum number of instances to spawn per world.
+    int  minInstances;        ///< Guaranteed minimum number of instances to spawn per world.
+    int  maxInstances;        ///< Maximum number of instances to spawn per world (0 = unlimited).
+    uint32_t allowedBiomesMask; ///< Bitmask restricting which biomes may host this structure (0 = any biome).
 
     char  auraName[STRUCTURE_AURA_NAME_MAX];        ///< Short aura label.
     char  auraDescription[STRUCTURE_AURA_DESC_MAX]; ///< Long form aura description.
@@ -398,6 +400,7 @@ typedef struct Building
     int                        occupantCurrent; /**< Deterministic resident count used for spawning. */
     char                       occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX];
     char                       triggerDescription[STRUCTURE_TRIGGER_DESC_MAX]; /**< Narrative of the structure's special action. */
+    bool                       isGenerated;          /**< True if this entry originates from world generation. */
 } Building;
 
 /**

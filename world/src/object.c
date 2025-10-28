@@ -22,7 +22,7 @@ static RoomTypeRule ROOM_TYPE_RULES[ROOM_COUNT] = {0};
 void init_objects(void)
 {
     int objCount  = load_objects_from_stv("data/objects.stv", G_OBJECT_TYPES, OBJ_COUNT);
-    int roomCount = load_rooms_from_stv("data/rooms.stv", ROOM_TYPE_RULES, ROOM_COUNT, G_OBJECT_TYPES, objCount);
+    int roomCount = load_rooms_from_stv("data/structures.stv", ROOM_TYPE_RULES, ROOM_COUNT, G_OBJECT_TYPES, objCount);
 
     for (int i = 0; i < OBJ_COUNT; ++i)
     {

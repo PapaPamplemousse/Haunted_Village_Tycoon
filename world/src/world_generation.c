@@ -539,6 +539,14 @@ typedef struct
 
 static bool structure_allowed_in_biome(BiomeKind biome, StructureKind kind)
 {
+    const StructureDef* defMeta = get_structure_def(kind);
+    if (defMeta && defMeta->allowedBiomesMask != 0)
+    {
+        uint32_t mask = 1u << biome;
+        if ((defMeta->allowedBiomesMask & mask) == 0)
+            return false;
+    }
+
     const BiomeDef* def = get_biome_def(biome);
     if (!def || def->structureCount <= 0 || !def->structures)
         return false;
@@ -578,6 +586,9 @@ static bool attempt_spawn_structure(Map* map,
                                     int* structureCounts)
 {
     if (!map || !def)
+        return false;
+
+    if (structureCounts && def->maxInstances > 0 && structureCounts[def->kind] >= def->maxInstances)
         return false;
 
     if (x < 1 || y < 1)
@@ -995,9 +1006,11 @@ void generate_world(Map* map)
             float finalChance = g_cfg.structure_chance * biomeMult;
             if (rng01(&rs) < finalChance)
             {
-                const StructureDef* def = pick_structure_for_biome(kind, &rs);
+                const StructureDef* def = pick_structure_for_biome(kind, &rs, structureCounts);
                 if (def)
                 {
+                    if (def->maxInstances > 0 && structureCounts[def->kind] >= def->maxInstances)
+                        continue;
                     attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts);
                 }
             }
@@ -1010,10 +1023,18 @@ void generate_world(Map* map)
         if (!def || def->minInstances <= 0)
             continue;
 
+        int required    = def->minInstances;
+        if (def->maxInstances > 0 && required > def->maxInstances)
+            required = def->maxInstances;
+        if (required <= 0)
+            continue;
+
         int attempts    = 0;
         int maxAttempts = 1200;
-        while (structureCounts[k] < def->minInstances && attempts < maxAttempts)
+        while (structureCounts[k] < required && attempts < maxAttempts)
         {
+            if (def->maxInstances > 0 && structureCounts[k] >= def->maxInstances)
+                break;
             int maxX = W - def->maxWidth - 2;
             int maxY = H - def->maxHeight - 2;
             if (maxX <= 2 || maxY <= 2)
@@ -1058,10 +1079,10 @@ void generate_world(Map* map)
             attempts++;
         }
 
-        if (structureCounts[k] < def->minInstances)
+        if (structureCounts[k] < required)
         {
             printf("⚠️  Unable to satisfy minimum %d instances for structure %s (placed %d)\n",
-                   def->minInstances,
+                   required,
                    def->name,
                    structureCounts[k]);
         }

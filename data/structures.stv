@@ -1,18 +1,68 @@
 # =========================================================
-# STRUCTURE METADATA (.stv)
+# COMBINED ROOM & STRUCTURE DEFINITIONS (.stv)
 # =========================================================
-# Provides overrides for procedurally generated structures.
-# Keys:
-#   display_name        - Optional in-game display name.
-#   min_instances       - Minimum count guaranteed per world.
-#   aura_*              - Aura label, description, radius (tiles) and intensity score.
-#   occupant_*          - Resident configuration (type, min/max count, description).
-#   entity_action       - Text describing triggered behaviours/resident spawns.
+# Room sections are declared with [ROOM Name] and provide
+# flood-fill classification rules. Structure sections are
+# declared with [STRUCTURE IDENTIFIER] and override metadata
+# for procedurally generated blueprints.
+#
+# Additional structure keys:
+#   max_instances   - Maximum number of instances allowed globally (0 = unlimited)
+#   allowed_biomes  - Comma-separated list restricting spawn biomes (omit or set to ANY for no limit)
 # =========================================================
 
-[HUT_CANNIBAL]
+# ----------------------------
+# Room Definitions
+# ----------------------------
+[ROOM Bedroom]
+id           = 1
+min_area     = 2
+max_area     = 25
+requirement  = bed_small:1, torch_wall:1
+
+[ROOM Kitchen]
+id           = 2
+min_area     = 6
+max_area     = 40
+requirement  = table_wood:1, chair_wood:2, firepit:1
+
+[ROOM Hut]
+id           = 3
+min_area     = 6
+max_area     = 36
+requirement  = firepit:1, crate:1, bone_pile:1
+
+[ROOM Crypt]
+id           = 4
+min_area     = 9
+max_area     = 64
+requirement  = altar:1, bone_pile:1
+
+[ROOM Sanctuary]
+id           = 5
+min_area     = 12
+max_area     = 128
+requirement  = altar:1, torch_wall:2
+
+[ROOM House]
+id           = 6
+min_area     = 8
+max_area     = 49
+requirement  = bed_small:1, table_wood:1, chair_wood:1
+
+[ROOM LargeRoom]
+id           = 7
+min_area     = 40
+max_area     = 0
+
+# ----------------------------
+# Structure Metadata
+# ----------------------------
+[STRUCTURE HUT_CANNIBAL]
 display_name        = Cannibal Den
 min_instances       = 3
+max_instances       = 8
+allowed_biomes      = SAVANNA
 aura_name           = Reeking Butchery
 aura_description    = The stench of butchered flesh gnaws at nearby sanity.
 aura_radius         = 4.5
@@ -23,9 +73,11 @@ occupant_max        = 3
 occupant_description= Cannibal raiding party
 entity_action       = Spawns 1-3 cannibal raiders hungry for flesh.
 
-[CRYPT]
+[STRUCTURE CRYPT]
 display_name        = Whispering Crypt
 min_instances       = 2
+max_instances       = 6
+allowed_biomes      = TUNDRA, MOUNTAIN, CURSED
 aura_name           = Grave Chill
 aura_description    = Freezing whispers and spectral drafts sap warmth from travellers.
 aura_radius         = 5.5
@@ -36,35 +88,41 @@ occupant_max        = 4
 occupant_description= Restless dead custodians
 entity_action       = Releases 2-4 cursed zombies to defend the catacombs.
 
-[RUIN]
+[STRUCTURE RUIN]
 display_name        = Forsaken Ruin
 min_instances       = 4
+max_instances       = 10
+allowed_biomes      = FOREST, TUNDRA, DESERT, SWAMP
 aura_name           = Lingering Echoes
 aura_description    = Shattered stones echo with memories of suffering.
 aura_radius         = 3.5
 aura_intensity      = 1.2
-occupant_type       = none
+occupant_type       = NONE
 occupant_min        = 0
 occupant_max        = 0
 occupant_description= Abandoned husk
 entity_action       = Serves as eerie cover with no resident defenders.
 
-[VILLAGE_HOUSE]
+[STRUCTURE VILLAGE_HOUSE]
 display_name        = Deserted Homestead
 min_instances       = 2
+max_instances       = 6
+allowed_biomes      = PLAIN, SAVANNA
 aura_name           = Faded Hearth
 aura_description    = Embers of ordinary life barely push back the gloom.
 aura_radius         = 2.5
 aura_intensity      = 0.6
-occupant_type       = none
+occupant_type       = NONE
 occupant_min        = 0
 occupant_max        = 0
 occupant_description= Vacant shelter
 entity_action       = Offers respite but no stationed inhabitants.
 
-[TEMPLE]
+[STRUCTURE TEMPLE]
 display_name        = Bloodbound Temple
 min_instances       = 1
+max_instances       = 3
+allowed_biomes      = FOREST, MOUNTAIN, CURSED
 aura_name           = Zealous Chant
 aura_description    = Feverish hymns empower the faithful and unnerve intruders.
 aura_radius         = 6.0
@@ -75,9 +133,11 @@ occupant_max        = 2
 occupant_description= Fanatical guardians
 entity_action       = Summons 1-2 zealots to guard the altar.
 
-[WITCH_HOVEL]
+[STRUCTURE WITCH_HOVEL]
 display_name        = Hexspeaker Hovel
 min_instances       = 2
+max_instances       = 5
+allowed_biomes      = FOREST, SWAMP, CURSED
 aura_name           = Hexed Vapours
 aura_description    = Poisonous fumes warp minds and embolden occult rites.
 aura_radius         = 4.8
@@ -88,22 +148,26 @@ occupant_max        = 2
 occupant_description= Occult devotees
 entity_action       = Calls cultists that brew hexes within.
 
-[GALLOWS]
+[STRUCTURE GALLOWS]
 display_name        = Sorrow Gallows
 min_instances       = 1
+max_instances       = 4
+allowed_biomes      = FOREST, PLAIN, SAVANNA, DESERT
 aura_name           = Lingering Terror
 aura_description    = The air is heavy with dread where countless executions occurred.
 aura_radius         = 5.0
 aura_intensity      = 2.0
-occupant_type       = none
+occupant_type       = NONE
 occupant_min        = 0
 occupant_max        = 0
 occupant_description= Desolate scaffold
 entity_action       = Spreads dread, lowering resolve near executions.
 
-[BLOOD_GARDEN]
+[STRUCTURE BLOOD_GARDEN]
 display_name        = Bloodrose Garden
 min_instances       = 2
+max_instances       = 5
+allowed_biomes      = TUNDRA, CURSED, HELL
 aura_name           = Blood Bloom
 aura_description    = Crimson spores invigorate undead flesh while draining the living.
 aura_radius         = 6.2
@@ -114,9 +178,11 @@ occupant_max        = 4
 occupant_description= Blood-drunk shamblers
 entity_action       = Grows 2-4 undead guardians from the crimson blooms.
 
-[FLESH_PIT]
+[STRUCTURE FLESH_PIT]
 display_name        = Flesh Pit
 min_instances       = 2
+max_instances       = 6
+allowed_biomes      = FOREST, PLAIN, SAVANNA, SWAMP, CURSED, HELL
 aura_name           = Blood Sickness
 aura_description    = Fetid gore clouds infect the air and weaken outsiders.
 aura_radius         = 5.8
@@ -127,22 +193,26 @@ occupant_max        = 5
 occupant_description= Butchers and thralls
 entity_action       = Breeds 2-5 cannibal butchers who patrol the pit.
 
-[VOID_OBELISK]
+[STRUCTURE VOID_OBELISK]
 display_name        = Void Obelisk
 min_instances       = 1
+max_instances       = 3
+allowed_biomes      = FOREST, DESERT, MOUNTAIN, CURSED, HELL
 aura_name           = Void Resonance
 aura_description    = A crushing hum distorts minds and lures occultists.
 aura_radius         = 6.5
 aura_intensity      = 3.8
-occupant_type       = none
+occupant_type       = NONE
 occupant_min        = 0
 occupant_max        = 0
 occupant_description= Dormant monolith
 entity_action       = Emits void pulses empowering nearby occult rituals.
 
-[PLAGUE_NURSERY]
+[STRUCTURE PLAGUE_NURSERY]
 display_name        = Plague Nursery
 min_instances       = 2
+max_instances       = 5
+allowed_biomes      = PLAIN, TUNDRA, SWAMP, CURSED
 aura_name           = Plague Spores
 aura_description    = Toxic spores cling to lungs and invigorate the cursed within.
 aura_radius         = 5.0

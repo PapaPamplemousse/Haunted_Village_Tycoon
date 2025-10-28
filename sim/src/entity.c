@@ -397,9 +397,10 @@ static bool entity_spawn_near_structures(EntitySystem* sys, const EntitySpawnRul
         return false;
 
     bool spawnedAny = false;
-    for (int b = 0; b < buildingCount; ++b)
+    int total = building_total_count();
+    for (int b = 0; b < total; ++b)
     {
-        const Building* building = &buildings[b];
+        const Building* building = building_get(b);
         if (!building || building->structureKind != rule->type->referredStructure)
             continue;
 
@@ -462,9 +463,10 @@ static void entity_spawn_structure_residents(EntitySystem* sys, const Map* map)
     if (!sys || !map)
         return;
 
-    for (int b = 0; b < buildingCount; ++b)
+    int total = building_total_count();
+    for (int b = 0; b < total; ++b)
     {
-        Building* building = &buildings[b];
+        Building* building = building_get_mutable(b);
         if (!building || !building->structureDef)
             continue;
         if (building->occupantType <= ENTITY_TYPE_INVALID)

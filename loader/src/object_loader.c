@@ -57,8 +57,9 @@ void debug_print_rooms(const RoomTypeRule* rooms, int roomCount, const ObjectTyp
 
     for (int i = 0; i < roomCount; i++)
     {
-        const RoomTypeRule* r = &rooms[i];
-        TraceLog(LOG_INFO, "[%02d] %-12s  ID=%d  Area=[%d..%d]  ReqCount=%d", i, r->name ? r->name : "(null)", r->id, r->minArea, r->maxArea, r->requirementCount);
+        const RoomTypeRule* r    = &rooms[i];
+        const char*         name = (r->name && r->name[0] != '\0') ? r->name : "Unnamed";
+        TraceLog(LOG_INFO, "[%02d] %-12s  ID=%d  Area=[%d..%d]  ReqCount=%d", i, name, r->id, r->minArea, r->maxArea, r->requirementCount);
 
         if (r->requirementCount > 0 && r->requirements)
         {
@@ -213,6 +214,75 @@ static RoomTypeID get_room_id_by_name(const char* name)
     return ROOM_NONE;
 }
 
+static void parse_room_section_header(const char* line, bool* outIsRoom, char* outName, size_t nameCap)
+{
+    if (outIsRoom)
+        *outIsRoom = false;
+    if (outName && nameCap > 0)
+        outName[0] = '\0';
+
+    if (!line)
+        return;
+
+    char sectionRaw[96];
+    if (sscanf(line, "[%95[^]]", sectionRaw) != 1)
+        return;
+    trim(sectionRaw);
+
+    char typeToken[32] = {0};
+    char nameToken[64] = {0};
+
+    const char* p = sectionRaw;
+    while (*p == ' ' || *p == '\t')
+        ++p;
+
+    const char* delim = p;
+    while (*delim && *delim != ':' && *delim != ' ' && *delim != '\t')
+        ++delim;
+
+    if (*delim == ':' || *delim == ' ' || *delim == '\t')
+    {
+        size_t typeLen = (size_t)(delim - p);
+        if (typeLen >= sizeof(typeToken))
+            typeLen = sizeof(typeToken) - 1;
+        memcpy(typeToken, p, typeLen);
+        typeToken[typeLen] = '\0';
+
+        while (*delim == ' ' || *delim == '\t' || *delim == ':')
+            ++delim;
+        snprintf(nameToken, sizeof(nameToken), "%s", delim);
+    }
+    else
+    {
+        snprintf(nameToken, sizeof(nameToken), "%s", p);
+    }
+
+    trim(typeToken);
+    trim(nameToken);
+
+    bool isRoom = false;
+    if (typeToken[0] == '\0')
+    {
+        // Backwards compatibility: treat entries without prefix as rooms.
+        isRoom = true;
+    }
+    else if (strcasecmp(typeToken, "ROOM") == 0)
+    {
+        isRoom = true;
+    }
+
+    if (outIsRoom)
+        *outIsRoom = isRoom;
+
+    if (outName && nameCap > 0)
+    {
+        if (nameToken[0] == '\0')
+            snprintf(outName, nameCap, "%s", "Unnamed Room");
+        else
+            snprintf(outName, nameCap, "%s", nameToken);
+    }
+}
+
 int load_rooms_from_stv(const char* path, RoomTypeRule* outArray, int maxRooms, const ObjectType* objects, int objectCount)
 {
     FILE* f = fopen(path, "r");
@@ -234,26 +304,29 @@ int load_rooms_from_stv(const char* path, RoomTypeRule* outArray, int maxRooms, 
         if (line[0] == '#' || line[0] == '\0')
             continue;
 
-        // Nouvelle section [RoomName]
         if (line[0] == '[')
         {
-            // On stocke la précédente
             if (inSection && count < maxRooms)
                 outArray[count++] = current;
 
             memset(&current, 0, sizeof(RoomTypeRule));
-            inSection = true;
+            inSection = false;
 
-            // Extraire le nom de la section
+            bool isRoom = false;
             char sectionName[64];
-            sscanf(line, "[%63[^]]", sectionName);
-            trim(sectionName);
+            parse_room_section_header(line, &isRoom, sectionName, sizeof(sectionName));
 
-            // Définir le nom et l’ID
+            if (!isRoom)
+                continue;
+
             current.name = str_dup(sectionName);
             current.id   = get_room_id_by_name(sectionName);
+            inSection    = true;
             continue;
         }
+
+        if (!inSection)
+            continue;
 
         char key[64], value[256];
         if (sscanf(line, "%63[^=]=%255[^\n]", key, value) == 2)
@@ -270,7 +343,6 @@ int load_rooms_from_stv(const char* path, RoomTypeRule* outArray, int maxRooms, 
                 strncpy(reqBuffer, value, sizeof(reqBuffer) - 1);
                 reqBuffer[sizeof(reqBuffer) - 1] = '\0';
 
-                // Compter les requirements
                 int reqCount = 1;
                 for (char* p = reqBuffer; *p; ++p)
                     if (*p == ',')
@@ -307,8 +379,13 @@ int load_rooms_from_stv(const char* path, RoomTypeRule* outArray, int maxRooms, 
             }
             else if (strcmp(key, "id") == 0)
             {
-                // Optionnel si tu veux forcer un ID spécifique
                 current.id = (RoomTypeID)atoi(value);
+            }
+            else if (strcmp(key, "name") == 0)
+            {
+                if (current.name)
+                    free((void*)current.name);
+                current.name = str_dup(value);
             }
         }
     }

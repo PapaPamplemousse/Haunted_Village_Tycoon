@@ -20,10 +20,13 @@
  * The selection is weighted by the @c rarity field of the StructureDef.
  * @param biome The type of biome for which a structure is being sought.
  * @param rng Pointer to the random number generator state.
+ * @param structureCounts Array tracking how many instances of each structure
+ *                        kind have already been placed (may be NULL for no
+ *                        limit checks).
  * @return A constant pointer to the selected StructureDef, or NULL if no
  * structure is defined for the biome.
  */
-const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng);
+const StructureDef* pick_structure_for_biome(BiomeKind biome, uint64_t* rng, const int* structureCounts);
 
 /**
  * @brief Retrieves the immutable definition associated with a structure kind.

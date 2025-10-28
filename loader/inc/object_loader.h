@@ -20,7 +20,7 @@ int load_objects_from_stv(const char* path, ObjectType* outArray, int maxObjects
 
 /**
  * @brief Loads room type definitions/rules from an .stv file.
- * @param path Path to the rooms.stv file.
+ * @param path Path to the structures.stv file containing room sections.
  * @param outArray Output array for the loaded room type rules.
  * @param maxRooms Maximum size of the output array.
  * @param objects Array of available object types (required for room definitions).
