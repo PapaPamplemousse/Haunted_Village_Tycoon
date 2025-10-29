@@ -108,6 +108,56 @@ void map_remove_object(Map* map, int x, int y)
     }
 }
 
+bool map_toggle_door(Map* map, int x, int y, bool open)
+{
+    if (!map)
+        return false;
+
+    int wx = wrap_x(x);
+    int wy = wrap_y(y);
+
+    Object* obj = map->objects[wy][wx];
+    if (!obj || !obj->type || !obj->type->isDoor)
+        return false;
+
+    ObjectTypeID currentId = obj->type->id;
+    ObjectTypeID targetId  = currentId;
+
+    switch (currentId)
+    {
+        case OBJ_DOOR_WOOD:
+        case OBJ_DOOR_WOOD_OPEN:
+            targetId = open ? OBJ_DOOR_WOOD_OPEN : OBJ_DOOR_WOOD;
+            break;
+        default:
+            // Unsupported door type for now.
+            if ((open && obj->type->walkable) || (!open && !obj->type->walkable))
+                return false;
+            break;
+    }
+
+    if (targetId == currentId)
+    {
+        bool alreadyState = obj->type->walkable == open;
+        if (alreadyState)
+            return false;
+    }
+
+    int    hpSnapshot = obj->hp;
+    Vector2 pos       = obj->position;
+
+    map_place_object(map, targetId, x, y);
+
+    Object* newObj = map->objects[wy][wx];
+    if (newObj)
+    {
+        newObj->hp       = hpSnapshot;
+        newObj->position = pos;
+    }
+
+    return true;
+}
+
 void draw_map(Map* map, Camera2D* camera)
 {
     Rectangle view = {.x      = camera->target.x - (GetScreenWidth() / 2) / camera->zoom,

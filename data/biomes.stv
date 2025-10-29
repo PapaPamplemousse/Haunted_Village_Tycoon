@@ -34,7 +34,7 @@ treeMul         = 0.2
 bushMul         = 0.4
 rockMul         = 0.1
 structMul       = 1.0
-structures      = STRUCT_VILLAGE_HOUSE:0.45, STRUCT_HUT_CANNIBAL:0.2, STRUCT_GALLOWS:0.15, STRUCT_FLESH_PIT:0.12, STRUCT_PLAGUE_NURSERY:0.08
+structures      = STRUCT_VILLAGE_HOUSE:0.55, STRUCT_GALLOWS:0.18, STRUCT_FLESH_PIT:0.12, STRUCT_PLAGUE_NURSERY:0.1
 max_instances   = -1
 
 [SAVANNA]
@@ -48,7 +48,7 @@ treeMul         = 0.4
 bushMul         = 0.8
 rockMul         = 0.2
 structMul       = 1.2
-structures      = STRUCT_HUT_CANNIBAL:0.4, STRUCT_VILLAGE_HOUSE:0.2, STRUCT_GALLOWS:0.2, STRUCT_FLESH_PIT:0.2
+structures      = STRUCT_CANNIBAL_LONGHOUSE:0.25, STRUCT_HUT_CANNIBAL:0.3, STRUCT_CANNIBAL_COOK_TENT:0.15, STRUCT_CANNIBAL_SHAMAN_HUT:0.12, STRUCT_CANNIBAL_BONE_PIT:0.1, STRUCT_VILLAGE_HOUSE:0.04, STRUCT_GALLOWS:0.02, STRUCT_FLESH_PIT:0.02
 max_instances   = -1
 
 
@@ -95,7 +95,7 @@ treeMul         = 0.6
 bushMul         = 0.5
 rockMul         = 0.05
 structMul       = 0.6
-structures      = STRUCT_HUT_CANNIBAL:0.35, STRUCT_RUIN:0.2, STRUCT_WITCH_HOVEL:0.25, STRUCT_PLAGUE_NURSERY:0.2
+structures      = STRUCT_RUIN:0.25, STRUCT_WITCH_HOVEL:0.3, STRUCT_PLAGUE_NURSERY:0.25, STRUCT_FLESH_PIT:0.2
 max_instances   = -1
 
 [MOUNTAIN]

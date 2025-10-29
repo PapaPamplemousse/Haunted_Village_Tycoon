@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <limits.h>
 
 // If you want parallel generation, compile with -DWORLDGEN_USE_OPENMP -fopenmp
 #if defined(WORLDGEN_USE_OPENMP)
@@ -537,73 +538,411 @@ typedef struct
     StructureKind kind;
 } PlacedStructure;
 
-static bool structure_allowed_in_biome(BiomeKind biome, StructureKind kind)
-{
-    const BiomeDef* def = get_biome_def(biome);
-    if (!def || def->structureCount <= 0 || !def->structures)
-        return false;
-
-    for (int i = 0; i < def->structureCount; ++i)
-    {
-        if (def->structures[i].kind == kind)
-            return true;
-    }
-    return false;
-}
-
-static bool respects_structure_spacing(int x, int y, const PlacedStructure* placed, int placedCount)
-{
-    if (g_cfg.structure_min_spacing <= 0)
-        return true;
-
-    int minSq = g_cfg.structure_min_spacing * g_cfg.structure_min_spacing;
-    for (int i = 0; i < placedCount; ++i)
-    {
-        int dx = x - placed[i].x;
-        int dy = y - placed[i].y;
-        if (dx * dx + dy * dy < minSq)
-            return false;
-    }
-    return true;
-}
-
+static bool structure_allowed_in_biome(BiomeKind biome, StructureKind kind);
 static bool attempt_spawn_structure(Map* map,
                                     const StructureDef* def,
-                                    int x,
-                                    int y,
+                                    int anchorX,
+                                    int anchorY,
                                     uint64_t* rng,
                                     PlacedStructure* placed,
                                     int* placedCount,
                                     int placedCap,
-                                    int* structureCounts)
+                                    int* structureCounts,
+                                    bool fromCluster);
+static bool place_cluster_member_instance(Map* map,
+                                          const StructureDef* def,
+                                          float anchorCenterX,
+                                          float anchorCenterY,
+                                          float radiusMin,
+                                          float radiusMax,
+                                          uint64_t* rng,
+                                          PlacedStructure* placed,
+                                          int* placedCount,
+                                          int placedCap,
+                                          int* structureCounts);
+
+
+static void spawn_cluster_members(Map* map,
+                                  const StructureDef* anchor,
+                                  int baseX,
+                                  int baseY,
+                                  uint64_t* rng,
+                                  PlacedStructure* placed,
+                                  int* placedCount,
+                                  int placedCap,
+                                  int* structureCounts)
 {
-    if (!map || !def)
-        return false;
+    if (!map || !anchor || !anchor->clusterAnchor || anchor->clusterMemberCount <= 0)
+        return;
 
-    if (x < 1 || y < 1)
-        return false;
-    if (x + def->maxWidth + 1 >= map->width || y + def->maxHeight + 1 >= map->height)
-        return false;
+    float widthRef  = (anchor->maxWidth > 0) ? (float)anchor->maxWidth : (float)anchor->minWidth;
+    float heightRef = (anchor->maxHeight > 0) ? (float)anchor->maxHeight : (float)anchor->minHeight;
+    float centerX   = (float)baseX + widthRef * 0.5f;
+    float centerY   = (float)baseY + heightRef * 0.5f;
 
-    if (!respects_structure_spacing(x, y, placed, *placedCount))
-        return false;
+    float radiusMin = (anchor->clusterRadiusMin > 0.0f) ? anchor->clusterRadiusMin : (widthRef + heightRef) * 0.35f;
+    float radiusMax = (anchor->clusterRadiusMax > radiusMin) ? anchor->clusterRadiusMax : radiusMin + 3.0f;
 
-    def->build(map, x, y, rng);
+    int totalSpawned = 0;
+    int desiredMin   = anchor->clusterMinMembers > 0 ? anchor->clusterMinMembers : 0;
+    int desiredMax   = anchor->clusterMaxMembers > 0 ? anchor->clusterMaxMembers : INT_MAX;
+    int spawnedPerMember[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
 
-    if (structureCounts)
-        structureCounts[def->kind]++;
-
-    if (*placedCount < placedCap)
+    for (int m = 0; m < anchor->clusterMemberCount; ++m)
     {
-        placed[*placedCount].x    = x;
-        placed[*placedCount].y    = y;
-        placed[*placedCount].kind = def->kind;
-        (*placedCount)++;
+        const StructureClusterMember* member = &anchor->clusterMembers[m];
+        if (member->kind <= STRUCT_HUT_CANNIBAL || member->kind >= STRUCT_COUNT)
+            continue;
+
+        if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
+            break;
+
+        int minCount = member->minCount < 0 ? 0 : member->minCount;
+        int maxCount = member->maxCount < minCount ? minCount : member->maxCount;
+
+        if (desiredMax != INT_MAX)
+        {
+            int remaining = desiredMax - totalSpawned;
+            if (remaining <= 0)
+                break;
+            if (maxCount > remaining)
+                maxCount = remaining;
+            if (minCount > remaining)
+                minCount = remaining;
+        }
+
+        int toSpawn = minCount;
+        if (maxCount > minCount && rng)
+        {
+            uint64_t roll = splitmix64_next(rng);
+            toSpawn += (int)(roll % (uint64_t)(maxCount - minCount + 1));
+        }
+
+        const StructureDef* memberDef = get_structure_def(member->kind);
+        if (!memberDef)
+            continue;
+
+        int spawnedThisMember = 0;
+        for (int count = 0; count < toSpawn; ++count)
+        {
+            if (place_cluster_member_instance(map,
+                                              memberDef,
+                                              centerX,
+                                              centerY,
+                                              radiusMin,
+                                              radiusMax,
+                                              rng,
+                                              placed,
+                                              placedCount,
+                                              placedCap,
+                                              structureCounts))
+            {
+                spawnedThisMember++;
+                totalSpawned++;
+                if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
+                    break;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        spawnedPerMember[m] += spawnedThisMember;
+    }
+
+    if (totalSpawned < desiredMin)
+    {
+        bool progress = true;
+        while (totalSpawned < desiredMin && progress)
+        {
+            progress = false;
+            for (int m = 0; m < anchor->clusterMemberCount && totalSpawned < desiredMin; ++m)
+            {
+                const StructureClusterMember* member = &anchor->clusterMembers[m];
+                if (member->kind <= STRUCT_HUT_CANNIBAL || member->kind >= STRUCT_COUNT)
+                    continue;
+
+                const StructureDef* memberDef = get_structure_def(member->kind);
+                if (!memberDef)
+                    continue;
+
+                int maxCount = member->maxCount < member->minCount ? member->minCount : member->maxCount;
+                if (maxCount > 0 && spawnedPerMember[m] >= maxCount)
+                    continue;
+
+                if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
+                    break;
+
+                if (place_cluster_member_instance(map,
+                                                  memberDef,
+                                                  centerX,
+                                                  centerY,
+                                                  radiusMin,
+                                                  radiusMax,
+                                                  rng,
+                                                  placed,
+                                                  placedCount,
+                                                  placedCap,
+                                                  structureCounts))
+                {
+                    spawnedPerMember[m]++;
+                    totalSpawned++;
+                    progress = true;
+                }
+            }
+        }
+    }
+}
+
+static float random01(uint64_t* rng)
+{
+    if (rng)
+        return rng01(rng);
+    return (float)rand() / ((float)RAND_MAX + 1.0f);
+}
+
+static int random_offset(uint64_t* rng, int radius)
+{
+    if (radius <= 0)
+        return 0;
+    if (rng)
+    {
+        uint64_t roll = splitmix64_next(rng);
+        return (int)(roll % (uint64_t)(radius * 2 + 1)) - radius;
+    }
+    return (rand() % (radius * 2 + 1)) - radius;
+}
+
+static bool structure_spacing_ok(float centerX,
+                                 float centerY,
+                                 const PlacedStructure* placed,
+                                 int placedCount,
+                                 float minSpacing)
+{
+    if (!placed || placedCount <= 0 || minSpacing <= 0.0f)
+        return true;
+
+    const float minSpacingSq = minSpacing * minSpacing;
+    for (int i = 0; i < placedCount; ++i)
+    {
+        float dx = centerX - (float)placed[i].x;
+        float dy = centerY - (float)placed[i].y;
+        if ((dx * dx + dy * dy) < minSpacingSq)
+            return false;
     }
 
     return true;
 }
 
+static bool structure_area_clear(Map* map, int startX, int startY, int width, int height)
+{
+    if (!map)
+        return false;
+
+    const int W = map->width;
+    const int H = map->height;
+
+    for (int y = startY - 1; y <= startY + height; ++y)
+    {
+        if (y < 0 || y >= H)
+            return false;
+        for (int x = startX - 1; x <= startX + width; ++x)
+        {
+            if (x < 0 || x >= W)
+                return false;
+
+            TileTypeID tile = map->tiles[y][x];
+            TileType*  type = get_tile_type(tile);
+            if (!type)
+                return false;
+
+            if (type->category == TILE_CATEGORY_WATER || type->category == TILE_CATEGORY_HAZARD ||
+                type->category == TILE_CATEGORY_OBSTACLE || !type->walkable)
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static void structure_clear_objects(Map* map, int startX, int startY, int width, int height)
+{
+    if (!map)
+        return;
+
+    const int W = map->width;
+    const int H = map->height;
+
+    for (int y = startY - 1; y <= startY + height; ++y)
+    {
+        if (y < 0 || y >= H)
+            continue;
+        for (int x = startX - 1; x <= startX + width; ++x)
+        {
+            if (x < 0 || x >= W)
+                continue;
+            if (map->objects[y][x])
+                map_remove_object(map, x, y);
+        }
+    }
+}
+
+static bool place_cluster_member_instance(Map* map,
+                                          const StructureDef* def,
+                                          float anchorCenterX,
+                                          float anchorCenterY,
+                                          float radiusMin,
+                                          float radiusMax,
+                                          uint64_t* rng,
+                                          PlacedStructure* placed,
+                                          int* placedCount,
+                                          int placedCap,
+                                          int* structureCounts)
+{
+    if (!map || !def || !def->build)
+        return false;
+
+    if (structureCounts && def->maxInstances > 0 && structureCounts[def->kind] >= def->maxInstances)
+        return false;
+
+    if (radiusMax < radiusMin)
+        radiusMax = radiusMin;
+
+    const float TWO_PI = 6.28318530717958647692f;
+    const int   tries  = 12;
+    for (int attempt = 0; attempt < tries; ++attempt)
+    {
+        float radius = radiusMin;
+        if (radiusMax > radiusMin)
+            radius += random01(rng) * (radiusMax - radiusMin);
+
+        float angle          = random01(rng) * TWO_PI;
+        float candidateCX    = anchorCenterX + cosf(angle) * radius;
+        float candidateCY    = anchorCenterY + sinf(angle) * radius;
+        int   roundedCenterX = (int)roundf(candidateCX);
+        int   roundedCenterY = (int)roundf(candidateCY);
+
+        if (attempt_spawn_structure(map,
+                                    def,
+                                    roundedCenterX,
+                                    roundedCenterY,
+                                    rng,
+                                    placed,
+                                    placedCount,
+                                    placedCap,
+                                    structureCounts,
+                                    true))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool attempt_spawn_structure(Map* map,
+                                    const StructureDef* def,
+                                    int anchorX,
+                                    int anchorY,
+                                    uint64_t* rng,
+                                    PlacedStructure* placed,
+                                    int* placedCount,
+                                    int placedCap,
+                                    int* structureCounts,
+                                    bool fromCluster)
+{
+    if (!map || !def || !def->build)
+        return false;
+
+    if (structureCounts && def->maxInstances > 0 && structureCounts[def->kind] >= def->maxInstances)
+        return false;
+
+    int widthMax  = (def->maxWidth > 0) ? def->maxWidth : def->minWidth;
+    int heightMax = (def->maxHeight > 0) ? def->maxHeight : def->minHeight;
+    if (widthMax <= 0 || heightMax <= 0)
+        return false;
+
+    const int minX = 1;
+    const int minY = 1;
+    const int maxX = map->width - widthMax - 1;
+    const int maxY = map->height - heightMax - 1;
+
+    if (maxX < minX || maxY < minY)
+        return false;
+
+    float baseSpacing = (float)g_cfg.structure_min_spacing;
+    if (baseSpacing <= 0.0f)
+        baseSpacing = (float)(widthMax + heightMax);
+
+    float spacing = fromCluster ? fmaxf(2.0f, baseSpacing * 0.35f) : baseSpacing;
+
+    const int jitter   = fromCluster ? 2 : 4;
+    const int attempts = fromCluster ? 12 : 24;
+
+    for (int attempt = 0; attempt < attempts; ++attempt)
+    {
+        int candidateCX = anchorX + random_offset(rng, jitter);
+        int candidateCY = anchorY + random_offset(rng, jitter);
+
+        int startX = candidateCX - widthMax / 2;
+        int startY = candidateCY - heightMax / 2;
+
+        startX = clampi(startX, minX, maxX);
+        startY = clampi(startY, minY, maxY);
+
+        float centerXf = (float)startX + (float)widthMax * 0.5f;
+        float centerYf = (float)startY + (float)heightMax * 0.5f;
+
+        if (!structure_spacing_ok(centerXf, centerYf, placed, placedCount ? *placedCount : 0, spacing))
+            continue;
+
+        if (!structure_area_clear(map, startX, startY, widthMax, heightMax))
+            continue;
+
+        structure_clear_objects(map, startX, startY, widthMax, heightMax);
+
+        def->build(map, startX, startY, rng);
+
+        if (structureCounts)
+            structureCounts[def->kind]++;
+
+        if (placed && placedCount && *placedCount < placedCap)
+        {
+            placed[*placedCount].x    = (int)roundf(centerXf);
+            placed[*placedCount].y    = (int)roundf(centerYf);
+            placed[*placedCount].kind = def->kind;
+            (*placedCount)++;
+        }
+
+        if (def->clusterAnchor && !fromCluster)
+        {
+            spawn_cluster_members(map, def, startX, startY, rng, placed, placedCount, placedCap, structureCounts);
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+static bool structure_allowed_in_biome(BiomeKind biome, StructureKind kind)
+{
+    if (biome < 0 || biome >= BIO_MAX)
+        return false;
+
+    const StructureDef* def = get_structure_def(kind);
+    if (!def)
+        return false;
+
+    if (def->allowedBiomesMask == 0)
+        return true;
+
+    uint32_t mask = 1u << biome;
+    return (def->allowedBiomesMask & mask) != 0;
+}
 // --- Local neighborhood 2-nearest centers with bi-frequency warp ---
 // Search only the 3x3 macro-cell neighborhood to keep it fast.
 static void pick_two_centers_from_neighbors(int* outBest1, int* outBest2, int x, int y, // tile coords
@@ -995,10 +1334,12 @@ void generate_world(Map* map)
             float finalChance = g_cfg.structure_chance * biomeMult;
             if (rng01(&rs) < finalChance)
             {
-                const StructureDef* def = pick_structure_for_biome(kind, &rs);
+                const StructureDef* def = pick_structure_for_biome(kind, &rs, structureCounts);
                 if (def)
                 {
-                    attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts);
+                    if (def->maxInstances > 0 && structureCounts[def->kind] >= def->maxInstances)
+                        continue;
+                    attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts, false);
                 }
             }
         }
@@ -1010,10 +1351,18 @@ void generate_world(Map* map)
         if (!def || def->minInstances <= 0)
             continue;
 
+        int required    = def->minInstances;
+        if (def->maxInstances > 0 && required > def->maxInstances)
+            required = def->maxInstances;
+        if (required <= 0)
+            continue;
+
         int attempts    = 0;
         int maxAttempts = 1200;
-        while (structureCounts[k] < def->minInstances && attempts < maxAttempts)
+        while (structureCounts[k] < required && attempts < maxAttempts)
         {
+            if (def->maxInstances > 0 && structureCounts[k] >= def->maxInstances)
+                break;
             int maxX = W - def->maxWidth - 2;
             int maxY = H - def->maxHeight - 2;
             if (maxX <= 2 || maxY <= 2)
@@ -1049,7 +1398,7 @@ void generate_world(Map* map)
                 continue;
             }
 
-            if (attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts))
+            if (attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts, false))
             {
                 attempts = 0;
                 continue;
@@ -1058,10 +1407,10 @@ void generate_world(Map* map)
             attempts++;
         }
 
-        if (structureCounts[k] < def->minInstances)
+        if (structureCounts[k] < required)
         {
             printf("⚠️  Unable to satisfy minimum %d instances for structure %s (placed %d)\n",
-                   def->minInstances,
+                   required,
                    def->name,
                    structureCounts[k]);
         }

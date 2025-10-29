@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 100
+#define MAP_WIDTH 1000
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 100
+#define MAP_HEIGHT 1000
 
 /**
  * @def TILE_SIZE
@@ -99,16 +99,17 @@ typedef enum
     OBJ_STDBUSH_DRY = 18, /**< Dry bush */
 
     // --- Hazards / Special ---
-    OBJ_SULFUR_VENT   = 19, /**< Sulfur vent */
-    OBJ_FIREPIT       = 20, /**< Exterior fire pit */
-    OBJ_ALTAR         = 21, /**< Altar */
-    OBJ_CAULDRON      = 22, /**< Bubbling witch cauldron */
-    OBJ_TOTEM_BLOOD   = 23, /**< Bloodied totem pole */
-    OBJ_RITUAL_CIRCLE = 24, /**< Ritual circle marker */
-    OBJ_GALLOW        = 25, /**< Execution gallows */
-    OBJ_MEAT_HOOK     = 26, /**< Rusted meat hook rack */
-    OBJ_VOID_OBELISK  = 27, /**< Void-touched obelisk */
-    OBJ_PLAGUE_POD    = 28, /**< Bloated plague pod */
+    OBJ_SULFUR_VENT    = 19, /**< Sulfur vent */
+    OBJ_FIREPIT        = 20, /**< Exterior fire pit */
+    OBJ_ALTAR          = 21, /**< Altar */
+    OBJ_CAULDRON       = 22, /**< Bubbling witch cauldron */
+    OBJ_TOTEM_BLOOD    = 23, /**< Bloodied totem pole */
+    OBJ_RITUAL_CIRCLE  = 24, /**< Ritual circle marker */
+    OBJ_GALLOW         = 25, /**< Execution gallows */
+    OBJ_MEAT_HOOK      = 26, /**< Rusted meat hook rack */
+    OBJ_VOID_OBELISK   = 27, /**< Void-touched obelisk */
+    OBJ_PLAGUE_POD     = 28, /**< Bloated plague pod */
+    OBJ_DOOR_WOOD_OPEN = 29, /**< Wooden door left open */
 
     OBJ_COUNT /**< Sentinel (number of object types) */
 } ObjectTypeID;
@@ -186,18 +187,22 @@ typedef enum
  */
 typedef enum
 {
-    STRUCT_HUT_CANNIBAL,   ///< A small, primitive hut, typically for cannibals.
-    STRUCT_CRYPT,          ///< An underground tomb or burial chamber.
-    STRUCT_RUIN,           ///< Remains of a destroyed building or wall.
-    STRUCT_VILLAGE_HOUSE,  ///< A standard residential building in a village.
-    STRUCT_TEMPLE,         ///< A large, religious building.
-    STRUCT_WITCH_HOVEL,    ///< Fetid hut where occult rituals take place.
-    STRUCT_GALLOWS,        ///< Execution site flanked by ominous effigies.
-    STRUCT_BLOOD_GARDEN,   ///< Ritual garden drenched in blood offerings.
-    STRUCT_FLESH_PIT,      ///< Grisly pit where butchers discard offerings.
-    STRUCT_VOID_OBELISK,   ///< Obelisk radiating oppressive void energy.
-    STRUCT_PLAGUE_NURSERY, ///< Cocoon cluster breeding the cursed.
-    STRUCT_COUNT           ///< The total number of defined structure kinds (must be the last entry).
+    STRUCT_HUT_CANNIBAL,        ///< A small, primitive hut, typically for cannibals.
+    STRUCT_CANNIBAL_LONGHOUSE,  ///< Communal hall anchoring a cannibal camp.
+    STRUCT_CANNIBAL_COOK_TENT,  ///< Butcher's tent with racks and fires.
+    STRUCT_CANNIBAL_SHAMAN_HUT, ///< Fetish-lined sanctum for rituals.
+    STRUCT_CANNIBAL_BONE_PIT,   ///< Pit of trophies and improvised cages.
+    STRUCT_CRYPT,               ///< An underground tomb or burial chamber.
+    STRUCT_RUIN,                ///< Remains of a destroyed building or wall.
+    STRUCT_VILLAGE_HOUSE,       ///< A standard residential building in a village.
+    STRUCT_TEMPLE,              ///< A large, religious building.
+    STRUCT_WITCH_HOVEL,         ///< Fetid hut where occult rituals take place.
+    STRUCT_GALLOWS,             ///< Execution site flanked by ominous effigies.
+    STRUCT_BLOOD_GARDEN,        ///< Ritual garden drenched in blood offerings.
+    STRUCT_FLESH_PIT,           ///< Grisly pit where butchers discard offerings.
+    STRUCT_VOID_OBELISK,        ///< Obelisk radiating oppressive void energy.
+    STRUCT_PLAGUE_NURSERY,      ///< Cocoon cluster breeding the cursed.
+    STRUCT_COUNT                ///< The total number of defined structure kinds (must be the last entry).
 } StructureKind;
 
 typedef enum
@@ -206,6 +211,99 @@ typedef enum
 
     ENTITY_TYPE_CURSED_ZOMBIE = 0,
     ENTITY_TYPE_CANNIBAL,
+    ENTITY_TYPE_CANNIBAL_WOMAN,
+    ENTITY_TYPE_CANNIBAL_CHILD,
+    ENTITY_TYPE_CANNIBAL_SCOUT,
+    ENTITY_TYPE_CANNIBAL_COOK,
+    ENTITY_TYPE_CANNIBAL_SHAMAN,
+    ENTITY_TYPE_CANNIBAL_CHIEFTAIN,
+    ENTITY_TYPE_CANNIBAL_ZEALOT,
+    ENTITY_TYPE_CANNIBAL_ELDER,
+    ENTITY_TYPE_CANNIBAL_BERSERKER,
+    ENTITY_TYPE_VILLAGER,
+    ENTITY_TYPE_VILLAGER_CHILD,
+    ENTITY_TYPE_GUARD,
+    ENTITY_TYPE_GUARD_CAPTAIN,
+    ENTITY_TYPE_FARMER,
+    ENTITY_TYPE_FISHERMAN,
+    ENTITY_TYPE_LUMBERJACK,
+    ENTITY_TYPE_MINER,
+    ENTITY_TYPE_BLACKSMITH,
+    ENTITY_TYPE_BAKER,
+    ENTITY_TYPE_APOTHECARY,
+    ENTITY_TYPE_DOCTOR,
+    ENTITY_TYPE_GRAVEDIGGER,
+    ENTITY_TYPE_PRIEST,
+    ENTITY_TYPE_ACOLYTE,
+    ENTITY_TYPE_TEACHER,
+    ENTITY_TYPE_TAVERNKEEPER,
+    ENTITY_TYPE_MERCHANT,
+    ENTITY_TYPE_WATCHDOG,
+    ENTITY_TYPE_HORSE,
+    ENTITY_TYPE_GOAT,
+    ENTITY_TYPE_PIG,
+    ENTITY_TYPE_CHICKEN,
+    ENTITY_TYPE_CROW,
+    ENTITY_TYPE_RAT,
+    ENTITY_TYPE_DEER,
+    ENTITY_TYPE_GHOULHOUND,
+    ENTITY_TYPE_WENDIGO,
+    ENTITY_TYPE_MARSH_HORROR,
+    ENTITY_TYPE_BOG_FIEND,
+    ENTITY_TYPE_CORPSE_BOAR,
+    ENTITY_TYPE_BLIGHT_ELK,
+    ENTITY_TYPE_DIRE_WOLF,
+    ENTITY_TYPE_CAVE_SPIDER,
+    ENTITY_TYPE_VAMPIRE_NOBLE,
+    ENTITY_TYPE_VAMPIRE_THRALL,
+    ENTITY_TYPE_NOSFERATU,
+    ENTITY_TYPE_BLOOD_PRIEST,
+    ENTITY_TYPE_CRIMSON_BAT,
+    ENTITY_TYPE_CULTIST_INITIATE,
+    ENTITY_TYPE_CULTIST_ADEPT,
+    ENTITY_TYPE_CULT_LEADER,
+    ENTITY_TYPE_OCCULT_SCHOLAR,
+    ENTITY_TYPE_SHADOWBOUND_ACOLYTE,
+    ENTITY_TYPE_POSSESSED_VILLAGER,
+    ENTITY_TYPE_DOOMSPEAKER,
+    ENTITY_TYPE_BUTCHER_PROPHET,
+    ENTITY_TYPE_RESTLESS_SPIRIT,
+    ENTITY_TYPE_GRAVEBOUND_CORPSE,
+    ENTITY_TYPE_FALSE_RESURRECTION,
+    ENTITY_TYPE_BONEWALKER,
+    ENTITY_TYPE_PLAGUE_DEAD,
+    ENTITY_TYPE_WRAITH,
+    ENTITY_TYPE_HAUNTING_SHADE,
+    ENTITY_TYPE_SPECTRAL_BRIDE,
+    ENTITY_TYPE_CRYPT_LORD,
+    ENTITY_TYPE_SHADOW_PHANTOM,
+    ENTITY_TYPE_ECHOED_VOICE,
+    ENTITY_TYPE_MIRROR_SHADE,
+    ENTITY_TYPE_NAMELESS_MOURNER,
+    ENTITY_TYPE_NIGHTMARE_APPARITION,
+    ENTITY_TYPE_WELL_SPECTER,
+    ENTITY_TYPE_ASH_WIDOW,
+    ENTITY_TYPE_CLOCKWORK_WRAITH,
+    ENTITY_TYPE_TRAVELING_MERCHANT,
+    ENTITY_TYPE_PILGRIM_BAND,
+    ENTITY_TYPE_INQUISITION_ENVOY,
+    ENTITY_TYPE_NEIGHBOR_DELEGATION,
+    ENTITY_TYPE_TRAVELING_PERFORMER,
+    ENTITY_TYPE_WITCH_HUNTER,
+    ENTITY_TYPE_MISSIONARY,
+    ENTITY_TYPE_GRAVEDUST_PEDDLER,
+    ENTITY_TYPE_WHISPERER_BENEATH,
+    ENTITY_TYPE_PALE_CHILD,
+    ENTITY_TYPE_BLOOD_MOON_APPARITION,
+    ENTITY_TYPE_ARCHITECT_GHOST,
+    ENTITY_TYPE_NAMELESS_ARCHIVIST,
+    ENTITY_TYPE_THOUSAND_TEETH,
+    ENTITY_TYPE_HOLLOW_WATCHER,
+    ENTITY_TYPE_CANDLE_EATER,
+    ENTITY_TYPE_FLESH_LIBRARIAN,
+    ENTITY_TYPE_CRIMSON_CHOIR,
+    ENTITY_TYPE_HEART_OF_TOWN,
+    ENTITY_TYPE_DREAMING_GOD,
 
     ENTITY_TYPE_COUNT
 } EntitiesTypeID;
@@ -330,6 +428,19 @@ typedef struct
     Object*    objects[MAP_HEIGHT][MAP_WIDTH]; /**< 2D grid of placed objects */
 } Map;
 
+/** Maximum number of explicit cluster members that can be attached to a structure definition. */
+#define STRUCTURE_CLUSTER_MAX_MEMBERS 8
+
+/** Maximum length for cluster identifiers used to group related blueprints. */
+#define STRUCTURE_CLUSTER_NAME_MAX 32
+
+typedef struct StructureClusterMember
+{
+    StructureKind kind;     /**< Blueprint to instantiate as part of the cluster. */
+    int           minCount; /**< Minimum amount of this member. */
+    int           maxCount; /**< Maximum amount of this member. */
+} StructureClusterMember;
+
 /**
  * @brief Generic, data-driven descriptor for a world structure.
  *
@@ -355,7 +466,9 @@ typedef struct StructureDef
      * @param rng Pointer to the random number generator state.
      */
     void (*build)(Map* map, int x, int y, uint64_t* rng);
-    int minInstances; ///< Guaranteed minimum number of instances to spawn per world.
+    int      minInstances;      ///< Guaranteed minimum number of instances to spawn per world.
+    int      maxInstances;      ///< Maximum number of instances to spawn per world (0 = unlimited).
+    uint32_t allowedBiomesMask; ///< Bitmask restricting which biomes may host this structure (0 = any biome).
 
     char  auraName[STRUCTURE_AURA_NAME_MAX];        ///< Short aura label.
     char  auraDescription[STRUCTURE_AURA_DESC_MAX]; ///< Long form aura description.
@@ -367,6 +480,15 @@ typedef struct StructureDef
     int            occupantMax;                                      ///< Maximum number of residents.
     char           occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX]; ///< Resident label/description.
     char           triggerDescription[STRUCTURE_TRIGGER_DESC_MAX];   ///< Description of the structure's triggered action/effect.
+
+    char                   clusterGroup[STRUCTURE_CLUSTER_NAME_MAX];      ///< Optional identifier grouping related structures.
+    bool                   clusterAnchor;                                 ///< Whether this blueprint seeds a cluster.
+    int                    clusterMinMembers;                             ///< Minimum number of additional members to attempt.
+    int                    clusterMaxMembers;                             ///< Maximum number of additional members to attempt.
+    float                  clusterRadiusMin;                              ///< Minimum scatter radius (tiles).
+    float                  clusterRadiusMax;                              ///< Maximum scatter radius (tiles).
+    int                    clusterMemberCount;                            ///< Number of explicit cluster member descriptors.
+    StructureClusterMember clusterMembers[STRUCTURE_CLUSTER_MAX_MEMBERS]; ///< Member descriptors.
 } StructureDef;
 
 /**
@@ -396,8 +518,10 @@ typedef struct Building
     int                        occupantMin;     /**< Minimum intended number of occupants. */
     int                        occupantMax;     /**< Maximum intended number of occupants. */
     int                        occupantCurrent; /**< Deterministic resident count used for spawning. */
+    int                        occupantActive;  /**< Currently instantiated resident count. */
     char                       occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX];
     char                       triggerDescription[STRUCTURE_TRIGGER_DESC_MAX]; /**< Narrative of the structure's special action. */
+    bool                       isGenerated;                                    /**< True if this entry originates from world generation. */
 } Building;
 
 /**

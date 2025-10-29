@@ -74,7 +74,7 @@ static void app_update(void)
 
     // Advance gameplay systems using the frame time delta.
     float dt = GetFrameTime();
-    entity_system_update(&G_ENTITIES, &G_MAP, dt);
+    entity_system_update(&G_ENTITIES, &G_MAP, &G_CAMERA, dt);
     bool changed = editor_update(&G_MAP, &G_CAMERA, &G_INPUT, &G_ENTITIES);
     if (changed)
     {
@@ -105,20 +105,40 @@ static void app_draw_world(void)
     }
 
     // --- Building labels ---
-    for (int i = 0; i < buildingCount; i++)
+    float     viewWidth  = GetScreenWidth() / G_CAMERA.zoom;
+    float     viewHeight = GetScreenHeight() / G_CAMERA.zoom;
+    Rectangle worldView = {
+        .x      = G_CAMERA.target.x - viewWidth * 0.5f,
+        .y      = G_CAMERA.target.y - viewHeight * 0.5f,
+        .width  = viewWidth,
+        .height = viewHeight,
+    };
+    float viewMinX = worldView.x - TILE_SIZE;
+    float viewMaxX = worldView.x + worldView.width + TILE_SIZE;
+    float viewMinY = worldView.y - TILE_SIZE;
+    float viewMaxY = worldView.y + worldView.height + TILE_SIZE;
+
+    int totalBuildings = building_total_count();
+    for (int i = 0; i < totalBuildings; i++)
     {
-        Building* b     = &buildings[i];
-        int       textX = (int)(b->center.x * TILE_SIZE);
-        int       textY = (int)(b->center.y * TILE_SIZE) - 5;
+        const Building* b = building_get(i);
+        if (!b)
+            continue;
+
+        float centerX = b->center.x * TILE_SIZE;
+        float centerY = b->center.y * TILE_SIZE;
+        if (centerX < viewMinX || centerX > viewMaxX || centerY < viewMinY || centerY > viewMaxY)
+            continue;
+
+        int textX = (int)centerX;
+        int textY = (int)centerY - 5;
         if (textY < 0)
             textY = 0;
 
         if (G_INPUT.showBuildingNames)
         {
             const char* displayName = (b->name[0] != '\0') ? b->name : "Structure";
-            char        header[128];
-            snprintf(header, sizeof(header), "#%d %s", b->id, displayName);
-            DrawText(header, textX, textY, 12, WHITE);
+            DrawText(displayName, textX, textY, 12, WHITE);
 
             int infoY = textY + 14;
             if (b->structureDef)
@@ -147,7 +167,8 @@ static void app_draw_world(void)
                     char occLine[160];
                     snprintf(occLine,
                              sizeof(occLine),
-                             "Residents: %d (min %d, max %d) %s",
+                             "Residents: %d/%d (min %d, max %d) %s",
+                             b->occupantActive,
                              b->occupantCurrent,
                              b->occupantMin,
                              b->occupantMax,
@@ -162,12 +183,6 @@ static void app_draw_world(void)
                     infoY += 12;
                 }
             }
-        }
-        else
-        {
-            char label[32];
-            snprintf(label, sizeof(label), "%d", b->id);
-            DrawText(label, textX, textY, 10, WHITE);
         }
     }
 

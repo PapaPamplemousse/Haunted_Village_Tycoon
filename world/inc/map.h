@@ -97,4 +97,19 @@ void map_place_object(Map* map, ObjectTypeID id, int x, int y);
  */
 void map_remove_object(Map* map, int x, int y);
 
+/**
+ * @brief Toggles a door object between open and closed states.
+ *
+ * If the tile hosts a door object, this helper swaps it with the matching
+ * open/closed variant and updates the rendering cache. The underlying tile is
+ * left untouched.
+ *
+ * @param[in,out] map Pointer to the world map.
+ * @param x X coordinate in tile space.
+ * @param y Y coordinate in tile space.
+ * @param open When true the door is forced open, otherwise closed.
+ * @return true if a door was toggled, false otherwise.
+ */
+bool map_toggle_door(Map* map, int x, int y, bool open);
+
 #endif /* MAP_H */

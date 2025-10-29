@@ -23,26 +23,34 @@
 // -----------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
-// GLOBAL VARIABLES
+// QUERIES
 // -----------------------------------------------------------------------------
 
-/**
- * @var buildings
- * @brief Global array storing all detected buildings on the map.
- *
- * Each element contains detailed metadata such as bounds, center,
- * room type classification, and contained objects.
- */
-extern Building buildings[MAX_BUILDINGS];
+/** Maximum number of generated structures tracked simultaneously. */
+#define MAX_GENERATED_BUILDINGS MAX_BUILDINGS
+/** Maximum number of player-created structures tracked simultaneously. */
+#define MAX_PLAYER_BUILDINGS MAX_BUILDINGS
 
-/**
- * @var buildingCount
- * @brief Number of currently detected buildings in the world.
- *
- * This counter indicates how many valid entries exist in the
- * @ref buildings array.
- */
-extern int buildingCount;
+/** Returns the number of procedurally generated structures currently tracked. */
+int building_generated_count(void);
+
+/** Returns the number of player-created buildings currently tracked. */
+int building_player_count(void);
+
+/** Returns the total number of buildings (generated + player-built). */
+int building_total_count(void);
+
+/** Retrieves a read-only pointer to a building by global index. */
+const Building* building_get(int index);
+
+/** Retrieves a mutable pointer to a building by global index. */
+Building* building_get_mutable(int index);
+
+/** Retrieves a read-only pointer to a generated structure by index. */
+const Building* building_get_generated(int index);
+
+/** Retrieves a read-only pointer to a player-created building by index. */
+const Building* building_get_player(int index);
 
 // -----------------------------------------------------------------------------
 // FUNCTIONS
@@ -58,23 +66,32 @@ extern int buildingCount;
  *
  * @param[in,out] map Pointer to the game map structure containing tiles and objects.
  *
- * @note This function updates the global variables @ref buildings and @ref buildingCount.
+ * @note This function rebuilds the generated/player registries in-place.
  *       It should be called whenever the world layout changes (e.g., walls added/removed).
  */
 void update_building_detection(Map* map);
 
 /**
- * @brief Adds a building entry using an explicit bounding box.
+ * @brief Marks a generated structure's footprint so it can be categorized later.
  *
  * @param[in,out] map Pointer to the current world map.
  * @param bounds Axis-aligned rectangle delimiting the building interior in tiles.
- * @return Pointer to the registered building data, or NULL on failure.
  */
-Building* register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind);
+void register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind);
 
 /**
  * @brief Clears structure kind markers stored on the map grid.
  */
 void building_clear_structure_markers(void);
+
+/**
+ * @brief Marks that a reserved resident has been instantiated for a building.
+ */
+void building_on_reservation_spawn(int buildingId);
+
+/**
+ * @brief Marks that a reserved resident has been hibernated for a building.
+ */
+void building_on_reservation_hibernate(int buildingId);
 
 #endif /* BUILDING_H */

@@ -1,59 +1,1197 @@
+# =========================================================
 # ENTITY DEFINITIONS (.stv)
-#
-# Each section represents a type of living entity and its spawn profile.
-# Keys follow the pattern used throughout the project loaders:
-#   id                : internal identifier used in code.
-#   display_name      : optional readable name.
-#   texture           : optional PNG sprite (single frame or strip).
-#   sprite.origin     : pivot in pixels (defaults to texture centre).
-#   sprite.size       : animation frame size.
-#   sprite.frames     : number of frames, frame duration (seconds).
-#   color             : fallback tint when no texture is available.
-#   max_hp, max_speed : gameplay stats.
-#   radius            : collision/render radius in pixels.
-#   category          : faction/category label (e.g., "humanoid", "undead").
-#   traits            : comma-separated list of behavioural tags.
-#   flags             : comma or pipe separated list of built-in capability flags.
-#   referred.structure: optional structure kind binding (e.g., "hut_cannibal").
-#   spawn.*           : biome/tile aware spawn directives.
+# =========================================================
+# Expanded roster of villagers, monsters, animals, and eldritch horrors.
+# Each section describes a single entity type keyed by its numeric id.
+# =========================================================
 
+# ----------------------------
+# Undead
+# ----------------------------
 [CURSED_ZOMBIE]
 id = 0
 name = cursed_zombie
 display_name = Cursed Zombie
 texture = assets/entities/cursed_zombie.png
 sprite.size = 32, 48
-sprite.origin = 16, 32
-sprite.frames = 4, 0.20
-color = 120, 197, 120, 255
+color = 120,197,120,255
 max_hp = 40
-max_speed = 20
+max_speed = 22
 radius = 14
 category = undead
-traits = undead,infected
+traits = undead,shambler
 flags = hostile|mobile|undead
 spawn.density = 0.035
-spawn.group = 2-5
+spawn.group = 2-4
 spawn.tile = TILE_CURSED_FOREST
 spawn.biome = CURSED
 
 [CANNIBAL]
 id = 1
 name = cannibal
-display_name = Cannibal
+display_name = Cannibal Raider
 texture = assets/entities/cannibal.png
 sprite.size = 32, 48
-sprite.origin = 16, 32
-sprite.frames = 4, 0.20
-color = 137, 81, 41, 255
+color = 137,81,41,255
 max_hp = 80
 max_speed = 42
 radius = 14
 category = humanoid
 traits = cannibal,aggressive
-referred.structure = hut_cannibal
 flags = hostile|mobile
-spawn.density = 0.035
+spawn.density = 0.02
 spawn.group = 2-3
 spawn.tile = TILE_SAVANNA
 spawn.biome = SAVANNA
+referred.structure = hut_cannibal
+
+[CANNIBAL_WOMAN]
+id = 2
+name = cannibal_woman
+display_name = Cannibal Huntress
+color = 162,92,58,255
+max_hp = 70
+max_speed = 44
+radius = 13
+category = humanoid
+traits = cannibal,agile
+flags = hostile|mobile
+referred.structure = hut_cannibal
+
+[CANNIBAL_CHILD]
+id = 3
+name = cannibal_child
+display_name = Cannibal Child
+color = 190,120,80,255
+max_hp = 30
+max_speed = 48
+radius = 10
+category = humanoid
+traits = cannibal,decoy
+flags = mobile
+referred.structure = hut_cannibal
+
+[CANNIBAL_SCOUT]
+id = 4
+name = cannibal_scout
+display_name = Cannibal Scout
+color = 130,70,60,255
+max_hp = 55
+max_speed = 50
+radius = 12
+category = humanoid
+traits = cannibal,stealth
+flags = hostile|mobile
+referred.structure = cannibal_longhouse
+
+[CANNIBAL_COOK]
+id = 5
+name = cannibal_cook
+display_name = Cannibal Butcher
+color = 155,70,45,255
+max_hp = 75
+max_speed = 38
+radius = 14
+category = humanoid
+traits = cannibal,butcher
+flags = hostile|mobile
+referred.structure = cannibal_cook_tent
+
+[CANNIBAL_SHAMAN]
+id = 6
+name = cannibal_shaman
+display_name = Cannibal Shaman
+color = 150,40,90,255
+max_hp = 65
+max_speed = 36
+radius = 14
+category = humanoid
+traits = cannibal,occult
+flags = hostile|mobile|intelligent
+referred.structure = cannibal_shaman_hut
+
+[CANNIBAL_CHIEFTAIN]
+id = 7
+name = cannibal_chieftain
+display_name = Cannibal Chieftain
+color = 110,50,30,255
+max_hp = 120
+max_speed = 40
+radius = 16
+category = humanoid
+traits = cannibal,leader
+flags = hostile|mobile|intelligent
+referred.structure = cannibal_longhouse
+
+[CANNIBAL_ZEALOT]
+id = 8
+name = cannibal_zealot
+display_name = Cannibal Zealot
+color = 100,20,60,255
+max_hp = 90
+max_speed = 42
+radius = 14
+category = humanoid
+traits = cannibal,cultist
+flags = hostile|mobile|intelligent
+
+[CANNIBAL_ELDER]
+id = 9
+name = cannibal_elder
+display_name = Cannibal Matron
+color = 180,80,60,255
+max_hp = 85
+max_speed = 34
+radius = 15
+category = humanoid
+traits = cannibal,ritualist
+flags = hostile|mobile|intelligent
+
+[CANNIBAL_BERSERKER]
+id = 10
+name = cannibal_berserker
+display_name = Cannibal Berserker
+color = 120,30,30,255
+max_hp = 110
+max_speed = 46
+radius = 15
+category = humanoid
+traits = cannibal,berserk
+flags = hostile|mobile
+referred.structure = cannibal_bone_pit
+
+# ----------------------------
+# Civilians & Professions
+# ----------------------------
+[VILLAGER]
+id = 11
+name = villager
+display_name = Villager
+color = 180,180,180,255
+max_hp = 55
+max_speed = 32
+radius = 13
+category = civil
+traits = civilian
+flags = mobile|intelligent
+
+[VILLAGER_CHILD]
+id = 12
+name = villager_child
+display_name = Village Child
+color = 205,205,205,255
+max_hp = 30
+max_speed = 34
+radius = 11
+category = civil
+traits = civilian,child
+flags = mobile
+
+[GUARD]
+id = 13
+name = guard
+display_name = Guard
+color = 80,90,150,255
+max_hp = 80
+max_speed = 34
+radius = 14
+category = civil
+traits = defender
+flags = mobile|intelligent
+
+[GUARD_CAPTAIN]
+id = 14
+name = guard_captain
+display_name = Militia Captain
+color = 70,70,130,255
+max_hp = 95
+max_speed = 36
+radius = 15
+category = civil
+traits = defender,leader
+flags = mobile|intelligent
+
+[FARMER]
+id = 15
+name = farmer
+display_name = Farmer
+color = 150,120,60,255
+max_hp = 60
+max_speed = 30
+radius = 13
+category = civil
+traits = worker,agriculture
+flags = mobile|intelligent
+
+[FISHERMAN]
+id = 16
+name = fisherman
+display_name = Fisherman
+color = 80,120,170,255
+max_hp = 58
+max_speed = 30
+radius = 13
+category = civil
+traits = worker,river
+flags = mobile|intelligent
+
+[LUMBERJACK]
+id = 17
+name = lumberjack
+display_name = Lumberjack
+color = 120,70,40,255
+max_hp = 70
+max_speed = 32
+radius = 14
+category = civil
+traits = worker,forest
+flags = mobile|intelligent
+
+[MINER]
+id = 18
+name = miner
+display_name = Miner
+color = 100,100,100,255
+max_hp = 72
+max_speed = 30
+radius = 14
+category = civil
+traits = worker,underground
+flags = mobile|intelligent
+
+[BLACKSMITH]
+id = 19
+name = blacksmith
+display_name = Blacksmith
+color = 90,90,110,255
+max_hp = 80
+max_speed = 28
+radius = 14
+category = civil
+traits = worker,forge
+flags = mobile|intelligent
+
+[BAKER]
+id = 20
+name = baker
+display_name = Baker
+color = 200,160,100,255
+max_hp = 55
+max_speed = 30
+radius = 13
+category = civil
+traits = worker,kitchen
+flags = mobile|intelligent
+
+[APOTHECARY]
+id = 21
+name = apothecary
+display_name = Apothecary
+color = 120,200,160,255
+max_hp = 60
+max_speed = 32
+radius = 13
+category = civil
+traits = healer,alchemy
+flags = mobile|intelligent
+
+[DOCTOR]
+id = 22
+name = doctor
+display_name = Barber-Surgeon
+color = 150,160,170,255
+max_hp = 65
+max_speed = 32
+radius = 13
+category = civil
+traits = healer
+flags = mobile|intelligent
+
+[GRAVEDIGGER]
+id = 23
+name = gravedigger
+display_name = Gravedigger
+color = 110,110,110,255
+max_hp = 60
+max_speed = 30
+radius = 13
+category = civil
+traits = worker,graveyard
+flags = mobile|intelligent
+
+[PRIEST]
+id = 24
+name = priest
+display_name = Priest
+color = 200,200,230,255
+max_hp = 65
+max_speed = 30
+radius = 13
+category = civil
+traits = clergy
+flags = mobile|intelligent
+
+[ACOLYTE]
+id = 25
+name = acolyte
+display_name = Acolyte
+color = 190,190,220,255
+max_hp = 55
+max_speed = 30
+radius = 13
+category = civil
+traits = clergy
+flags = mobile|intelligent
+
+[TEACHER]
+id = 26
+name = teacher
+display_name = Teacher
+color = 210,210,180,255
+max_hp = 55
+max_speed = 30
+radius = 13
+category = civil
+traits = scholar
+flags = mobile|intelligent
+
+[TAVERNKEEPER]
+id = 27
+name = tavernkeeper
+display_name = Tavernkeeper
+color = 170,120,80,255
+max_hp = 65
+max_speed = 30
+radius = 13
+category = civil
+traits = hospitality
+flags = mobile|intelligent
+
+[MERCHANT]
+id = 28
+name = merchant
+display_name = Merchant
+color = 140,120,100,255
+max_hp = 60
+max_speed = 32
+radius = 13
+category = civil
+traits = trader
+flags = mobile|intelligent|merchant
+
+# ----------------------------
+# Animals & Livestock
+# ----------------------------
+[WATCHDOG]
+id = 29
+name = watchdog
+display_name = Watchdog
+color = 150,100,60,255
+max_hp = 45
+max_speed = 50
+radius = 12
+category = animal
+traits = canine
+flags = mobile|animal
+
+[HORSE]
+id = 30
+name = horse
+display_name = Horse
+color = 160,120,80,255
+max_hp = 70
+max_speed = 60
+radius = 16
+category = animal
+traits = mount
+flags = mobile|animal
+
+[GOAT]
+id = 31
+name = goat
+display_name = Goat
+color = 200,200,180,255
+max_hp = 35
+max_speed = 35
+radius = 12
+category = animal
+traits = livestock
+flags = mobile|animal
+
+[PIG]
+id = 32
+name = pig
+display_name = Pig
+color = 220,160,160,255
+max_hp = 40
+max_speed = 25
+radius = 12
+category = animal
+traits = livestock
+flags = mobile|animal
+
+[CHICKEN]
+id = 33
+name = chicken
+display_name = Chicken
+color = 240,240,200,255
+max_hp = 15
+max_speed = 28
+radius = 8
+category = animal
+traits = livestock
+flags = mobile|animal
+
+[CROW]
+id = 34
+name = crow
+display_name = Crow
+color = 60,60,70,255
+max_hp = 12
+max_speed = 40
+radius = 8
+category = animal
+traits = omen
+flags = mobile|animal
+
+[RAT]
+id = 35
+name = rat
+display_name = Rat
+color = 130,130,130,255
+max_hp = 10
+max_speed = 32
+radius = 7
+category = vermin
+traits = plague
+flags = mobile|animal
+
+[DEER]
+id = 36
+name = deer
+display_name = Deer
+color = 210,170,120,255
+max_hp = 55
+max_speed = 55
+radius = 15
+category = animal
+traits = wildlife
+flags = mobile|animal
+
+# ----------------------------
+# Beasts & Night Creatures
+# ----------------------------
+[GHOULHOUND]
+id = 37
+name = ghoulhound
+display_name = Ghoulhound
+color = 90,60,40,255
+max_hp = 70
+max_speed = 55
+radius = 14
+category = beast
+traits = predator
+flags = hostile|mobile|animal
+
+[WENDIGO]
+id = 38
+name = wendigo
+display_name = Wendigo
+color = 120,150,160,255
+max_hp = 140
+max_speed = 48
+radius = 20
+category = beast
+traits = famine,spirit
+flags = hostile|mobile
+
+[MARSH_HORROR]
+id = 39
+name = marsh_horror
+display_name = Marsh Horror
+color = 70,120,90,255
+max_hp = 110
+max_speed = 28
+radius = 18
+category = beast
+traits = swamp
+flags = hostile|mobile
+
+[BOG_FIEND]
+id = 40
+name = bog_fiend
+display_name = Bog Fiend
+color = 90,150,90,255
+max_hp = 95
+max_speed = 30
+radius = 16
+category = beast
+traits = swamp
+flags = hostile|mobile
+
+[CORPSE_BOAR]
+id = 41
+name = corpse_boar
+display_name = Corpse Boar
+color = 140,100,100,255
+max_hp = 100
+max_speed = 32
+radius = 16
+category = beast
+traits = undead,boar
+flags = hostile|mobile|undead
+
+[BLIGHT_ELK]
+id = 42
+name = blight_elk
+display_name = Blight Elk
+color = 200,110,110,255
+max_hp = 120
+max_speed = 40
+radius = 18
+category = beast
+traits = corruption
+flags = hostile|mobile
+
+[DIRE_WOLF]
+id = 43
+name = dire_wolf
+display_name = Dire Wolf
+color = 120,120,130,255
+max_hp = 80
+max_speed = 58
+radius = 15
+category = beast
+traits = predator
+flags = hostile|mobile|animal
+
+[CAVE_SPIDER]
+id = 44
+name = cave_spider
+display_name = Cave Spider
+color = 80,80,90,255
+max_hp = 35
+max_speed = 26
+radius = 10
+category = beast
+traits = venom
+flags = hostile|mobile|animal
+
+# ----------------------------
+# Vampires & Thralls
+# ----------------------------
+[VAMPIRE_NOBLE]
+id = 45
+name = vampire_noble
+display_name = Vampire Noble
+color = 140,40,80,255
+max_hp = 150
+max_speed = 44
+radius = 18
+category = vampire
+traits = blood,leader
+flags = hostile|mobile|intelligent
+
+[VAMPIRE_THRALL]
+id = 46
+name = vampire_thrall
+display_name = Vampire Thrall
+color = 170,120,150,255
+max_hp = 70
+max_speed = 38
+radius = 14
+category = vampire
+traits = servant
+flags = mobile|intelligent
+
+[NOSFERATU]
+id = 47
+name = nosferatu
+display_name = Nosferatu
+color = 110,110,150,255
+max_hp = 120
+max_speed = 40
+radius = 17
+category = vampire
+traits = feral
+flags = hostile|mobile|undead
+
+[BLOOD_PRIEST]
+id = 48
+name = blood_priest
+display_name = Blood Priest
+color = 150,60,100,255
+max_hp = 90
+max_speed = 34
+radius = 15
+category = vampire
+traits = cultist
+flags = hostile|mobile|intelligent
+
+[CRIMSON_BAT]
+id = 49
+name = crimson_bat
+display_name = Crimson Bat
+color = 200,40,60,255
+max_hp = 30
+max_speed = 60
+radius = 12
+category = vampire
+traits = swarm
+flags = hostile|mobile|animal
+
+# ----------------------------
+# Cultists & Possessions
+# ----------------------------
+[CULTIST_INITIATE]
+id = 50
+name = cultist_initiate
+display_name = Cult Initiate
+color = 90,30,90,255
+max_hp = 55
+max_speed = 32
+radius = 13
+category = cult
+traits = occult
+flags = hostile|mobile|intelligent
+
+[CULTIST_ADEPT]
+id = 51
+name = cultist_adept
+display_name = Cult Adept
+color = 100,40,110,255
+max_hp = 65
+max_speed = 32
+radius = 13
+category = cult
+traits = occult,ritualist
+flags = hostile|mobile|intelligent
+
+[CULT_LEADER]
+id = 52
+name = cult_leader
+display_name = False Saint
+color = 110,50,120,255
+max_hp = 80
+max_speed = 34
+radius = 15
+category = cult
+traits = occult,leader
+flags = hostile|mobile|intelligent
+
+[OCCULT_SCHOLAR]
+id = 53
+name = occult_scholar
+display_name = Occult Scholar
+color = 70,40,120,255
+max_hp = 60
+max_speed = 28
+radius = 13
+category = cult
+traits = occult,scholar
+flags = mobile|intelligent
+
+[SHADOWBOUND_ACOLYTE]
+id = 54
+name = shadowbound_acolyte
+display_name = Shadowbound Acolyte
+color = 80,30,120,255
+max_hp = 70
+max_speed = 30
+radius = 14
+category = cult
+traits = occult,shadow
+flags = hostile|mobile|intelligent
+
+[POSSESSED_VILLAGER]
+id = 55
+name = possessed_villager
+display_name = Possessed Villager
+color = 160,70,120,255
+max_hp = 75
+max_speed = 32
+radius = 14
+category = cult
+traits = possessed
+flags = hostile|mobile|intelligent
+
+[DOOMSPEAKER]
+id = 56
+name = doomspeaker
+display_name = Doomspeaker
+color = 90,0,90,255
+max_hp = 70
+max_speed = 30
+radius = 14
+category = cult
+traits = preacher
+flags = hostile|mobile|intelligent
+
+[BUTCHER_PROPHET]
+id = 57
+name = butcher_prophet
+display_name = Butcher Prophet
+color = 130,20,60,255
+max_hp = 95
+max_speed = 34
+radius = 15
+category = cult
+traits = cannibal,occult
+flags = hostile|mobile|intelligent
+
+# ----------------------------
+# Spirits & Phantoms
+# ----------------------------
+[RESTLESS_SPIRIT]
+id = 58
+name = restless_spirit
+display_name = Restless Spirit
+color = 160,200,220,200
+max_hp = 40
+max_speed = 30
+radius = 12
+category = spirit
+traits = haunting
+flags = hostile|mobile|undead
+
+[GRAVEBOUND_CORPSE]
+id = 59
+name = gravebound_corpse
+display_name = Gravebound Corpse
+color = 110,150,120,255
+max_hp = 85
+max_speed = 20
+radius = 16
+category = undead
+traits = undead,grave
+flags = hostile|mobile|undead
+
+[FALSE_RESURRECTION]
+id = 60
+name = false_resurrection
+display_name = False Resurrection
+color = 140,170,150,255
+max_hp = 60
+max_speed = 18
+radius = 14
+category = undead
+traits = undead,docile
+flags = mobile|undead
+
+[BONEWALKER]
+id = 61
+name = bonewalker
+display_name = Bonewalker
+color = 180,180,200,255
+max_hp = 90
+max_speed = 26
+radius = 16
+category = undead
+traits = guardian
+flags = hostile|mobile|undead
+
+[PLAGUE_DEAD]
+id = 62
+name = plague_dead
+display_name = Plague Dead
+color = 130,160,110,255
+max_hp = 75
+max_speed = 22
+radius = 15
+category = undead
+traits = disease
+flags = hostile|mobile|undead
+
+[WRAITH]
+id = 63
+name = wraith
+display_name = Wraith
+color = 180,220,240,180
+max_hp = 70
+max_speed = 40
+radius = 15
+category = spirit
+traits = intangible
+flags = hostile|mobile|undead
+
+[HAUNTING_SHADE]
+id = 64
+name = haunting_shade
+display_name = Haunting Shade
+color = 150,200,230,200
+max_hp = 60
+max_speed = 36
+radius = 14
+category = spirit
+traits = haunting
+flags = hostile|mobile|undead
+
+[SPECTRAL_BRIDE]
+id = 65
+name = spectral_bride
+display_name = Spectral Bride
+color = 210,210,240,200
+max_hp = 65
+max_speed = 34
+radius = 14
+category = spirit
+traits = haunting,tragic
+flags = hostile|mobile|undead
+
+[CRYPT_LORD]
+id = 66
+name = crypt_lord
+display_name = Crypt Lord
+color = 120,160,200,255
+max_hp = 160
+max_speed = 24
+radius = 18
+category = undead
+traits = guardian,leader
+flags = hostile|mobile|undead
+
+[SHADOW_PHANTOM]
+id = 67
+name = shadow_phantom
+display_name = Shadow Phantom
+color = 40,40,70,200
+max_hp = 55
+max_speed = 38
+radius = 13
+category = spirit
+traits = shadow
+flags = hostile|mobile
+
+[ECHOED_VOICE]
+id = 68
+name = echoed_voice
+display_name = Echoed Voice
+color = 200,200,230,160
+max_hp = 30
+max_speed = 20
+radius = 12
+category = spirit
+traits = whisper
+flags = mobile|undead
+
+[MIRROR_SHADE]
+id = 69
+name = mirror_shade
+display_name = Mirror Shade
+color = 180,200,220,200
+max_hp = 60
+max_speed = 32
+radius = 14
+category = spirit
+traits = reflection
+flags = hostile|mobile|undead
+
+[NAMELESS_MOURNER]
+id = 70
+name = nameless_mourner
+display_name = Nameless Mourner
+color = 200,200,230,200
+max_hp = 55
+max_speed = 28
+radius = 14
+category = spirit
+traits = sorrow
+flags = mobile|undead
+
+[NIGHTMARE_APPARITION]
+id = 71
+name = nightmare_apparition
+display_name = Nightmare Apparition
+color = 120,60,160,220
+max_hp = 80
+max_speed = 30
+radius = 16
+category = spirit
+traits = nightmare
+flags = hostile|mobile|undead
+
+[WELL_SPECTER]
+id = 72
+name = well_specter
+display_name = Specter of the Well
+color = 140,200,230,200
+max_hp = 60
+max_speed = 28
+radius = 14
+category = spirit
+traits = water
+flags = hostile|mobile|undead
+
+[ASH_WIDOW]
+id = 73
+name = ash_widow
+display_name = Ash Widow
+color = 180,150,150,210
+max_hp = 65
+max_speed = 30
+radius = 14
+category = spirit
+traits = sorrow
+flags = hostile|mobile|undead
+
+[CLOCKWORK_WRAITH]
+id = 74
+name = clockwork_wraith
+display_name = Clockwork Wraith
+color = 120,120,150,220
+max_hp = 70
+max_speed = 34
+radius = 15
+category = spirit
+traits = machine
+flags = hostile|mobile|undead
+
+# ----------------------------
+# Travelers & Visitors
+# ----------------------------
+[TRAVELING_MERCHANT]
+id = 75
+name = traveling_merchant
+display_name = Traveling Merchant
+color = 150,110,90,255
+max_hp = 70
+max_speed = 36
+radius = 14
+category = visitor
+traits = trader
+flags = mobile|intelligent|merchant
+spawn.density = 0.005
+spawn.group = 1-1
+spawn.tile = TILE_PLAIN
+spawn.biome = PLAIN
+
+[PILGRIM_BAND]
+id = 76
+name = pilgrim_band
+display_name = Pilgrim Band
+color = 200,180,150,255
+max_hp = 60
+max_speed = 30
+radius = 14
+category = visitor
+traits = pilgrim
+flags = mobile|intelligent
+
+[INQUISITION_ENVOY]
+id = 77
+name = inquisition_envoy
+display_name = Inquisition Envoy
+color = 160,160,190,255
+max_hp = 80
+max_speed = 34
+radius = 14
+category = visitor
+traits = authority
+flags = mobile|intelligent
+
+[NEIGHBOR_DELEGATION]
+id = 78
+name = neighbor_delegation
+display_name = Neighbor Delegation
+color = 180,150,130,255
+max_hp = 65
+max_speed = 32
+radius = 14
+category = visitor
+traits = diplomat
+flags = mobile|intelligent
+
+[TRAVELING_PERFORMER]
+id = 79
+name = traveling_performer
+display_name = Traveling Performer
+color = 210,160,180,255
+max_hp = 55
+max_speed = 34
+radius = 13
+category = visitor
+traits = entertainer
+flags = mobile|intelligent
+
+[WITCH_HUNTER]
+id = 80
+name = witch_hunter
+display_name = Witch Hunter
+color = 120,80,70,255
+max_hp = 90
+max_speed = 38
+radius = 14
+category = visitor
+traits = hunter
+flags = mobile|intelligent
+
+[MISSIONARY]
+id = 81
+name = missionary
+display_name = Missionary
+color = 200,200,210,255
+max_hp = 60
+max_speed = 30
+radius = 13
+category = visitor
+traits = clergy
+flags = mobile|intelligent
+
+[GRAVEDUST_PEDDLER]
+id = 82
+name = gravedust_peddler
+display_name = Gravedust Peddler
+color = 150,120,110,255
+max_hp = 55
+max_speed = 32
+radius = 13
+category = visitor
+traits = trader,occult
+flags = mobile|intelligent|merchant
+
+# ----------------------------
+# Eldritch Horrors
+# ----------------------------
+[WHISPERER_BENEATH]
+id = 83
+name = whisperer_beneath
+display_name = Whisperer Beneath the Mire
+color = 60,80,100,220
+max_hp = 220
+max_speed = 26
+radius = 24
+category = eldritch
+traits = mire,ancient
+flags = hostile|mobile|intelligent
+
+[PALE_CHILD]
+id = 84
+name = pale_child
+display_name = The Pale Child
+color = 220,220,220,240
+max_hp = 80
+max_speed = 30
+radius = 15
+category = eldritch
+traits = omen
+flags = hostile|mobile
+
+[BLOOD_MOON_APPARITION]
+id = 85
+name = blood_moon_apparition
+display_name = Blood Moon Apparition
+color = 200,40,60,230
+max_hp = 140
+max_speed = 32
+radius = 20
+category = eldritch
+traits = omen
+flags = hostile|mobile
+
+[ARCHITECT_GHOST]
+id = 86
+name = architect_ghost
+display_name = Architect Ghost
+color = 160,200,230,210
+max_hp = 100
+max_speed = 28
+radius = 18
+category = eldritch
+traits = builder
+flags = hostile|mobile|intelligent
+
+[NAMELESS_ARCHIVIST]
+id = 87
+name = nameless_archivist
+display_name = Nameless Archivist
+color = 190,190,230,220
+max_hp = 120
+max_speed = 28
+radius = 18
+category = eldritch
+traits = knowledge
+flags = mobile|intelligent
+
+[THOUSAND_TEETH]
+id = 88
+name = thousand_teeth
+display_name = Thing with a Thousand Teeth
+color = 120,40,40,255
+max_hp = 260
+max_speed = 24
+radius = 26
+category = eldritch
+traits = horror
+flags = hostile|mobile
+
+[HOLLOW_WATCHER]
+id = 89
+name = hollow_watcher
+display_name = Hollow Watcher
+color = 90,90,110,240
+max_hp = 160
+max_speed = 16
+radius = 22
+category = eldritch
+traits = sentinel
+flags = hostile|mobile
+
+[CANDLE_EATER]
+id = 90
+name = candle_eater
+display_name = Candle-Eater
+color = 240,190,120,220
+max_hp = 140
+max_speed = 30
+radius = 18
+category = eldritch
+traits = lightdevourer
+flags = hostile|mobile
+
+[FLESH_LIBRARIAN]
+id = 91
+name = flesh_librarian
+display_name = Flesh Librarian
+color = 170,80,120,230
+max_hp = 150
+max_speed = 28
+radius = 20
+category = eldritch
+traits = archivist
+flags = hostile|mobile|intelligent
+
+[CRIMSON_CHOIR]
+id = 92
+name = crimson_choir
+display_name = Crimson Choir
+color = 200,40,90,220
+max_hp = 200
+max_speed = 22
+radius = 24
+category = eldritch
+traits = chorus
+flags = hostile|mobile
+
+[HEART_OF_TOWN]
+id = 93
+name = heart_of_town
+display_name = Heart of the Town
+color = 180,30,60,230
+max_hp = 280
+max_speed = 0
+radius = 26
+category = eldritch
+traits = root
+flags = hostile
+
+[DREAMING_GOD]
+id = 94
+name = dreaming_god
+display_name = Dreaming God
+color = 120,60,170,240
+max_hp = 320
+max_speed = 18
+radius = 28
+category = eldritch
+traits = apocalypse
+flags = hostile|mobile|intelligent

@@ -22,10 +22,10 @@
 // -----------------------------------------------------------------------------
 
 /** Maximum number of simultaneously active entities (pooled storage). */
-#define MAX_ENTITIES 256
+#define MAX_ENTITIES 512
 
 /** Maximum amount of entity types that can be loaded from configuration. */
-#define ENTITY_MAX_TYPES 32
+#define ENTITY_MAX_TYPES 128
 
 /** Maximum number of custom personality traits per entity type. */
 #define ENTITY_MAX_TRAITS 8
@@ -37,7 +37,7 @@
 #define ENTITY_CATEGORY_NAME_MAX 32
 
 /** Maximum amount of spawn rules that can be defined across all types. */
-#define ENTITY_MAX_SPAWN_RULES 64
+#define ENTITY_MAX_SPAWN_RULES 256
 
 /** Maximum length (including null terminator) for entity identifiers. */
 #define ENTITY_TYPE_NAME_MAX 32
@@ -50,6 +50,9 @@
 
 /** Value used to mark invalid entity identifiers. */
 #define ENTITY_ID_INVALID ((uint16_t)0xFFFF)
+
+/** Maximum number of persistent entity reservations used for streaming. */
+#define ENTITY_MAX_RESERVATIONS 1024
 
 // -----------------------------------------------------------------------------
 // ENUMS & FLAGS
@@ -126,6 +129,7 @@ typedef struct Entity
     uint8_t               brain[ENTITY_BRAIN_BYTES]; /**< Inline behaviour state storage. */
     Vector2               home;                      /**< Preferred anchor position in world space. */
     StructureKind         homeStructure;             /**< Structure affinity used for behaviour. */
+    int                   reservationIndex;          /**< Index into reservation array or -1 if none. */
 } Entity;
 
 typedef struct EntitySpawnRule
@@ -139,6 +143,23 @@ typedef struct EntitySpawnRule
     int               groupMax; /**< Maximum number of entities per spawn. */
 } EntitySpawnRule;
 
+typedef struct EntityReservation
+{
+    bool           used;               /**< Slot is populated with reservation data. */
+    bool           active;             /**< Reservation currently has a live entity instance. */
+    EntitiesTypeID typeId;             /**< Entity type identifier. */
+    uint16_t       entityId;           /**< Runtime id when active, ENTITY_ID_INVALID otherwise. */
+    Vector2        position;           /**< Persisted world position (pixels). */
+    Vector2        velocity;           /**< Persisted velocity vector. */
+    float          orientation;        /**< Persisted facing angle. */
+    int            hp;                 /**< Persisted hit points. */
+    Vector2        home;               /**< Home position anchor. */
+    StructureKind  homeStructure;      /**< Optional affiliated structure. */
+    int            buildingId;         /**< Owning building id or -1 if free roaming. */
+    float          activationRadius;   /**< Distance from focus required to instantiate. */
+    float          deactivationRadius; /**< Distance from focus required to despawn. */
+} EntityReservation;
+
 typedef struct EntitySystem
 {
     Entity       entities[MAX_ENTITIES];
@@ -151,6 +172,11 @@ typedef struct EntitySystem
 
     EntitySpawnRule spawnRules[ENTITY_MAX_SPAWN_RULES];
     int             spawnRuleCount;
+
+    EntityReservation reservations[ENTITY_MAX_RESERVATIONS];
+    int               reservationCount;
+    float             streamActivationPadding;   /**< Additional radius around viewport for activation. */
+    float             streamDeactivationPadding; /**< Hysteresis radius for deactivation. */
 } EntitySystem;
 
 // -----------------------------------------------------------------------------
@@ -178,9 +204,10 @@ void entity_system_shutdown(EntitySystem* sys);
  *
  * @param sys Entity system to update.
  * @param map Current map used for collision and spawning context.
+ * @param camera Active camera used to determine streaming focus.
  * @param dt Delta time in seconds.
  */
-void entity_system_update(EntitySystem* sys, const Map* map, float dt);
+void entity_system_update(EntitySystem* sys, const Map* map, const Camera2D* camera, float dt);
 
 /**
  * @brief Renders all active entities.

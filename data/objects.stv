@@ -189,10 +189,10 @@ texture      = assets/objects/storage/crate.png
 # --- Structures ---
 # =========================================================
 
-[DOOR_WOOD]
+[DOOR_WOOD_CLOSED]
 id           = 9
-name         = door_wood
-display_name = Wooden Door
+name         = door_wood_close
+display_name = Wooden Door (Closed)
 category     = structure
 max_hp       = 100
 comfort      = 0
@@ -205,7 +205,25 @@ flammable    = true
 is_wall      = false
 is_door      = true
 color        = 139,69,19,255
-texture      = assets/objects/structure/door_wood.png
+texture      = assets/objects/structure/door_wood_close.png
+
+[DOOR_WOOD_OPEN]
+id           = 29
+name         = door_wood_open
+display_name = Wooden Door (Open)
+category     = structure
+max_hp       = 80
+comfort      = 0
+warmth       = 0
+light        = 0
+width        = 1
+height       = 2
+walkable     = true
+flammable    = true
+is_wall      = false
+is_door      = true
+color        = 180,120,90,255
+texture      = assets/objects/structure/door_wood_open.png
 
 [WALL_STONE]
 id           = 10

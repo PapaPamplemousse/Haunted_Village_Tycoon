@@ -55,10 +55,112 @@ int entity_randomi(EntitySystem* sys, int min, int max)
     return min + (int)(entity_random(sys) % (span ? span : 1));
 }
 
+static void entity_reservation_reset(EntityReservation* res)
+{
+    if (!res)
+        return;
+    memset(res, 0, sizeof(*res));
+    res->entityId        = ENTITY_ID_INVALID;
+    res->buildingId      = -1;
+    res->homeStructure   = STRUCT_COUNT;
+    res->activationRadius   = 0.0f;
+    res->deactivationRadius = 0.0f;
+    res->used            = false;
+    res->active          = false;
+}
+
+static void entity_reservations_reset(EntitySystem* sys)
+{
+    if (!sys)
+        return;
+    sys->reservationCount = 0;
+    for (int i = 0; i < ENTITY_MAX_RESERVATIONS; ++i)
+        entity_reservation_reset(&sys->reservations[i]);
+}
+
+static EntityReservation* entity_reservation_acquire(EntitySystem* sys)
+{
+    if (!sys)
+        return NULL;
+    if (sys->reservationCount >= ENTITY_MAX_RESERVATIONS)
+        return NULL;
+
+    EntityReservation* res = &sys->reservations[sys->reservationCount++];
+    entity_reservation_reset(res);
+    res->used = true;
+    return res;
+}
+
+static inline float entity_distance_sq(Vector2 a, Vector2 b)
+{
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
+static void entity_reservation_capture(EntityReservation* res, const Entity* ent)
+{
+    if (!res || !ent)
+        return;
+    res->position       = ent->position;
+    res->velocity       = ent->velocity;
+    res->orientation    = ent->orientation;
+    res->hp             = ent->hp;
+    res->home           = ent->home;
+    res->homeStructure  = ent->homeStructure;
+}
+
+static void entity_reservation_apply(EntityReservation* res, Entity* ent)
+{
+    if (!res || !ent)
+        return;
+    ent->position      = res->position;
+    ent->velocity      = res->velocity;
+    ent->orientation   = res->orientation;
+    if (res->hp > 0 && ent->type && res->hp <= ent->type->maxHP)
+        ent->hp = res->hp;
+    ent->home          = res->home;
+    ent->homeStructure = res->homeStructure;
+}
+
+static bool entity_reservation_schedule(EntitySystem* sys,
+                                        EntitiesTypeID typeId,
+                                        Vector2 position,
+                                        Vector2 home,
+                                        StructureKind structure,
+                                        int buildingId,
+                                        float activationRadius,
+                                        float deactivationRadius)
+{
+    if (!sys || typeId <= ENTITY_TYPE_INVALID)
+        return false;
+
+    EntityReservation* res = entity_reservation_acquire(sys);
+    if (!res)
+        return false;
+
+    res->typeId             = typeId;
+    res->position           = position;
+    res->home               = home;
+    res->homeStructure      = structure;
+    res->buildingId         = buildingId;
+    res->activationRadius   = activationRadius;
+    res->deactivationRadius = deactivationRadius;
+    res->velocity           = (Vector2){0.0f, 0.0f};
+    res->orientation        = 0.0f;
+    res->hp                 = 0;
+    return true;
+}
+
 static void entity_system_reset(EntitySystem* sys)
 {
+    if (!sys)
+        return;
     memset(sys, 0, sizeof(*sys));
     sys->highestIndex = -1;
+    sys->streamActivationPadding   = TILE_SIZE * 8.0f;
+    sys->streamDeactivationPadding = TILE_SIZE * 12.0f;
+    entity_reservations_reset(sys);
 }
 
 static void entity_clear_slot(EntitySystem* sys, int index)
@@ -66,6 +168,7 @@ static void entity_clear_slot(EntitySystem* sys, int index)
     Entity* e = &sys->entities[index];
     memset(e, 0, sizeof(*e));
     e->id = (uint16_t)index;
+    e->reservationIndex = -1;
 }
 
 static void entity_unload_sprite(EntitySprite* sprite)
@@ -202,16 +305,19 @@ static void entity_assign_builtin_behaviours(EntitySystem* sys)
     for (int i = 0; i < sys->typeCount; ++i)
     {
         EntityType* type = &sys->types[i];
-        switch (type->id)
+        if (!type)
+            continue;
+
+        if (entity_type_has_trait(type, "cannibal"))
         {
-            case ENTITY_TYPE_CURSED_ZOMBIE:
-                type->behavior = entity_zombie_behavior();
-                break;
-            case ENTITY_TYPE_CANNIBAL:
-                type->behavior = entity_cannibal_behavior();
-                break;
-            default:
-                break;
+            type->behavior = entity_cannibal_behavior();
+            continue;
+        }
+
+        if (entity_type_has_trait(type, "undead"))
+        {
+            type->behavior = entity_zombie_behavior();
+            continue;
         }
     }
 }
@@ -388,7 +494,7 @@ static void entity_register_fallbacks(EntitySystem* sys)
     entity_system_register_type(sys, &cannibal, &rule);
 }
 
-static bool entity_spawn_near_structures(EntitySystem* sys, const EntitySpawnRule* rule, const Map* map)
+static bool entity_schedule_near_structures(EntitySystem* sys, const EntitySpawnRule* rule, const Map* map)
 {
     if (!sys || !rule || !rule->type || !map)
         return false;
@@ -397,25 +503,28 @@ static bool entity_spawn_near_structures(EntitySystem* sys, const EntitySpawnRul
         return false;
 
     bool spawnedAny = false;
-    for (int b = 0; b < buildingCount; ++b)
+    int total = building_total_count();
+    for (int b = 0; b < total; ++b)
     {
-        const Building* building = &buildings[b];
+        const Building* building = building_get(b);
         if (!building || building->structureKind != rule->type->referredStructure)
             continue;
 
         Vector2 home  = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
-        int     group = entity_randomi(sys, rule->groupMin, rule->groupMax);
+        int group = entity_randomi(sys, rule->groupMin, rule->groupMax);
         if (group <= 0)
             group = 1;
 
         for (int g = 0; g < group; ++g)
         {
-            bool placed = false;
+            bool   placed = false;
+            Vector2 spawnPos;
+
             for (int attempt = 0; attempt < 6 && !placed; ++attempt)
             {
-                float   angle     = entity_randomf(sys, 0.0f, 2.0f * PI);
-                float   distTiles = entity_randomf(sys, 0.5f, 3.5f);
-                Vector2 spawnPos  = {
+                float angle     = entity_randomf(sys, 0.0f, 2.0f * PI);
+                float distTiles = entity_randomf(sys, 0.5f, 3.5f);
+                spawnPos        = (Vector2){
                     home.x + cosf(angle) * distTiles * TILE_SIZE,
                     home.y + sinf(angle) * distTiles * TILE_SIZE,
                 };
@@ -423,33 +532,28 @@ static bool entity_spawn_near_structures(EntitySystem* sys, const EntitySpawnRul
                 if (!entity_position_is_walkable(map, spawnPos, rule->type->radius))
                     continue;
 
-                uint16_t id = entity_spawn(sys, rule->type->id, spawnPos);
-                if (id == ENTITY_ID_INVALID)
-                    continue;
-
-                Entity* ent = entity_acquire(sys, id);
-                if (ent)
-                {
-                    ent->home          = home;
-                    ent->homeStructure = rule->type->referredStructure;
-                }
-                spawnedAny = true;
-                placed     = true;
+                placed = entity_reservation_schedule(sys,
+                                                     rule->type->id,
+                                                     spawnPos,
+                                                     home,
+                                                     rule->type->referredStructure,
+                                                     -1,
+                                                     0.0f,
+                                                     0.0f);
+                spawnedAny |= placed;
             }
 
             if (!placed && entity_position_is_walkable(map, home, rule->type->radius))
             {
-                uint16_t id = entity_spawn(sys, rule->type->id, home);
-                if (id != ENTITY_ID_INVALID)
-                {
-                    Entity* ent = entity_acquire(sys, id);
-                    if (ent)
-                    {
-                        ent->home          = home;
-                        ent->homeStructure = rule->type->referredStructure;
-                    }
+                if (entity_reservation_schedule(sys,
+                                                rule->type->id,
+                                                home,
+                                                home,
+                                                rule->type->referredStructure,
+                                                -1,
+                                                0.0f,
+                                                0.0f))
                     spawnedAny = true;
-                }
             }
         }
     }
@@ -457,37 +561,40 @@ static bool entity_spawn_near_structures(EntitySystem* sys, const EntitySpawnRul
     return spawnedAny;
 }
 
-static void entity_spawn_structure_residents(EntitySystem* sys, const Map* map)
+static void entity_schedule_structure_residents(EntitySystem* sys, const Map* map)
 {
     if (!sys || !map)
         return;
 
-    for (int b = 0; b < buildingCount; ++b)
+    int total = building_total_count();
+    for (int b = 0; b < total; ++b)
     {
-        Building* building = &buildings[b];
+        Building* building = building_get_mutable(b);
         if (!building || !building->structureDef)
             continue;
-        if (building->occupantType <= ENTITY_TYPE_INVALID)
-            continue;
-        if (building->occupantCurrent <= 0)
+        building->occupantActive = 0;
+
+        if (building->occupantType <= ENTITY_TYPE_INVALID || building->occupantCurrent <= 0)
             continue;
 
         const EntityType* type = entity_find_type(sys, building->occupantType);
         if (!type)
             continue;
 
-        Vector2 home      = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
-        int     toSpawn   = building->occupantCurrent;
-        int     spawned   = 0;
+        Vector2 home = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
 
-        for (int i = 0; i < toSpawn; ++i)
+        for (int i = 0; i < building->occupantCurrent; ++i)
         {
-            bool placed = false;
+            bool   placed   = false;
+            Vector2 spawnPos = home;
+
             for (int attempt = 0; attempt < 8 && !placed; ++attempt)
             {
-                float   angle    = entity_randomf(sys, 0.0f, 2.0f * PI);
-                float   dist     = entity_randomf(sys, 0.2f, 1.6f);
-                Vector2 spawnPos = {
+                unsigned int seed = (unsigned int)(building->id * 73856093u) ^ (unsigned int)(i * 19349663u + attempt * 83492791u);
+                float angle = ((float)(seed & 0xFFFFu) / 65535.0f) * 2.0f * PI;
+                seed         = seed * 1664525u + 1013904223u;
+                float dist   = 0.35f + ((float)((seed >> 16) & 0xFFFFu) / 65535.0f) * 1.8f;
+                spawnPos     = (Vector2){
                     home.x + cosf(angle) * dist * TILE_SIZE,
                     home.y + sinf(angle) * dist * TILE_SIZE,
                 };
@@ -495,37 +602,111 @@ static void entity_spawn_structure_residents(EntitySystem* sys, const Map* map)
                 if (!entity_position_is_walkable(map, spawnPos, type->radius))
                     continue;
 
-                uint16_t id = entity_spawn(sys, type->id, spawnPos);
-                if (id == ENTITY_ID_INVALID)
-                    continue;
-
-                Entity* ent = entity_acquire(sys, id);
-                if (ent)
-                {
-                    ent->home          = home;
-                    ent->homeStructure = building->structureKind;
-                }
-                spawned++;
-                placed = true;
+                placed = entity_reservation_schedule(sys,
+                                                     type->id,
+                                                     spawnPos,
+                                                     home,
+                                                     building->structureKind,
+                                                     building->id,
+                                                     0.0f,
+                                                     0.0f);
             }
 
             if (!placed && entity_position_is_walkable(map, home, type->radius))
             {
-                uint16_t id = entity_spawn(sys, type->id, home);
-                if (id != ENTITY_ID_INVALID)
-                {
-                    Entity* ent = entity_acquire(sys, id);
-                    if (ent)
-                    {
-                        ent->home          = home;
-                        ent->homeStructure = building->structureKind;
-                    }
-                    spawned++;
-                }
+                entity_reservation_schedule(sys,
+                                            type->id,
+                                            home,
+                                            home,
+                                            building->structureKind,
+                                            building->id,
+                                            0.0f,
+                                            0.0f);
             }
         }
+    }
+}
 
-        building->occupantCurrent = spawned;
+static void entity_stream_reservations(EntitySystem* sys, const Map* map, const Camera2D* camera)
+{
+    if (!sys)
+        return;
+
+    float viewWidth  = (float)GetScreenWidth();
+    float viewHeight = (float)GetScreenHeight();
+    float zoom       = (camera && camera->zoom > 0.0f) ? camera->zoom : 1.0f;
+    viewWidth /= zoom;
+    viewHeight /= zoom;
+
+    Vector2 focus = camera ? camera->target : (Vector2){viewWidth * 0.5f, viewHeight * 0.5f};
+
+    float halfW             = viewWidth * 0.5f;
+    float halfH             = viewHeight * 0.5f;
+    float baseRadius        = sqrtf(halfW * halfW + halfH * halfH);
+    float defaultActivation = baseRadius + sys->streamActivationPadding;
+    float defaultDeactivation = baseRadius + sys->streamDeactivationPadding;
+    float defaultActivationSq  = defaultActivation * defaultActivation;
+    float defaultDeactivationSq = defaultDeactivation * defaultDeactivation;
+
+    for (int i = 0; i < sys->reservationCount; ++i)
+    {
+        EntityReservation* res = &sys->reservations[i];
+        if (!res->used)
+            continue;
+
+        float activationRadius   = (res->activationRadius > 0.0f) ? res->activationRadius : defaultActivation;
+        float deactivationRadius = (res->deactivationRadius > 0.0f) ? res->deactivationRadius : defaultDeactivation;
+        float activationSq       = activationRadius * activationRadius;
+        float deactivationSq     = deactivationRadius * deactivationRadius;
+
+        float distSq = entity_distance_sq(res->position, focus);
+
+        if (!res->active && distSq <= activationSq)
+        {
+            const EntityType* type = entity_find_type(sys, res->typeId);
+            if (!type)
+                continue;
+
+            if (!entity_position_is_walkable(map, res->position, type->radius))
+                continue;
+
+            uint16_t id = entity_spawn(sys, res->typeId, res->position);
+            if (id == ENTITY_ID_INVALID)
+                continue;
+
+            Entity* ent = entity_acquire(sys, id);
+            if (!ent)
+            {
+                entity_despawn(sys, id);
+                continue;
+            }
+
+            res->entityId          = id;
+            res->active            = true;
+            ent->reservationIndex  = i;
+            if (res->hp <= 0 && type->maxHP > 0)
+                res->hp = type->maxHP;
+            entity_reservation_apply(res, ent);
+            ent->hp = (res->hp > 0) ? res->hp : ent->hp;
+            if (res->buildingId >= 0)
+                building_on_reservation_spawn(res->buildingId);
+        }
+        else if (res->active && distSq >= deactivationSq)
+        {
+            Entity* ent = entity_acquire(sys, res->entityId);
+            if (ent)
+            {
+                entity_reservation_capture(res, ent);
+                ent->reservationIndex = -1;
+            }
+
+            if (res->buildingId >= 0)
+                building_on_reservation_hibernate(res->buildingId);
+
+            entity_despawn(sys, res->entityId);
+            res->entityId = ENTITY_ID_INVALID;
+            res->active   = false;
+        }
     }
 }
 
@@ -561,7 +742,6 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
                 sys->spawnRules[i].type = entity_find_type(sys, sys->spawnRules[i].id);
         }
 
-        // Seed the world with initial spawns
         for (int r = 0; r < sys->spawnRuleCount; ++r)
         {
             const EntitySpawnRule* rule = &sys->spawnRules[r];
@@ -570,7 +750,7 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
 
             if (rule->type->referredStructure != STRUCT_COUNT)
             {
-                entity_spawn_near_structures(sys, rule, map);
+                entity_schedule_near_structures(sys, rule, map);
                 continue;
             }
 
@@ -605,14 +785,21 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
                         };
                         if (!entity_position_is_walkable(map, spawnPos, rule->type->radius))
                             continue;
-                        if (entity_spawn(sys, rule->type->id, spawnPos) == ENTITY_ID_INVALID)
+                        if (!entity_reservation_schedule(sys,
+                                                         rule->type->id,
+                                                         spawnPos,
+                                                         spawnPos,
+                                                         STRUCT_COUNT,
+                                                         -1,
+                                                         0.0f,
+                                                         0.0f))
                             break;
                     }
                 }
             }
         }
 
-        entity_spawn_structure_residents(sys, map);
+        entity_schedule_structure_residents(sys, map);
     }
 
     return loaded;
@@ -655,10 +842,12 @@ static void entity_update_animation(Entity* e, float dt)
     }
 }
 
-void entity_system_update(EntitySystem* sys, const Map* map, float dt)
+void entity_system_update(EntitySystem* sys, const Map* map, const Camera2D* camera, float dt)
 {
     if (!sys)
         return;
+
+    entity_stream_reservations(sys, map, camera);
 
     for (int i = 0; i <= sys->highestIndex; ++i)
     {
@@ -670,6 +859,13 @@ void entity_system_update(EntitySystem* sys, const Map* map, float dt)
             e->behavior->onUpdate(sys, e, map, dt);
 
         entity_update_animation(e, dt);
+
+        if (e->reservationIndex >= 0 && e->reservationIndex < sys->reservationCount)
+        {
+            EntityReservation* res = &sys->reservations[e->reservationIndex];
+            if (res->used && res->active && res->entityId == e->id)
+                entity_reservation_capture(res, e);
+        }
     }
 }
 
@@ -771,6 +967,7 @@ void entity_despawn(EntitySystem* sys, uint16_t id)
         e->behavior->onDespawn(sys, e);
 
     e->active = false;
+    e->reservationIndex = -1;
     sys->activeCount--;
     if (sys->activeCount < 0)
         sys->activeCount = 0;

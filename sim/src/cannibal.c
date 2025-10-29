@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "map.h"
 #include "tile.h"
 
 #ifndef PI
@@ -22,7 +23,7 @@ static bool cannibal_is_friendly(const Entity* other)
     if (!other || !other->type)
         return false;
     bool hasCannibalTrait = entity_type_has_trait(other->type, "cannibal");
-    bool humanoidCategory = entity_type_is_category(other->type, "humanoid") || entity_type_is_category(other->type, "humanoid");
+    bool humanoidCategory = entity_type_is_category(other->type, "humanoid");
     return hasCannibalTrait && humanoidCategory;
 }
 
@@ -101,6 +102,7 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
     if (!sys || !e || !map || !e->type)
         return;
 
+    Map* mutableMap = (Map*)map;
     CannibalBrain* brain = (CannibalBrain*)e->brain;
     if (sizeof(CannibalBrain) > ENTITY_BRAIN_BYTES)
         return;
@@ -197,11 +199,36 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
 
     if (!entity_position_is_walkable(map, next, e->type->radius))
     {
-        e->velocity.x      = -e->velocity.x * 0.3f;
-        e->velocity.y      = -e->velocity.y * 0.3f;
-        brain->wanderTimer = 0.0f;
-        brain->lastHP      = e->hp;
-        return;
+        bool openedDoor = false;
+        int  minTileX   = (int)floorf((next.x - e->type->radius) / TILE_SIZE);
+        int  maxTileX   = (int)floorf((next.x + e->type->radius) / TILE_SIZE);
+        int  minTileY   = (int)floorf((next.y - e->type->radius) / TILE_SIZE);
+        int  maxTileY   = (int)floorf((next.y + e->type->radius) / TILE_SIZE);
+
+        for (int ty = minTileY; ty <= maxTileY && !openedDoor; ++ty)
+        {
+            for (int tx = minTileX; tx <= maxTileX; ++tx)
+            {
+                if (map_toggle_door(mutableMap, tx, ty, true))
+                {
+                    openedDoor = true;
+                    break;
+                }
+            }
+        }
+
+        if (openedDoor && entity_position_is_walkable(map, next, e->type->radius))
+        {
+            // Door opened successfully, continue towards the target.
+        }
+        else
+        {
+            e->velocity.x      = -e->velocity.x * 0.3f;
+            e->velocity.y      = -e->velocity.y * 0.3f;
+            brain->wanderTimer = 0.0f;
+            brain->lastHP      = e->hp;
+            return;
+        }
     }
 
     e->position = next;

@@ -25,8 +25,99 @@ typedef struct
     bool      touchesBorder;
 } FloodResult;
 
-Building buildings[MAX_BUILDINGS];
-int      buildingCount = 0;
+static Building gGeneratedBuildings[MAX_GENERATED_BUILDINGS];
+static Building gPlayerBuildings[MAX_PLAYER_BUILDINGS];
+static int      gGeneratedCount = 0;
+static int      gPlayerCount    = 0;
+
+int building_generated_count(void)
+{
+    return gGeneratedCount;
+}
+
+int building_player_count(void)
+{
+    return gPlayerCount;
+}
+
+int building_total_count(void)
+{
+    return gGeneratedCount + gPlayerCount;
+}
+
+const Building* building_get_generated(int index)
+{
+    if (index < 0 || index >= gGeneratedCount)
+        return NULL;
+    return &gGeneratedBuildings[index];
+}
+
+const Building* building_get_player(int index)
+{
+    if (index < 0 || index >= gPlayerCount)
+        return NULL;
+    return &gPlayerBuildings[index];
+}
+
+const Building* building_get(int index)
+{
+    if (index < 0)
+        return NULL;
+    if (index < gGeneratedCount)
+        return &gGeneratedBuildings[index];
+    index -= gGeneratedCount;
+    if (index < gPlayerCount)
+        return &gPlayerBuildings[index];
+    return NULL;
+}
+
+Building* building_get_mutable(int index)
+{
+    if (index < 0)
+        return NULL;
+    if (index < gGeneratedCount)
+        return &gGeneratedBuildings[index];
+    index -= gGeneratedCount;
+    if (index < gPlayerCount)
+        return &gPlayerBuildings[index];
+    return NULL;
+}
+
+void building_on_reservation_spawn(int buildingId)
+{
+    Building* b = building_get_mutable(buildingId);
+    if (!b)
+        return;
+    b->occupantActive++;
+}
+
+void building_on_reservation_hibernate(int buildingId)
+{
+    Building* b = building_get_mutable(buildingId);
+    if (!b)
+        return;
+    b->occupantActive--;
+    if (b->occupantActive < 0)
+        b->occupantActive = 0;
+}
+
+static void reset_building_list(Building* list, int* count, int maxEntries)
+{
+    if (!list || !count)
+        return;
+
+    for (int i = 0; i < *count && i < maxEntries; ++i)
+    {
+        if (list[i].objects)
+        {
+            free(list[i].objects);
+            list[i].objects = NULL;
+        }
+    }
+
+    memset(list, 0, sizeof(Building) * (size_t)maxEntries);
+    *count = 0;
+}
 
 /* ===========================================
  * 1. Object analysis utility functions
@@ -312,7 +403,8 @@ static void init_building_structure(Building* b, int id, const FloodResult* res,
     b->structureDef         = def;
     if (def)
     {
-        snprintf(b->name, sizeof(b->name), "%s", def->name);
+        const char* displayName = (def->name[0] != '\0') ? def->name : structure_kind_to_string(def->kind);
+        snprintf(b->name, sizeof(b->name), "%s", displayName ? displayName : "Structure");
         snprintf(b->auraName, sizeof(b->auraName), "%s", def->auraName);
         snprintf(b->auraDescription, sizeof(b->auraDescription), "%s", def->auraDescription);
         b->auraRadius    = def->auraRadius;
@@ -323,6 +415,8 @@ static void init_building_structure(Building* b, int id, const FloodResult* res,
         snprintf(b->occupantDescription, sizeof(b->occupantDescription), "%s", def->occupantDescription);
         snprintf(b->triggerDescription, sizeof(b->triggerDescription), "%s", def->triggerDescription);
         b->occupantCurrent = compute_structure_resident_count(def, id, res);
+        b->occupantActive  = 0;
+        b->isGenerated     = true;
     }
     else
     {
@@ -336,8 +430,10 @@ static void init_building_structure(Building* b, int id, const FloodResult* res,
         b->occupantMin      = 0;
         b->occupantMax      = 0;
         b->occupantCurrent  = 0;
+        b->occupantActive   = 0;
         b->occupantDescription[0] = '\0';
         b->triggerDescription[0]  = '\0';
+        b->isGenerated             = false;
     }
 }
 
@@ -385,7 +481,11 @@ static void collect_building_objects(Map* map, Building* b, const FloodResult* r
  * =========================================== */
 void update_building_detection(Map* map)
 {
-    buildingCount = 0;
+    if (!map)
+        return;
+
+    reset_building_list(gGeneratedBuildings, &gGeneratedCount, MAX_GENERATED_BUILDINGS);
+    reset_building_list(gPlayerBuildings, &gPlayerCount, MAX_PLAYER_BUILDINGS);
 
     static bool visited[MAP_HEIGHT][MAP_WIDTH];
     memset(visited, 0, sizeof(visited));
@@ -412,12 +512,26 @@ void update_building_detection(Map* map)
             if (!is_valid_building_area(&res))
                 continue;
 
-            if (buildingCount >= MAX_BUILDINGS)
-                continue;
+            StructureKind kind       = infer_marker_kind(&res);
+            bool          isGenerated = (kind >= 0 && kind < STRUCT_COUNT);
 
-            Building* b       = &buildings[buildingCount];
-            StructureKind kind = infer_marker_kind(&res);
+            Building* b = NULL;
+            if (isGenerated)
+            {
+                if (gGeneratedCount >= MAX_GENERATED_BUILDINGS)
+                    continue;
+                b = &gGeneratedBuildings[gGeneratedCount];
+            }
+            else
+            {
+                if (gPlayerCount >= MAX_PLAYER_BUILDINGS)
+                    continue;
+                b = &gPlayerBuildings[gPlayerCount];
+            }
+
             init_building_structure(b, nextId, &res, kind);
+            b->isGenerated = isGenerated && b->structureDef != NULL;
+
             collect_building_objects(map, b, &res, visited);
 
             // Classification
@@ -435,87 +549,36 @@ void update_building_detection(Map* map)
                 b->roomType = NULL;
             }
 
-            buildingCount++;
+            if (b->isGenerated)
+                gGeneratedCount++;
+            else
+                gPlayerCount++;
+
             nextId++;
         }
     }
 }
 
-Building* register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind)
+void register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind)
 {
-    if (buildingCount >= MAX_BUILDINGS)
-        return NULL;
+    (void)map;
 
-    // Aire intérieure estimée (rect murs 1 case d’épaisseur)
     int ix = (int)bounds.x + 1;
     int iy = (int)bounds.y + 1;
     int iw = (int)bounds.width - 2;
     int ih = (int)bounds.height - 2;
     if (iw <= 0 || ih <= 0)
-        return NULL;
-
-    // Prépare une structure FloodResult minimale pour init
-    FloodResult res          = {0};
-    res.area                 = iw * ih;
-    res.bounds               = bounds;
-    res.doorCount            = 1; // au moins 1 (placée par les builders)
-    res.wallBoundaryCount    = (int)(2 * bounds.width + 2 * bounds.height) - 4;
-    res.nonStructuralBlocker = false;
-    res.touchesBorder        = false;
-
-    Building* b = &buildings[buildingCount];
-    init_building_structure(b, buildingCount + 1, &res, kind);
-
-    for (int y = iy; y < iy + ih; ++y)
-        for (int x = ix; x < ix + iw; ++x)
-            if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT)
-                gStructureMarkers[y][x] = kind;
-
-    // Collecte des objets intérieurs uniquement
-    Object** temp  = (Object**)malloc((size_t)(iw * ih) * sizeof(Object*));
-    int      count = 0;
+        return;
 
     for (int y = iy; y < iy + ih; ++y)
     {
+        if (y < 0 || y >= MAP_HEIGHT)
+            continue;
         for (int x = ix; x < ix + iw; ++x)
         {
-            Object* obj = map->objects[y][x];
-            if (!obj)
+            if (x < 0 || x >= MAP_WIDTH)
                 continue;
-            // ignore murs/portes (frontière)
-            if (is_wall_object(obj) || is_door_object(obj))
-                continue;
-            temp[count++] = obj;
+            gStructureMarkers[y][x] = kind;
         }
     }
-
-    b->objectCount = count;
-    if (count > 0)
-    {
-        b->objects = (Object**)malloc((size_t)count * sizeof(Object*));
-        memcpy(b->objects, temp, (size_t)count * sizeof(Object*));
-    }
-    else
-    {
-        b->objects = NULL;
-    }
-    free(temp);
-
-    // Classification RoomTypeRule
-    const RoomTypeRule* rule = analyze_building_type(b);
-    if (rule)
-    {
-        if (!b->structureDef || b->name[0] == '\0')
-            snprintf(b->name, sizeof(b->name), "%s", rule->name);
-        b->roomType = rule;
-    }
-    else
-    {
-        if (!b->structureDef || b->name[0] == '\0')
-            snprintf(b->name, sizeof(b->name), "Unclassified Room");
-        b->roomType = NULL;
-    }
-
-    buildingCount++;
-    return b;
 }
