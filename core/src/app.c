@@ -3,6 +3,7 @@
  * @brief Implements the main application loop and orchestrates core systems.
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <stdint.h>
 #include "raylib.h"
@@ -27,10 +28,46 @@ static Camera2D     G_CAMERA   = {0};
 static InputState   G_INPUT    = {0};
 static EntitySystem G_ENTITIES = {0};
 // ChunkGrid*        gChunks  = NULL;
+static bool         G_BUILDING_DIRTY       = false;
+static Rectangle    G_BUILDING_DIRTY_BBOX  = {0};
 
 // -----------------------------------------------------------------------------
 // Local helpers
 // -----------------------------------------------------------------------------
+
+static bool rect_is_empty(Rectangle r)
+{
+    return r.width <= 0.0f || r.height <= 0.0f;
+}
+
+static bool rects_overlap(Rectangle a, Rectangle b)
+{
+    if (rect_is_empty(a) || rect_is_empty(b))
+        return false;
+
+    return (a.x < b.x + b.width) && (a.x + a.width > b.x) && (a.y < b.y + b.height) && (a.y + a.height > b.y);
+}
+
+static Rectangle rect_union(Rectangle a, Rectangle b)
+{
+    if (rect_is_empty(a))
+        return b;
+    if (rect_is_empty(b))
+        return a;
+
+    float minX = fminf(a.x, b.x);
+    float minY = fminf(a.y, b.y);
+    float maxX = fmaxf(a.x + a.width, b.x + b.width);
+    float maxY = fmaxf(a.y + a.height, b.y + b.height);
+
+    Rectangle result = {
+        .x      = minX,
+        .y      = minY,
+        .width  = maxX - minX,
+        .height = maxY - minY,
+    };
+    return result;
+}
 
 /**
  * @brief Initializes the rendering context and all gameplay systems.
@@ -52,7 +89,15 @@ static void app_init(void)
 
     // Build the world and load entity definitions.
     map_init(&G_MAP, seed);
-    update_building_detection(&G_MAP);
+    Rectangle fullRegion = {
+        .x      = 0.0f,
+        .y      = 0.0f,
+        .width  = (float)(G_MAP.width * TILE_SIZE),
+        .height = (float)(G_MAP.height * TILE_SIZE),
+    };
+    update_building_detection(&G_MAP, fullRegion);
+    G_BUILDING_DIRTY      = false;
+    G_BUILDING_DIRTY_BBOX = (Rectangle){0.0f, 0.0f, 0.0f, 0.0f};
     if (!entity_system_init(&G_ENTITIES, &G_MAP, seed ^ 0x13572468u, "data/entities.stv"))
         TraceLog(LOG_WARNING, "Entity definitions failed to load, using built-in defaults.");
 
@@ -75,10 +120,40 @@ static void app_update(void)
     // Advance gameplay systems using the frame time delta.
     float dt = GetFrameTime();
     entity_system_update(&G_ENTITIES, &G_MAP, &G_CAMERA, dt);
-    bool changed = editor_update(&G_MAP, &G_CAMERA, &G_INPUT, &G_ENTITIES);
+
+    Rectangle dirtyWorld = {0.0f, 0.0f, 0.0f, 0.0f};
+    bool      changed    = editor_update(&G_MAP, &G_CAMERA, &G_INPUT, &G_ENTITIES, &dirtyWorld);
     if (changed)
     {
-        update_building_detection(&G_MAP);
+        if (G_BUILDING_DIRTY)
+            G_BUILDING_DIRTY_BBOX = rect_union(G_BUILDING_DIRTY_BBOX, dirtyWorld);
+        else
+        {
+            G_BUILDING_DIRTY_BBOX = dirtyWorld;
+            G_BUILDING_DIRTY      = true;
+        }
+    }
+
+    float     viewWidth  = GetScreenWidth() / G_CAMERA.zoom;
+    float     viewHeight = GetScreenHeight() / G_CAMERA.zoom;
+    Rectangle worldView  = {
+         .x      = G_CAMERA.target.x - viewWidth * 0.5f,
+         .y      = G_CAMERA.target.y - viewHeight * 0.5f,
+         .width  = viewWidth,
+         .height = viewHeight,
+    };
+
+    Rectangle paddedView = worldView;
+    paddedView.x -= TILE_SIZE;
+    paddedView.y -= TILE_SIZE;
+    paddedView.width += TILE_SIZE * 2.0f;
+    paddedView.height += TILE_SIZE * 2.0f;
+
+    if (G_BUILDING_DIRTY && rects_overlap(G_BUILDING_DIRTY_BBOX, paddedView))
+    {
+        update_building_detection(&G_MAP, paddedView);
+        G_BUILDING_DIRTY      = false;
+        G_BUILDING_DIRTY_BBOX = (Rectangle){0.0f, 0.0f, 0.0f, 0.0f};
         // chunkgrid_mark_all(gChunks, &G_MAP);
     }
 }

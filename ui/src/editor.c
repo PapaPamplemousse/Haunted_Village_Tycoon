@@ -7,8 +7,11 @@
 #include "ui.h"
 #include <raylib.h>
 
-bool editor_update(Map* map, Camera2D* camera, InputState* input, EntitySystem* entities)
+bool editor_update(Map* map, Camera2D* camera, InputState* input, EntitySystem* entities, Rectangle* dirtyWorldRect)
 {
+    if (dirtyWorldRect)
+        *dirtyWorldRect = (Rectangle){0.0f, 0.0f, 0.0f, 0.0f};
+
     if (!ui_is_inventory_open())
     {
         // Convert the mouse cursor to a tile coordinate inside the grid.
@@ -49,12 +52,16 @@ bool editor_update(Map* map, Camera2D* camera, InputState* input, EntitySystem* 
                 map_place_object(map, input->selectedObject, cellX, cellY);
             else if (input->selectedTile != TILE_MAX)
                 map_set_tile(map, cellX, cellY, input->selectedTile);
+            if (dirtyWorldRect)
+                *dirtyWorldRect = (Rectangle){cellX * TILE_SIZE, cellY * TILE_SIZE, TILE_SIZE, TILE_SIZE};
             return true;
         }
         else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
         {
             // Right click clears any object occupying the cell.
             map_remove_object(map, cellX, cellY);
+            if (dirtyWorldRect)
+                *dirtyWorldRect = (Rectangle){cellX * TILE_SIZE, cellY * TILE_SIZE, TILE_SIZE, TILE_SIZE};
             return true;
         }
     }

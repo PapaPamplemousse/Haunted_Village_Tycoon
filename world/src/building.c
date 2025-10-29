@@ -3,6 +3,7 @@
  * @brief Implements building detection and classification logic.
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +30,10 @@ static Building gGeneratedBuildings[MAX_GENERATED_BUILDINGS];
 static Building gPlayerBuildings[MAX_PLAYER_BUILDINGS];
 static int      gGeneratedCount = 0;
 static int      gPlayerCount    = 0;
+static int      gNextBuildingId = 1;
+
+static unsigned int gVisitedStamp[MAP_HEIGHT][MAP_WIDTH];
+static unsigned int gVisitedGeneration = 1;
 
 int building_generated_count(void)
 {
@@ -101,6 +106,36 @@ void building_on_reservation_hibernate(int buildingId)
         b->occupantActive = 0;
 }
 
+static inline bool rectangles_overlap(Rectangle a, Rectangle b)
+{
+    if (a.width <= 0.0f || a.height <= 0.0f || b.width <= 0.0f || b.height <= 0.0f)
+        return false;
+
+    return (a.x < b.x + b.width) && (a.x + a.width > b.x) && (a.y < b.y + b.height) && (a.y + a.height > b.y);
+}
+
+static inline int clamp_int(int value, int minValue, int maxValue)
+{
+    if (value < minValue)
+        return minValue;
+    if (value > maxValue)
+        return maxValue;
+    return value;
+}
+
+static void release_building(Building* b)
+{
+    if (!b)
+        return;
+
+    if (b->objects)
+    {
+        free(b->objects);
+        b->objects = NULL;
+    }
+    b->objectCount = 0;
+}
+
 static void reset_building_list(Building* list, int* count, int maxEntries)
 {
     if (!list || !count)
@@ -108,15 +143,33 @@ static void reset_building_list(Building* list, int* count, int maxEntries)
 
     for (int i = 0; i < *count && i < maxEntries; ++i)
     {
-        if (list[i].objects)
-        {
-            free(list[i].objects);
-            list[i].objects = NULL;
-        }
+        release_building(&list[i]);
     }
 
     memset(list, 0, sizeof(Building) * (size_t)maxEntries);
     *count = 0;
+}
+
+static void remove_buildings_in_region(Building* list, int* count, Rectangle tileRegion)
+{
+    if (!list || !count || *count <= 0)
+        return;
+
+    for (int i = 0; i < *count;)
+    {
+        if (rectangles_overlap(list[i].bounds, tileRegion))
+        {
+            release_building(&list[i]);
+
+            if (i < *count - 1)
+                memmove(&list[i], &list[i + 1], (size_t)(*count - i - 1) * sizeof(Building));
+
+            (*count)--;
+            continue;
+        }
+
+        ++i;
+    }
 }
 
 /* ===========================================
@@ -192,7 +245,11 @@ void building_clear_structure_markers(void)
             gStructureMarkers[y][x] = STRUCT_COUNT;
 }
 
-static FloodResult perform_flood_fill(Map* map, int sx, int sy, bool visited[MAP_HEIGHT][MAP_WIDTH])
+static FloodResult perform_flood_fill(Map* map,
+                                      int  sx,
+                                      int  sy,
+                                      unsigned int stamp,
+                                      unsigned int visited[MAP_HEIGHT][MAP_WIDTH])
 {
     FloodResult res = {0};
 
@@ -203,7 +260,7 @@ static FloodResult perform_flood_fill(Map* map, int sx, int sy, bool visited[MAP
     int*      stack    = (int*)malloc(stackCap * sizeof(int));
     int       top      = 0;
 
-    visited[sy][sx] = true;
+    visited[sy][sx] = stamp;
     stack[top++]    = sy * map->width + sx;
 
     while (top > 0)
@@ -234,14 +291,14 @@ static FloodResult perform_flood_fill(Map* map, int sx, int sy, bool visited[MAP
                 continue;
             }
 
-            if (visited[ny][nx])
+            if (visited[ny][nx] == stamp)
                 continue;
 
             Object* obj = map->objects[ny][nx];
 
             if (!obj)
             {
-                visited[ny][nx] = true;
+                visited[ny][nx] = stamp;
                 stack[top++]    = ny * map->width + nx;
             }
             else if (contributes_to_building_boundary(obj))
@@ -283,13 +340,13 @@ static FloodResult perform_flood_fill(Map* map, int sx, int sy, bool visited[MAP
                 }
 
                 // In any case, mark the tile to prevent an infinite loop
-                visited[ny][nx] = true;
+                visited[ny][nx] = stamp;
                 stack[top++]    = ny * map->width + nx;
             }
             else
             {
                 // Walkable or decorative object
-                visited[ny][nx] = true;
+                visited[ny][nx] = stamp;
                 stack[top++]    = ny * map->width + nx;
             }
         }
@@ -437,7 +494,11 @@ static void init_building_structure(Building* b, int id, const FloodResult* res,
     }
 }
 
-static void collect_building_objects(Map* map, Building* b, const FloodResult* res, const bool visited[MAP_HEIGHT][MAP_WIDTH])
+static void collect_building_objects(Map* map,
+                                     Building* b,
+                                     const FloodResult* res,
+                                     unsigned int stamp,
+                                     unsigned int visited[MAP_HEIGHT][MAP_WIDTH])
 {
     Object** temp_objects    = (Object**)malloc(res->area * sizeof(Object*));
     int      collected_count = 0;
@@ -446,7 +507,7 @@ static void collect_building_objects(Map* map, Building* b, const FloodResult* r
     {
         for (int x = (int)res->bounds.x; x < res->bounds.x + res->bounds.width; ++x)
         {
-            if (!visited[y][x])
+            if (visited[y][x] != stamp)
                 continue;
 
             Object* obj = map->objects[y][x];
@@ -479,36 +540,98 @@ static void collect_building_objects(Map* map, Building* b, const FloodResult* r
 /* ===========================================
  * 5. Main detection
  * =========================================== */
-void update_building_detection(Map* map)
+void update_building_detection(Map* map, Rectangle worldRegion)
 {
     if (!map)
         return;
 
-    reset_building_list(gGeneratedBuildings, &gGeneratedCount, MAX_GENERATED_BUILDINGS);
-    reset_building_list(gPlayerBuildings, &gPlayerCount, MAX_PLAYER_BUILDINGS);
+    const float mapWidthPixels  = (float)(map->width * TILE_SIZE);
+    const float mapHeightPixels = (float)(map->height * TILE_SIZE);
+    const float padding         = (float)TILE_SIZE;
 
-    static bool visited[MAP_HEIGHT][MAP_WIDTH];
-    memset(visited, 0, sizeof(visited));
-
-    int nextId = 1;
-
-    for (int y = 0; y < map->height; ++y)
+    if (worldRegion.width <= 0.0f || worldRegion.height <= 0.0f)
     {
-        for (int x = 0; x < map->width; ++x)
+        worldRegion.x      = 0.0f;
+        worldRegion.y      = 0.0f;
+        worldRegion.width  = mapWidthPixels;
+        worldRegion.height = mapHeightPixels;
+    }
+
+    worldRegion.x -= padding;
+    worldRegion.y -= padding;
+    worldRegion.width += padding * 2.0f;
+    worldRegion.height += padding * 2.0f;
+
+    if (worldRegion.x < 0.0f)
+        worldRegion.x = 0.0f;
+    if (worldRegion.y < 0.0f)
+        worldRegion.y = 0.0f;
+    if (worldRegion.x + worldRegion.width > mapWidthPixels)
+        worldRegion.width = mapWidthPixels - worldRegion.x;
+    if (worldRegion.y + worldRegion.height > mapHeightPixels)
+        worldRegion.height = mapHeightPixels - worldRegion.y;
+
+    int startX = (int)floorf(worldRegion.x / (float)TILE_SIZE);
+    int startY = (int)floorf(worldRegion.y / (float)TILE_SIZE);
+    int endX   = (int)ceilf((worldRegion.x + worldRegion.width) / (float)TILE_SIZE) - 1;
+    int endY   = (int)ceilf((worldRegion.y + worldRegion.height) / (float)TILE_SIZE) - 1;
+
+    if (endX < startX || endY < startY)
+        return;
+
+    startX = clamp_int(startX, 0, map->width - 1);
+    startY = clamp_int(startY, 0, map->height - 1);
+    endX   = clamp_int(endX, 0, map->width - 1);
+    endY   = clamp_int(endY, 0, map->height - 1);
+
+    if (endX < startX || endY < startY)
+        return;
+
+    Rectangle tileRegion = {
+        .x      = (float)startX,
+        .y      = (float)startY,
+        .width  = (float)(endX - startX + 1),
+        .height = (float)(endY - startY + 1),
+    };
+
+    bool fullRebuild = (startX == 0 && startY == 0 && endX == map->width - 1 && endY == map->height - 1);
+
+    if (fullRebuild)
+    {
+        reset_building_list(gGeneratedBuildings, &gGeneratedCount, MAX_GENERATED_BUILDINGS);
+        reset_building_list(gPlayerBuildings, &gPlayerCount, MAX_PLAYER_BUILDINGS);
+        gNextBuildingId = 1;
+    }
+    else
+    {
+        remove_buildings_in_region(gGeneratedBuildings, &gGeneratedCount, tileRegion);
+        remove_buildings_in_region(gPlayerBuildings, &gPlayerCount, tileRegion);
+    }
+
+    unsigned int stamp = gVisitedGeneration++;
+    if (gVisitedGeneration == 0)
+    {
+        memset(gVisitedStamp, 0, sizeof(gVisitedStamp));
+        gVisitedGeneration = 1;
+        stamp              = gVisitedGeneration++;
+    }
+
+    for (int y = startY; y <= endY; ++y)
+    {
+        for (int x = startX; x <= endX; ++x)
         {
-            if (visited[y][x])
+            if (gVisitedStamp[y][x] == stamp)
                 continue;
 
             Object* obj = map->objects[y][x];
 
-            // Ignore walls, doors, and blocking obstacles
             if (obj && (is_structural_object(obj) || is_non_structural_blocker(obj)))
             {
-                visited[y][x] = true;
+                gVisitedStamp[y][x] = stamp;
                 continue;
             }
 
-            FloodResult res = perform_flood_fill(map, x, y, visited);
+            FloodResult res = perform_flood_fill(map, x, y, stamp, gVisitedStamp);
             if (!is_valid_building_area(&res))
                 continue;
 
@@ -529,12 +652,12 @@ void update_building_detection(Map* map)
                 b = &gPlayerBuildings[gPlayerCount];
             }
 
-            init_building_structure(b, nextId, &res, kind);
+            int buildingId = gNextBuildingId++;
+            init_building_structure(b, buildingId, &res, kind);
             b->isGenerated = isGenerated && b->structureDef != NULL;
 
-            collect_building_objects(map, b, &res, visited);
+            collect_building_objects(map, b, &res, stamp, gVisitedStamp);
 
-            // Classification
             const RoomTypeRule* rule = analyze_building_type(b);
             if (rule)
             {
@@ -553,8 +676,6 @@ void update_building_detection(Map* map)
                 gGeneratedCount++;
             else
                 gPlayerCount++;
-
-            nextId++;
         }
     }
 }

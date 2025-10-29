@@ -65,11 +65,14 @@ const Building* building_get_player(int index);
  * are calculated and stored.
  *
  * @param[in,out] map Pointer to the game map structure containing tiles and objects.
+ * @param worldRegion World-space rectangle describing the area that needs to be rescanned.
+ *                    The detector automatically pads this region slightly to capture
+ *                    room boundaries. Passing a zero-sized rectangle triggers a full rebuild.
  *
  * @note This function rebuilds the generated/player registries in-place.
  *       It should be called whenever the world layout changes (e.g., walls added/removed).
  */
-void update_building_detection(Map* map);
+void update_building_detection(Map* map, Rectangle worldRegion);
 
 /**
  * @brief Marks a generated structure's footprint so it can be categorized later.
