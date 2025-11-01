@@ -45,13 +45,21 @@ const ObjectType* get_object_type(ObjectTypeID id);
  *
  * This function evaluates the content of a given building (furniture,
  * area, and structure) and compares it against known
- * @ref RoomTypeRule definitions to classify it
+ * @ref StructureDef classification rules to determine the best match
  * (e.g., bedroom, workshop, storage room, etc.).
  *
  * @param[in] b Pointer to the building to analyze.
- * @return Pointer to the detected @ref RoomTypeRule, or `NULL` if no match is found.
+ * @return Pointer to the detected @ref StructureDef, or `NULL` if no match is found.
  */
-const RoomTypeRule* analyze_building_type(const Building* b);
+const StructureDef* analyze_building_type(const Building* b);
+
+/**
+ * @brief Retrieves the object type identifier for the given internal name.
+ *
+ * @param[in] name Internal object name as defined in objects.stv.
+ * @return Matching ObjectTypeID, or OBJ_NONE if no match exists.
+ */
+ObjectTypeID object_type_id_from_name(const char* name);
 
 /**
  * @brief Creates a new object instance and places it on the map.

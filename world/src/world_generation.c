@@ -553,8 +553,8 @@ static bool place_cluster_member_instance(Map* map,
                                           const StructureDef* def,
                                           float anchorCenterX,
                                           float anchorCenterY,
-                                          float radiusMin,
-                                          float radiusMax,
+                                          float halfWidth,
+                                          float halfHeight,
                                           uint64_t* rng,
                                           PlacedStructure* placed,
                                           int* placedCount,
@@ -583,72 +583,223 @@ static void spawn_cluster_members(Map* map,
     float radiusMin = (anchor->clusterRadiusMin > 0.0f) ? anchor->clusterRadiusMin : (widthRef + heightRef) * 0.35f;
     float radiusMax = (anchor->clusterRadiusMax > radiusMin) ? anchor->clusterRadiusMax : radiusMin + 3.0f;
 
-    int totalSpawned = 0;
-    int desiredMin   = anchor->clusterMinMembers > 0 ? anchor->clusterMinMembers : 0;
-    int desiredMax   = anchor->clusterMaxMembers > 0 ? anchor->clusterMaxMembers : INT_MAX;
-    int spawnedPerMember[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
+    int desiredMin = anchor->clusterMinMembers > 0 ? anchor->clusterMinMembers : 0;
+    int desiredMax = anchor->clusterMaxMembers > 0 ? anchor->clusterMaxMembers : INT_MAX;
 
+    int plannedCounts[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
+    int maxCounts[STRUCTURE_CLUSTER_MAX_MEMBERS]     = {0};
+    const StructureDef* memberDefs[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
+
+    int totalPlanned = 0;
     for (int m = 0; m < anchor->clusterMemberCount; ++m)
     {
         const StructureClusterMember* member = &anchor->clusterMembers[m];
         if (member->kind <= STRUCT_HUT_CANNIBAL || member->kind >= STRUCT_COUNT)
             continue;
 
-        if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
-            break;
+        const StructureDef* memberDef = get_structure_def(member->kind);
+        if (!memberDef)
+            continue;
 
         int minCount = member->minCount < 0 ? 0 : member->minCount;
         int maxCount = member->maxCount < minCount ? minCount : member->maxCount;
 
-        if (desiredMax != INT_MAX)
+        if (structureCounts && memberDef->maxInstances > 0)
         {
-            int remaining = desiredMax - totalSpawned;
+            int remaining = memberDef->maxInstances - structureCounts[memberDef->kind];
             if (remaining <= 0)
-                break;
+            {
+                memberDefs[m]   = memberDef;
+                maxCounts[m]    = 0;
+                plannedCounts[m] = 0;
+                continue;
+            }
             if (maxCount > remaining)
                 maxCount = remaining;
             if (minCount > remaining)
                 minCount = remaining;
         }
 
-        int toSpawn = minCount;
-        if (maxCount > minCount && rng)
+        if (desiredMax != INT_MAX)
         {
-            uint64_t roll = splitmix64_next(rng);
-            toSpawn += (int)(roll % (uint64_t)(maxCount - minCount + 1));
+            int remaining = desiredMax - totalPlanned;
+            if (remaining <= 0)
+            {
+                memberDefs[m]   = memberDef;
+                maxCounts[m]    = maxCount;
+                plannedCounts[m] = 0;
+                continue;
+            }
+            if (maxCount > remaining)
+                maxCount = remaining;
+            if (minCount > remaining)
+                minCount = remaining;
         }
 
-        const StructureDef* memberDef = get_structure_def(member->kind);
-        if (!memberDef)
+        if (maxCount <= 0 && minCount <= 0)
+        {
+            memberDefs[m]    = memberDef;
+            maxCounts[m]     = maxCount;
+            plannedCounts[m] = 0;
+            continue;
+        }
+
+        int toSpawn = minCount;
+        if (maxCount > minCount)
+        {
+            if (rng)
+            {
+                uint64_t roll = splitmix64_next(rng);
+                toSpawn += (int)(roll % (uint64_t)(maxCount - minCount + 1));
+            }
+            else
+            {
+                toSpawn += rand() % (maxCount - minCount + 1);
+            }
+        }
+
+        plannedCounts[m] = toSpawn;
+        maxCounts[m]     = maxCount;
+        memberDefs[m]    = memberDef;
+        totalPlanned += toSpawn;
+    }
+
+    if (totalPlanned < desiredMin)
+    {
+        bool progress = true;
+        while (totalPlanned < desiredMin && progress)
+        {
+            progress = false;
+            for (int m = 0; m < anchor->clusterMemberCount && totalPlanned < desiredMin; ++m)
+            {
+                const StructureDef* memberDef = memberDefs[m];
+                if (!memberDef)
+                    continue;
+
+                if (maxCounts[m] == 0)
+                    continue;
+                if (maxCounts[m] > 0 && plannedCounts[m] >= maxCounts[m])
+                    continue;
+
+                if (structureCounts && memberDef->maxInstances > 0)
+                {
+                    int remaining = memberDef->maxInstances - structureCounts[memberDef->kind] - plannedCounts[m];
+                    if (remaining <= 0)
+                        continue;
+                }
+
+                plannedCounts[m]++;
+                totalPlanned++;
+                progress = true;
+            }
+        }
+    }
+
+    int totalStructures = 1;
+    float sumWidths     = widthRef > 0.0f ? widthRef : 4.0f;
+    float sumHeights    = heightRef > 0.0f ? heightRef : 4.0f;
+
+    for (int m = 0; m < anchor->clusterMemberCount; ++m)
+    {
+        const StructureDef* memberDef = memberDefs[m];
+        int count                     = plannedCounts[m];
+        if (!memberDef || count <= 0)
             continue;
 
-        int spawnedThisMember = 0;
+        float memberWidth  = (memberDef->maxWidth > 0) ? (float)memberDef->maxWidth : (float)memberDef->minWidth;
+        float memberHeight = (memberDef->maxHeight > 0) ? (float)memberDef->maxHeight : (float)memberDef->minHeight;
+        if (memberWidth <= 0.0f)
+            memberWidth = widthRef > 0.0f ? widthRef : 4.0f;
+        if (memberHeight <= 0.0f)
+            memberHeight = heightRef > 0.0f ? heightRef : 4.0f;
+
+        sumWidths += memberWidth * (float)count;
+        sumHeights += memberHeight * (float)count;
+        totalStructures += count;
+    }
+
+    if (totalStructures <= 0)
+        totalStructures = 1;
+
+    float avgWidth  = sumWidths / (float)totalStructures;
+    float avgHeight = sumHeights / (float)totalStructures;
+    if (avgWidth <= 0.0f)
+        avgWidth = widthRef > 0.0f ? widthRef : 6.0f;
+    if (avgHeight <= 0.0f)
+        avgHeight = heightRef > 0.0f ? heightRef : 6.0f;
+
+    float structureCountF = (float)totalStructures;
+    float columnsF        = sqrtf(structureCountF);
+    int   columns         = (int)ceilf(columnsF);
+    if (columns < 1)
+        columns = 1;
+    int rows = (int)ceilf(structureCountF / (float)columns);
+    if (rows < 1)
+        rows = 1;
+
+    float layoutScale = 1.25f;
+    float rectWidth   = avgWidth * (float)columns * layoutScale;
+    float rectHeight  = avgHeight * (float)rows * layoutScale;
+    if (rectWidth < widthRef)
+        rectWidth = widthRef;
+    if (rectHeight < heightRef)
+        rectHeight = heightRef;
+
+    float halfWidth  = rectWidth * 0.5f;
+    float halfHeight = rectHeight * 0.5f;
+
+    float minHalf = radiusMin;
+    if (minHalf <= 0.0f)
+        minHalf = (widthRef + heightRef) * 0.35f;
+    if (halfWidth < minHalf)
+        halfWidth = minHalf;
+    if (halfHeight < minHalf)
+        halfHeight = minHalf;
+
+    float baseHalf = radiusMax;
+    if (baseHalf > 0.0f)
+    {
+        if (halfWidth < baseHalf)
+            halfWidth = baseHalf;
+        if (halfHeight < baseHalf)
+            halfHeight = baseHalf;
+    }
+
+    int totalSpawned = 0;
+    int spawnedPerMember[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
+
+    for (int m = 0; m < anchor->clusterMemberCount; ++m)
+    {
+        const StructureDef* memberDef = memberDefs[m];
+        int toSpawn                   = plannedCounts[m];
+        if (!memberDef || toSpawn <= 0)
+            continue;
+
         for (int count = 0; count < toSpawn; ++count)
         {
+            if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
+                break;
+
             if (place_cluster_member_instance(map,
                                               memberDef,
                                               centerX,
                                               centerY,
-                                              radiusMin,
-                                              radiusMax,
+                                              halfWidth,
+                                              halfHeight,
                                               rng,
                                               placed,
                                               placedCount,
                                               placedCap,
                                               structureCounts))
             {
-                spawnedThisMember++;
+                spawnedPerMember[m]++;
                 totalSpawned++;
-                if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
-                    break;
             }
             else
             {
                 break;
             }
         }
-
-        spawnedPerMember[m] += spawnedThisMember;
     }
 
     if (totalSpawned < desiredMin)
@@ -659,16 +810,13 @@ static void spawn_cluster_members(Map* map,
             progress = false;
             for (int m = 0; m < anchor->clusterMemberCount && totalSpawned < desiredMin; ++m)
             {
-                const StructureClusterMember* member = &anchor->clusterMembers[m];
-                if (member->kind <= STRUCT_HUT_CANNIBAL || member->kind >= STRUCT_COUNT)
-                    continue;
-
-                const StructureDef* memberDef = get_structure_def(member->kind);
+                const StructureDef* memberDef = memberDefs[m];
                 if (!memberDef)
                     continue;
 
-                int maxCount = member->maxCount < member->minCount ? member->minCount : member->maxCount;
-                if (maxCount > 0 && spawnedPerMember[m] >= maxCount)
+                if (maxCounts[m] == 0)
+                    continue;
+                if (maxCounts[m] > 0 && spawnedPerMember[m] >= maxCounts[m])
                     continue;
 
                 if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
@@ -678,8 +826,8 @@ static void spawn_cluster_members(Map* map,
                                                   memberDef,
                                                   centerX,
                                                   centerY,
-                                                  radiusMin,
-                                                  radiusMax,
+                                                  halfWidth,
+                                                  halfHeight,
                                                   rng,
                                                   placed,
                                                   placedCount,
@@ -794,8 +942,8 @@ static bool place_cluster_member_instance(Map* map,
                                           const StructureDef* def,
                                           float anchorCenterX,
                                           float anchorCenterY,
-                                          float radiusMin,
-                                          float radiusMax,
+                                          float halfWidth,
+                                          float halfHeight,
                                           uint64_t* rng,
                                           PlacedStructure* placed,
                                           int* placedCount,
@@ -808,20 +956,18 @@ static bool place_cluster_member_instance(Map* map,
     if (structureCounts && def->maxInstances > 0 && structureCounts[def->kind] >= def->maxInstances)
         return false;
 
-    if (radiusMax < radiusMin)
-        radiusMax = radiusMin;
+    if (halfWidth < 1.0f)
+        halfWidth = 1.0f;
+    if (halfHeight < 1.0f)
+        halfHeight = 1.0f;
 
-    const float TWO_PI = 6.28318530717958647692f;
-    const int   tries  = 12;
+    const int tries = 16;
     for (int attempt = 0; attempt < tries; ++attempt)
     {
-        float radius = radiusMin;
-        if (radiusMax > radiusMin)
-            radius += random01(rng) * (radiusMax - radiusMin);
-
-        float angle          = random01(rng) * TWO_PI;
-        float candidateCX    = anchorCenterX + cosf(angle) * radius;
-        float candidateCY    = anchorCenterY + sinf(angle) * radius;
+        float offsetX = (random01(rng) * 2.0f - 1.0f) * halfWidth;
+        float offsetY = (random01(rng) * 2.0f - 1.0f) * halfHeight;
+        float candidateCX = anchorCenterX + offsetX;
+        float candidateCY = anchorCenterY + offsetY;
         int   roundedCenterX = (int)roundf(candidateCX);
         int   roundedCenterY = (int)roundf(candidateCY);
 

@@ -22,7 +22,7 @@
 // -----------------------------------------------------------------------------
 
 /** Maximum number of simultaneously active entities (pooled storage). */
-#define MAX_ENTITIES 512
+#define MAX_ENTITIES 1024
 
 /** Maximum amount of entity types that can be loaded from configuration. */
 #define ENTITY_MAX_TYPES 128

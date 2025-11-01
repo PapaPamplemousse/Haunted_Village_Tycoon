@@ -9,6 +9,7 @@
 #include "map.h"
 #include "tile.h"
 #include "raylib.h"
+#include "world_structures.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -17,12 +18,9 @@
 // It uses the ObjectTypeID enumeration (e.g., [OBJ_BED_SMALL]) for indexing.
 static ObjectType G_OBJECT_TYPES[OBJ_COUNT] = {0};
 
-static RoomTypeRule ROOM_TYPE_RULES[ROOM_COUNT] = {0};
-
 void init_objects(void)
 {
     int objCount  = load_objects_from_stv("data/objects.stv", G_OBJECT_TYPES, OBJ_COUNT);
-    int roomCount = load_rooms_from_stv("data/structures.stv", ROOM_TYPE_RULES, ROOM_COUNT, G_OBJECT_TYPES, objCount);
 
     for (int i = 0; i < OBJ_COUNT; ++i)
     {
@@ -30,7 +28,6 @@ void init_objects(void)
             G_OBJECT_TYPES[i].texture = LoadTexture(G_OBJECT_TYPES[i].texturePath);
     }
     debug_print_objects(G_OBJECT_TYPES, objCount);
-    debug_print_rooms(ROOM_TYPE_RULES, roomCount, G_OBJECT_TYPES, objCount);
 }
 
 void unload_object_textures(void)
@@ -59,25 +56,45 @@ const ObjectType* get_object_type(ObjectTypeID id)
     return &G_OBJECT_TYPES[0];
 }
 
-// analsye all room ( with objects and size )
-const RoomTypeRule* analyze_building_type(const Building* b)
+ObjectTypeID object_type_id_from_name(const char* name)
+{
+    if (!name)
+        return OBJ_NONE;
+
+    for (int i = 0; i < OBJ_COUNT; ++i)
+    {
+        if (G_OBJECT_TYPES[i].name && strcmp(G_OBJECT_TYPES[i].name, name) == 0)
+            return G_OBJECT_TYPES[i].id;
+    }
+
+    return OBJ_NONE;
+}
+
+// analyse all structures (with objects and size)
+const StructureDef* analyze_building_type(const Building* b)
 {
     printf("\n[ANALYZE] Analyzing Building (Area: %d, Object Count: %d)\n", b->area, b->objectCount);
-    for (int i = 0; i < ROOM_COUNT; i++)
+    for (StructureKind kind = 0; kind < STRUCT_COUNT; ++kind)
     {
-        const RoomTypeRule* rule = &ROOM_TYPE_RULES[i];
-
-        if (b->area < rule->minArea)
+        const StructureDef* def = get_structure_def(kind);
+        if (!def)
             continue;
-        if (rule->maxArea && b->area > rule->maxArea)
+
+        if (def->roomId == ROOM_NONE)
+            continue;
+
+        if (b->area < def->minArea)
+            continue;
+        if (def->maxArea && b->area > def->maxArea)
             continue;
 
         bool valid = true;
-        for (int j = 0; j < rule->requirementCount; j++)
+        for (int j = 0; j < def->requirementCount; j++)
         {
-            const ObjectRequirement* req   = &rule->requirements[j];
+            const ObjectRequirement* req   = &def->requirements[j];
             int                      count = 0;
-            printf("[ANALYZE] Checking requirement: %s, min: %d\n", get_object_type(req->objectId)->name, req->minCount);
+            const ObjectType*        reqObj = get_object_type(req->objectId);
+            printf("[ANALYZE] Checking requirement: %s, min: %d\n", reqObj ? reqObj->name : "(unknown)", req->minCount);
             for (int k = 0; k < b->objectCount; k++)
             {
                 if (b->objects[k]->type->id == req->objectId)
@@ -92,7 +109,7 @@ const RoomTypeRule* analyze_building_type(const Building* b)
         }
 
         if (valid)
-            return rule;
+            return def;
     }
     return NULL;
 }

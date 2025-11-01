@@ -454,7 +454,7 @@ static void init_building_structure(Building* b, int id, const FloodResult* res,
     b->center        = (Vector2){res->bounds.x + res->bounds.width / 2.0f, res->bounds.y + res->bounds.height / 2.0f};
     b->objectCount   = 0;
     b->objects       = NULL;
-    b->roomType      = NULL;
+    b->roomTypeId    = ROOM_NONE;
     b->structureKind = kind;
     const StructureDef* def = (kind >= 0 && kind < STRUCT_COUNT) ? get_structure_def(kind) : NULL;
     b->structureDef         = def;
@@ -658,18 +658,32 @@ void update_building_detection(Map* map, Rectangle worldRegion)
 
             collect_building_objects(map, b, &res, stamp, gVisitedStamp);
 
-            const RoomTypeRule* rule = analyze_building_type(b);
-            if (rule)
+            const StructureDef* detected = analyze_building_type(b);
+            if (detected)
             {
-                if (!b->structureDef || b->name[0] == '\0')
-                    snprintf(b->name, sizeof(b->name), "%s", rule->name);
-                b->roomType = rule;
+                b->roomTypeId = detected->roomId;
+                if (!b->structureDef)
+                {
+                    b->structureDef = detected;
+                    b->structureKind = detected->kind;
+                    snprintf(b->auraName, sizeof(b->auraName), "%s", detected->auraName);
+                    snprintf(b->auraDescription, sizeof(b->auraDescription), "%s", detected->auraDescription);
+                    b->auraRadius    = detected->auraRadius;
+                    b->auraIntensity = detected->auraIntensity;
+                    b->occupantType  = detected->occupantType;
+                    b->occupantMin   = detected->occupantMin;
+                    b->occupantMax   = detected->occupantMax;
+                    snprintf(b->occupantDescription, sizeof(b->occupantDescription), "%s", detected->occupantDescription);
+                    snprintf(b->triggerDescription, sizeof(b->triggerDescription), "%s", detected->triggerDescription);
+                }
+                if (b->name[0] == '\0' && detected->name[0] != '\0')
+                    snprintf(b->name, sizeof(b->name), "%s", detected->name);
             }
             else
             {
                 if (!b->structureDef || b->name[0] == '\0')
                     snprintf(b->name, sizeof(b->name), "Unclassified Room");
-                b->roomType = NULL;
+                b->roomTypeId = ROOM_NONE;
             }
 
             if (b->isGenerated)

@@ -439,7 +439,7 @@ void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng)
 
     // Liaison auto au système de rooms (bounds = extérieur des murs)
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
-    register_building_from_bounds(map, bounds, STRUCT_HUT_CANNIBAL); // détecte et nomme via RoomTypeRule
+    register_building_from_bounds(map, bounds, STRUCT_HUT_CANNIBAL); // détecte et nomme via classification intégrée
     // chunkgrid_mark_dirty_rect(gChunks, (Rectangle){(float)x, (float)y, (float)w, (float)h});
 }
 
@@ -1291,6 +1291,155 @@ static void parse_cluster_members(StructureDef* def, const char* value)
     }
 }
 
+typedef struct
+{
+    const char* token;
+    RoomTypeID  id;
+} RoomTokenMap;
+
+static RoomTypeID parse_room_identifier(const char* value)
+{
+    static const RoomTokenMap MAP[] = {
+        {"ROOM_NONE", ROOM_NONE},
+        {"ROOM_BEDROOM", ROOM_BEDROOM},
+        {"ROOM_KITCHEN", ROOM_KITCHEN},
+        {"ROOM_HUT", ROOM_HUT},
+        {"ROOM_CRYPT", ROOM_CRYPT},
+        {"ROOM_SANCTUARY", ROOM_SANCTUARY},
+        {"ROOM_HOUSE", ROOM_HOUSE},
+        {"ROOM_LARGEROOM", ROOM_LARGEROOM},
+        {"ROOM_CANNIBAL_DEN", ROOM_CANNIBAL_DEN},
+        {"ROOM_CANNIBAL_LONGHOUSE", ROOM_CANNIBAL_LONGHOUSE},
+        {"ROOM_BUTCHER_TENT", ROOM_BUTCHER_TENT},
+        {"ROOM_SHAMAN_HUT", ROOM_SHAMAN_HUT},
+        {"ROOM_BONE_PIT", ROOM_BONE_PIT},
+        {"ROOM_WHISPERING_CRYPT", ROOM_WHISPERING_CRYPT},
+        {"ROOM_FORSAKEN_RUIN", ROOM_FORSAKEN_RUIN},
+        {"ROOM_DESERTED_HOME", ROOM_DESERTED_HOME},
+        {"ROOM_BLOODBOUND_TEMPLE", ROOM_BLOODBOUND_TEMPLE},
+        {"ROOM_HEXSPEAKER_HOVEL", ROOM_HEXSPEAKER_HOVEL},
+        {"ROOM_SORROW_GALLOWS", ROOM_SORROW_GALLOWS},
+        {"ROOM_BLOODROSE_GARDEN", ROOM_BLOODROSE_GARDEN},
+        {"ROOM_FLESH_PIT", ROOM_FLESH_PIT},
+        {"ROOM_VOID_OBELISK", ROOM_VOID_OBELISK},
+        {"ROOM_PLAGUE_NURSERY", ROOM_PLAGUE_NURSERY},
+        {NULL, ROOM_NONE}};
+
+    if (!value)
+        return ROOM_NONE;
+
+    char token[64];
+    snprintf(token, sizeof(token), "%s", value);
+    trim_inplace(token);
+
+    size_t len = strlen(token);
+    if (len >= 2 && ((token[0] == '"' && token[len - 1] == '"') || (token[0] == '\'' && token[len - 1] == '\'')))
+    {
+        token[len - 1] = '\0';
+        memmove(token, token + 1, len - 1);
+        trim_inplace(token);
+    }
+
+    if (token[0] == '\0')
+        return ROOM_NONE;
+
+    bool numeric = true;
+    for (const char* p = token; *p; ++p)
+    {
+        if (!isdigit((unsigned char)*p))
+        {
+            numeric = false;
+            break;
+        }
+    }
+    if (numeric)
+    {
+        int id = atoi(token);
+        if (id >= ROOM_NONE && id < ROOM_COUNT)
+            return (RoomTypeID)id;
+        return ROOM_NONE;
+    }
+
+    char normalized[64];
+    size_t outLen = 0;
+    for (const char* p = token; *p && outLen + 1 < sizeof(normalized); ++p)
+    {
+        unsigned char c = (unsigned char)*p;
+        if (c == ' ' || c == '-')
+            c = '_';
+        normalized[outLen++] = (char)toupper(c);
+    }
+    normalized[outLen] = '\0';
+
+    if (normalized[0] == '\0')
+        return ROOM_NONE;
+
+    for (const RoomTokenMap* entry = MAP; entry->token; ++entry)
+    {
+        if (strcmp(normalized, entry->token) == 0)
+            return entry->id;
+    }
+
+    if (strncmp(normalized, "ROOM_", 5) != 0)
+    {
+        char prefixed[64];
+        snprintf(prefixed, sizeof(prefixed), "ROOM_%s", normalized);
+        for (const RoomTokenMap* entry = MAP; entry->token; ++entry)
+        {
+            if (strcmp(prefixed, entry->token) == 0)
+                return entry->id;
+        }
+    }
+
+    return ROOM_NONE;
+}
+
+static void parse_structure_requirements(StructureDef* def, const char* value)
+{
+    if (!def)
+        return;
+
+    def->requirementCount = 0;
+    if (!value)
+        return;
+
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "%s", value);
+
+    char* token = strtok(buffer, ",");
+    while (token && def->requirementCount < STRUCTURE_MAX_REQUIREMENTS)
+    {
+        trim_inplace(token);
+        if (*token == '\0')
+        {
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        char objectName[64];
+        int  minCount = 0;
+        if (sscanf(token, "%63[^:]:%d", objectName, &minCount) == 2)
+        {
+            trim_inplace(objectName);
+            if (minCount < 0)
+                minCount = 0;
+            ObjectTypeID id = object_type_id_from_name(objectName);
+            if (id != OBJ_NONE)
+            {
+                ObjectRequirement* req = &def->requirements[def->requirementCount++];
+                req->objectId          = id;
+                req->minCount          = minCount;
+            }
+            else
+            {
+                printf("⚠️  Unknown object requirement '%s' for structure '%s'\n", objectName, def->name);
+            }
+        }
+
+        token = strtok(NULL, ",");
+    }
+}
+
 void load_structure_metadata(const char* path)
 {
     if (!path)
@@ -1322,12 +1471,6 @@ void load_structure_metadata(const char* path)
             char token[64];
             normalize_token(line + 1, token, sizeof(token));
 
-            if (strncmp(token, "ROOM_", 5) == 0)
-            {
-                current = STRUCT_COUNT;
-                continue;
-            }
-
             const char* lookup = token;
             if (strncmp(token, "STRUCTURE_", 10) == 0)
                 lookup = token + 10;
@@ -1345,6 +1488,10 @@ void load_structure_metadata(const char* path)
                 def->clusterRadiusMin = 0.0f;
                 def->clusterRadiusMax = 0.0f;
                 def->clusterMemberCount = 0;
+                def->roomId           = ROOM_NONE;
+                def->minArea          = 0;
+                def->maxArea          = 0;
+                def->requirementCount = 0;
             }
             continue;
         }
@@ -1514,6 +1661,26 @@ void load_structure_metadata(const char* path)
         else if (strcasecmp(key, "cluster.members") == 0)
         {
             parse_cluster_members(def, value);
+        }
+        else if (strcasecmp(key, "id") == 0)
+        {
+            def->roomId = parse_room_identifier(value);
+        }
+        else if (strcasecmp(key, "min_area") == 0)
+        {
+            def->minArea = atoi(value);
+            if (def->minArea < 0)
+                def->minArea = 0;
+        }
+        else if (strcasecmp(key, "max_area") == 0)
+        {
+            def->maxArea = atoi(value);
+            if (def->maxArea < 0)
+                def->maxArea = 0;
+        }
+        else if (strcasecmp(key, "requirement") == 0)
+        {
+            parse_structure_requirements(def, value);
         }
     }
 

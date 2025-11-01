@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 1000
+#define MAP_WIDTH 100
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 1000
+#define MAP_HEIGHT 100
 
 /**
  * @def TILE_SIZE
@@ -55,6 +55,15 @@
 
 #define CHUNK_W 32
 #define CHUNK_H 32
+
+/** Maximum number of explicit cluster members that can be attached to a structure definition. */
+#define STRUCTURE_CLUSTER_MAX_MEMBERS 15
+
+/** Maximum length for cluster identifiers used to group related blueprints. */
+#define STRUCTURE_CLUSTER_NAME_MAX 32
+
+/** Maximum number of object requirements used to identify a structure's interior. */
+#define STRUCTURE_MAX_REQUIREMENTS 15
 
 // -----------------------------------------------------------------------------
 // ENUMERATIONS
@@ -116,14 +125,32 @@ typedef enum
 
 typedef enum
 {
-    ROOM_NONE = 0,
-    ROOM_BEDROOM,
-    ROOM_KITCHEN,
-    ROOM_HUT,
-    ROOM_CRYPT,
-    ROOM_SANCTUARY,
-    ROOM_HOUSE,
-    ROOM_LARGEROOM,
+    ROOM_NONE = 0,  /**< Unclassified or exterior space. */
+    ROOM_BEDROOM,   /**< Legacy generic bedroom classification. */
+    ROOM_KITCHEN,   /**< Legacy generic kitchen classification. */
+    ROOM_HUT,       /**< Legacy generic hut classification. */
+    ROOM_CRYPT,     /**< Legacy generic crypt classification. */
+    ROOM_SANCTUARY, /**< Legacy generic sanctuary classification. */
+    ROOM_HOUSE,     /**< Legacy generic house classification. */
+    ROOM_LARGEROOM, /**< Legacy large-room classification. */
+
+    // --- Structure specific identifiers ---
+    ROOM_CANNIBAL_DEN,       /**< Cannibal den hut classification. */
+    ROOM_CANNIBAL_LONGHOUSE, /**< Cannibal clan longhouse anchor. */
+    ROOM_BUTCHER_TENT,       /**< Cannibal butcher / cook tent. */
+    ROOM_SHAMAN_HUT,         /**< Cannibal shaman ritual hut. */
+    ROOM_BONE_PIT,           /**< Trophy bone pit. */
+    ROOM_WHISPERING_CRYPT,   /**< Whispering crypt interior. */
+    ROOM_FORSAKEN_RUIN,      /**< Forsaken ruin remains. */
+    ROOM_DESERTED_HOME,      /**< Deserted homestead. */
+    ROOM_BLOODBOUND_TEMPLE,  /**< Bloodbound temple sanctum. */
+    ROOM_HEXSPEAKER_HOVEL,   /**< Hexspeaker witch hovel. */
+    ROOM_SORROW_GALLOWS,     /**< Sorrow gallows execution site. */
+    ROOM_BLOODROSE_GARDEN,   /**< Bloodrose ritual garden. */
+    ROOM_FLESH_PIT,          /**< Flesh pit butchery. */
+    ROOM_VOID_OBELISK,       /**< Void obelisk chamber. */
+    ROOM_PLAGUE_NURSERY,     /**< Plague nursery cocoon cluster. */
+
     ROOM_COUNT
 } RoomTypeID;
 
@@ -377,23 +404,6 @@ typedef struct
 } ObjectRequirement;
 
 /**
- * @struct RoomTypeRule
- * @brief Defines criteria for identifying a specific room type.
- *
- * Each rule defines size constraints and object requirements
- * to classify a detected enclosed space.
- */
-typedef struct
-{
-    RoomTypeID               id;
-    const char*              name;             /**< Room type name (e.g., "Bedroom") */
-    int                      minArea;          /**< Minimum area (in tiles) */
-    int                      maxArea;          /**< Maximum area (in tiles) */
-    const ObjectRequirement* requirements;     /**< List of object requirements */
-    int                      requirementCount; /**< Number of requirements in the list */
-} RoomTypeRule;
-
-/**
  * @struct TileType
  * @brief Defines a type of terrain tile with rendering and interaction properties.
  */
@@ -427,12 +437,6 @@ typedef struct
     TileTypeID tiles[MAP_HEIGHT][MAP_WIDTH];   /**< 2D grid of terrain tiles */
     Object*    objects[MAP_HEIGHT][MAP_WIDTH]; /**< 2D grid of placed objects */
 } Map;
-
-/** Maximum number of explicit cluster members that can be attached to a structure definition. */
-#define STRUCTURE_CLUSTER_MAX_MEMBERS 8
-
-/** Maximum length for cluster identifiers used to group related blueprints. */
-#define STRUCTURE_CLUSTER_NAME_MAX 32
 
 typedef struct StructureClusterMember
 {
@@ -489,6 +493,12 @@ typedef struct StructureDef
     float                  clusterRadiusMax;                              ///< Maximum scatter radius (tiles).
     int                    clusterMemberCount;                            ///< Number of explicit cluster member descriptors.
     StructureClusterMember clusterMembers[STRUCTURE_CLUSTER_MAX_MEMBERS]; ///< Member descriptors.
+
+    RoomTypeID        roomId;                                   ///< Identifier matching RoomTypeID for classification.
+    int               minArea;                                  ///< Minimum interior area required to match.
+    int               maxArea;                                  ///< Maximum interior area (0 = unlimited).
+    ObjectRequirement requirements[STRUCTURE_MAX_REQUIREMENTS]; ///< List of object presence requirements.
+    int               requirementCount;                         ///< Number of active requirements.
 } StructureDef;
 
 /**
@@ -507,7 +517,7 @@ typedef struct Building
     char                       name[64];      /**< Inferred or generic building name */
     int                        objectCount;   /**< Number of objects inside */
     Object**                   objects;       /**< Pointer to a dynamic list of object instances */
-    const RoomTypeRule*        roomType;      /**< Detected room type (optional) */
+    RoomTypeID                 roomTypeId;    /**< Detected room category (optional) */
     StructureKind              structureKind; /**< Optional originating structure blueprint. */
     const struct StructureDef* structureDef;  /**< Back-reference to immutable structure definition. */
     char                       auraName[STRUCTURE_AURA_NAME_MAX];

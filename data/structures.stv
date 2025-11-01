@@ -1,64 +1,27 @@
 # =========================================================
 # COMBINED ROOM & STRUCTURE DEFINITIONS (.stv)
 # =========================================================
-# Room sections are declared with [ROOM Name] and provide
-# flood-fill classification rules. Structure sections are
-# declared with [STRUCTURE IDENTIFIER] and override metadata
-# for procedurally generated blueprints.
+# Structure sections are declared with [STRUCTURE IDENTIFIER] and
+# override metadata for procedurally generated blueprints.
+# Each structure now also embeds the classification rules that were
+# previously defined in [ROOM] sections:
+#   id            - Identifier matching the RoomTypeID enum (name or value)
+#   min_area      - Minimum enclosed area (tiles) required for detection
+#   max_area      - Maximum enclosed area (0 = no limit)
+#   requirement   - Comma-separated object requirements (object:minCount)
 #
 # Additional structure keys:
 #   max_instances   - Maximum number of instances allowed globally (0 = unlimited)
 #   allowed_biomes  - Comma-separated list restricting spawn biomes (omit or set to ANY for no limit)
 # =========================================================
-
 # ----------------------------
-# Room Definitions
-# ----------------------------
-[ROOM Bedroom]
-id           = 1
-min_area     = 2
-max_area     = 25
-requirement  = bed_small:1, torch_wall:1
-
-[ROOM Kitchen]
-id           = 2
-min_area     = 6
-max_area     = 40
-requirement  = table_wood:1, chair_wood:2, firepit:1
-
-[ROOM Hut]
-id           = 3
-min_area     = 6
-max_area     = 36
-requirement  = firepit:1, crate:1, bone_pile:1
-
-[ROOM Crypt]
-id           = 4
-min_area     = 9
-max_area     = 64
-requirement  = altar:1, bone_pile:1
-
-[ROOM Sanctuary]
-id           = 5
-min_area     = 12
-max_area     = 128
-requirement  = altar:1, torch_wall:2
-
-[ROOM House]
-id           = 6
-min_area     = 8
-max_area     = 49
-requirement  = bed_small:1, table_wood:1, chair_wood:1
-
-[ROOM LargeRoom]
-id           = 7
-min_area     = 40
-max_area     = 0
-
-# ----------------------------
-# Structure Metadata
+# Structure Metadata + Classification
 # ----------------------------
 [STRUCTURE HUT_CANNIBAL]
+id                  = CANNIBAL_DEN
+min_area            = 4
+max_area            = 16
+requirement         = firepit:1, crate:1, bone_pile:1
 display_name        = Cannibal Den
 min_instances       = 3
 max_instances       = 8
@@ -77,6 +40,10 @@ cluster.anchor      = false
 cluster.radius      = 3 - 6
 
 [STRUCTURE CANNIBAL_LONGHOUSE]
+id                  = CANNIBAL_LONGHOUSE
+min_area            = 20
+max_area            = 30
+requirement         = firepit:1, table_wood:1, meat_hook:2, bone_pile:1
 display_name        = Cannibal Longhouse
 min_instances       = 1
 max_instances       = 2
@@ -98,6 +65,10 @@ cluster.radius      = 6 - 12
 cluster.members     = HUT_CANNIBAL:2-4, CANNIBAL_COOK_TENT:1-2, CANNIBAL_SHAMAN_HUT:0-1, CANNIBAL_BONE_PIT:0-1
 
 [STRUCTURE CANNIBAL_COOK_TENT]
+id                  = BUTCHER_TENT
+min_area            = 9
+max_area            = 16
+requirement         = cauldron:1, firepit:1, meat_hook:2
 display_name        = Butcher Tent
 min_instances       = 1
 max_instances       = 4
@@ -115,6 +86,10 @@ cluster.group       = cannibal_camp
 cluster.anchor      = false
 
 [STRUCTURE CANNIBAL_SHAMAN_HUT]
+id                  = SHAMAN_HUT
+min_area            = 9
+max_area            = 16
+requirement         = ritual_circle:1, totem_blood:2, bone_pile:1
 display_name        = Shaman Hut
 min_instances       = 1
 max_instances       = 3
@@ -132,6 +107,10 @@ cluster.group       = cannibal_camp
 cluster.anchor      = false
 
 [STRUCTURE CANNIBAL_BONE_PIT]
+id                  = BONE_PIT
+min_area            = 16
+max_area            = 25
+requirement         = bone_pile:2, totem_blood:2
 display_name        = Bone Pit
 min_instances       = 1
 max_instances       = 3
@@ -149,6 +128,10 @@ cluster.group       = cannibal_camp
 cluster.anchor      = false
 
 [STRUCTURE CRYPT]
+id                  = WHISPERING_CRYPT
+min_area            = 9
+max_area            = 36
+requirement         = altar:1, bone_pile:1
 display_name        = Whispering Crypt
 min_instances       = 2
 max_instances       = 6
@@ -164,6 +147,10 @@ occupant_description= Restless dead custodians
 entity_action       = Releases 2-4 cursed zombies to defend the catacombs.
 
 [STRUCTURE RUIN]
+id                  = FORSAKEN_RUIN
+min_area            = 1
+max_area            = 9
+requirement         = bone_pile:1
 display_name        = Forsaken Ruin
 min_instances       = 4
 max_instances       = 10
@@ -179,6 +166,10 @@ occupant_description= Abandoned husk
 entity_action       = Serves as eerie cover with no resident defenders.
 
 [STRUCTURE VILLAGE_HOUSE]
+id                  = DESERTED_HOME
+min_area            = 4
+max_area            = 9
+requirement         = bed_small:1, table_wood:1, chair_wood:1
 display_name        = Deserted Homestead
 min_instances       = 2
 max_instances       = 6
@@ -194,6 +185,10 @@ occupant_description= Vacant shelter
 entity_action       = Offers respite but no stationed inhabitants.
 
 [STRUCTURE TEMPLE]
+id                  = BLOODBOUND_TEMPLE
+min_area            = 16
+max_area            = 49
+requirement         = altar:1, torch_wall:2
 display_name        = Bloodbound Temple
 min_instances       = 1
 max_instances       = 3
@@ -209,6 +204,10 @@ occupant_description= Fanatical guardians
 entity_action       = Summons 1-2 zealots to guard the altar.
 
 [STRUCTURE WITCH_HOVEL]
+id                  = HEXSPEAKER_HOVEL
+min_area            = 9
+max_area            = 16
+requirement         = cauldron:1, totem_blood:2
 display_name        = Hexspeaker Hovel
 min_instances       = 2
 max_instances       = 5
@@ -224,6 +223,10 @@ occupant_description= Occult devotees
 entity_action       = Calls cultists that brew hexes within.
 
 [STRUCTURE GALLOWS]
+id                  = SORROW_GALLOWS
+min_area            = 9
+max_area            = 16
+requirement         = gallow:1, totem_blood:2
 display_name        = Sorrow Gallows
 min_instances       = 1
 max_instances       = 4
@@ -239,6 +242,10 @@ occupant_description= Desolate scaffold
 entity_action       = Spreads dread, lowering resolve near executions.
 
 [STRUCTURE BLOOD_GARDEN]
+id                  = BLOODROSE_GARDEN
+min_area            = 16
+max_area            = 36
+requirement         = ritual_circle:1, bone_pile:2, torch_wall:2
 display_name        = Bloodrose Garden
 min_instances       = 2
 max_instances       = 5
@@ -254,6 +261,10 @@ occupant_description= Blood-drunk shamblers
 entity_action       = Grows 2-4 undead guardians from the crimson blooms.
 
 [STRUCTURE FLESH_PIT]
+id                  = FLESH_PIT
+min_area            = 16
+max_area            = 36
+requirement         = firepit:1, meat_hook:3, bone_pile:1
 display_name        = Flesh Pit
 min_instances       = 2
 max_instances       = 6
@@ -269,6 +280,10 @@ occupant_description= Butchers and thralls
 entity_action       = Breeds 2-5 cannibal butchers who patrol the pit.
 
 [STRUCTURE VOID_OBELISK]
+id                  = VOID_OBELISK
+min_area            = 9
+max_area            = 25
+requirement         = void_obelisk:1, ritual_circle:1, torch_wall:4
 display_name        = Void Obelisk
 min_instances       = 1
 max_instances       = 3
@@ -284,6 +299,10 @@ occupant_description= Dormant monolith
 entity_action       = Emits void pulses empowering nearby occult rituals.
 
 [STRUCTURE PLAGUE_NURSERY]
+id                  = PLAGUE_NURSERY
+min_area            = 9
+max_area            = 25
+requirement         = cauldron:1, plague_pod:2, bone_pile:1
 display_name        = Plague Nursery
 min_instances       = 2
 max_instances       = 5
