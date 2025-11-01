@@ -179,12 +179,7 @@ void draw_map(Map* map, Camera2D* camera)
             TileType* type = get_tile_type(map->tiles[wy][wx]);
             Rectangle rect = {x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE};
 
-            if (type->texture.id != 0)
-                // Draw textured tiles with scaling that matches tile size.
-                DrawTextureEx(type->texture, (Vector2){rect.x, rect.y}, 0.0f, (float)TILE_SIZE / type->texture.width, WHITE);
-            else
-                // Fallback to flat colored rectangles when no texture is available.
-                DrawRectangleRec(rect, type->color);
+            tile_draw(type, wx, wy, rect.x, rect.y);
         }
     }
 }

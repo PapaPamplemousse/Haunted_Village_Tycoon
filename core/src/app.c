@@ -28,8 +28,8 @@ static Camera2D     G_CAMERA   = {0};
 static InputState   G_INPUT    = {0};
 static EntitySystem G_ENTITIES = {0};
 // ChunkGrid*        gChunks  = NULL;
-static bool         G_BUILDING_DIRTY       = false;
-static Rectangle    G_BUILDING_DIRTY_BBOX  = {0};
+static bool      G_BUILDING_DIRTY      = false;
+static Rectangle G_BUILDING_DIRTY_BBOX = {0};
 
 // -----------------------------------------------------------------------------
 // Local helpers
@@ -182,11 +182,11 @@ static void app_draw_world(void)
     // --- Building labels ---
     float     viewWidth  = GetScreenWidth() / G_CAMERA.zoom;
     float     viewHeight = GetScreenHeight() / G_CAMERA.zoom;
-    Rectangle worldView = {
-        .x      = G_CAMERA.target.x - viewWidth * 0.5f,
-        .y      = G_CAMERA.target.y - viewHeight * 0.5f,
-        .width  = viewWidth,
-        .height = viewHeight,
+    Rectangle worldView  = {
+         .x      = G_CAMERA.target.x - viewWidth * 0.5f,
+         .y      = G_CAMERA.target.y - viewHeight * 0.5f,
+         .width  = viewWidth,
+         .height = viewHeight,
     };
     float viewMinX = worldView.x - TILE_SIZE;
     float viewMaxX = worldView.x + worldView.width + TILE_SIZE;
@@ -221,12 +221,7 @@ static void app_draw_world(void)
                 if (b->auraName[0])
                 {
                     char auraLine[160];
-                    snprintf(auraLine,
-                             sizeof(auraLine),
-                             "Aura: %s (r=%.1f, pwr=%.1f)",
-                             b->auraName,
-                             b->auraRadius,
-                             b->auraIntensity);
+                    snprintf(auraLine, sizeof(auraLine), "Aura: %s (r=%.1f, pwr=%.1f)", b->auraName, b->auraRadius, b->auraIntensity);
                     DrawText(auraLine, textX, infoY, 10, ColorAlpha(WHITE, 0.85f));
                     infoY += 12;
 
@@ -240,13 +235,7 @@ static void app_draw_world(void)
                 if (b->occupantType > ENTITY_TYPE_INVALID && b->occupantMax > 0)
                 {
                     char occLine[160];
-                    snprintf(occLine,
-                             sizeof(occLine),
-                             "Residents: %d/%d (min %d, max %d) %s",
-                             b->occupantActive,
-                             b->occupantCurrent,
-                             b->occupantMin,
-                             b->occupantMax,
+                    snprintf(occLine, sizeof(occLine), "Residents: %d/%d (min %d, max %d) %s", b->occupantActive, b->occupantCurrent, b->occupantMin, b->occupantMax,
                              b->occupantDescription[0] ? b->occupantDescription : "residents");
                     DrawText(occLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
                     infoY += 12;
@@ -315,7 +304,7 @@ void app_run(void)
         app_update();
 
         BeginDrawing();
-        ClearBackground(BLACK);
+        // ClearBackground(BLACK);
 
         app_draw_world();
         app_handle_chunk_eviction();

@@ -62,6 +62,9 @@ void debug_biome_draw(Map* map, Camera2D* cam, bool* showDebug)
                 case TILE_LAVA:
                     c = (Color){255, 80, 0, 150};
                     break;
+                case TILE_POISON:
+                    c = (Color){120, 0, 150, 150};
+                    break;
                 default:
                     c = (Color){255, 255, 255, 100};
                     break;

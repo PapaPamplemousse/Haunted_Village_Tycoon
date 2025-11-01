@@ -90,12 +90,7 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
     // --- Redessine la tuile ---
     const TileType* tt = get_tile_type(map->tiles[y][x]);
     if (tt)
-    {
-        if (tt->texture.id)
-            DrawTexture(tt->texture, localX, localY, WHITE);
-        else
-            DrawRectangle(localX, localY, TILE_SIZE, TILE_SIZE, tt->color);
-    }
+        tile_draw(tt, x, y, (float)localX, (float)localY);
 
     // --- Redessine l’objet éventuel ---
     Object* o = map->objects[y][x];
@@ -158,10 +153,7 @@ static void rebuild_chunk(MapChunk* c, Map* map)
             int             px = tx * TILE_SIZE;
             int             py = ty * TILE_SIZE;
 
-            if (tt->texture.id)
-                DrawTexture(tt->texture, px, py, WHITE);
-            else
-                DrawRectangle(px, py, TILE_SIZE, TILE_SIZE, tt->color);
+            tile_draw(tt, x, y, (float)px, (float)py);
         }
     }
 

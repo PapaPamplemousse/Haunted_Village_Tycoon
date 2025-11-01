@@ -23,18 +23,6 @@
 #endif
 
 // ----------------------------------------------------------------------------------
-// Small utils
-// ----------------------------------------------------------------------------------
-static inline int clampi(int v, int lo, int hi)
-{
-    return v < lo ? lo : (v > hi ? hi : v);
-}
-static inline int in_bounds(int x, int y, int W, int H)
-{
-    return x >= 0 && y >= 0 && x < W && y < H;
-}
-
-// ----------------------------------------------------------------------------------
 // Deterministic RNG (splitmix64)
 // ----------------------------------------------------------------------------------
 static uint64_t g_seed64 = 0x12345678ABCDEF01ull;
@@ -50,6 +38,18 @@ static float rng01(uint64_t* s)
 {
     // 56-bit fraction → [0,1)
     return (splitmix64_next(s) >> 8) * (1.0f / (float)(1ull << 56));
+}
+
+// ----------------------------------------------------------------------------------
+// Small utils
+// ----------------------------------------------------------------------------------
+static inline int clampi(int v, int lo, int hi)
+{
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+static inline int in_bounds(int x, int y, int W, int H)
+{
+    return x >= 0 && y >= 0 && x < W && y < H;
 }
 
 // ----------------------------------------------------------------------------------
@@ -500,8 +500,10 @@ static void generate_lakes(Map* map, const Climate* C, uint64_t* rng)
         if (h > 0.22f && rng01(rng) > 0.5f)
             continue;
 
-        // Water or Lava decision
-        int isLava = (t > 0.8f && u < 0.25f) || (map->tiles[cy][cx] == TILE_HELL) || (map->tiles[cy][cx] == TILE_LAVA);
+        TileTypeID centerTile     = map->tiles[cy][cx];
+        bool       centerHellish  = (centerTile == TILE_HELL) || (centerTile == TILE_LAVA);
+        bool       centerSwampish = (centerTile == TILE_SWAMP) || (centerTile == TILE_CURSED_FOREST);
+        bool       climateLava    = (t > 0.8f && u < 0.25f);
 
         // Size driven by basin depth & humidity
         int rx = 3 + (int)(8 * (0.4f + (0.3f - h) * 1.2f));
@@ -509,7 +511,13 @@ static void generate_lakes(Map* map, const Climate* C, uint64_t* rng)
         rx     = clampi(rx, 3, 14);
         ry     = clampi(ry, 2, 10);
 
-        TileTypeID fill = isLava ? TILE_LAVA : TILE_WATER;
+        int totalSamples  = 0;
+        int swampSamples  = 0;
+        int cursedSamples = 0;
+        int hellSamples   = 0;
+        int lavaSamples   = 0;
+        int waterSamples  = 0;
+        int poisonSamples = 0;
 
         for (int y = cy - ry; y <= cy + ry; y++)
         {
@@ -521,10 +529,188 @@ static void generate_lakes(Map* map, const Climate* C, uint64_t* rng)
                     continue;
                 float dx = (float)(x - cx) / (float)rx;
                 float dy = (float)(y - cy) / (float)ry;
-                if (dx * dx + dy * dy <= 1.0f)
+                if (dx * dx + dy * dy > 1.0f)
+                    continue;
+
+                totalSamples++;
+                TileTypeID sample = map->tiles[y][x];
+                switch (sample)
                 {
-                    map->tiles[y][x]   = fill;
-                    map->objects[y][x] = NULL;
+                    case TILE_SWAMP:
+                        swampSamples++;
+                        break;
+                    case TILE_CURSED_FOREST:
+                        cursedSamples++;
+                        break;
+                    case TILE_HELL:
+                        hellSamples++;
+                        break;
+                    case TILE_LAVA:
+                        lavaSamples++;
+                        break;
+                    case TILE_WATER:
+                        waterSamples++;
+                        break;
+                    case TILE_POISON:
+                        poisonSamples++;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        if (totalSamples == 0)
+            continue;
+
+        float swampCover   = (float)(swampSamples + cursedSamples) / (float)totalSamples;
+        float hellCover    = (float)(hellSamples + lavaSamples) / (float)totalSamples;
+        float liquidCover  = (float)(waterSamples + lavaSamples + poisonSamples) / (float)totalSamples;
+        bool  areaLiquid   = liquidCover > 0.7f;
+        bool  preferPoison = (swampCover > 0.55f) || (centerSwampish && swampCover > 0.3f);
+        bool  preferLava   = centerHellish || climateLava || (hellCover > 0.35f);
+
+        if (preferPoison && preferLava)
+        {
+            if (hellCover >= swampCover)
+                preferPoison = false;
+            else
+                preferLava = false;
+        }
+
+        if (areaLiquid)
+            continue;
+
+        TileTypeID fill = TILE_WATER;
+        if (preferLava)
+            fill = TILE_LAVA;
+        else if (preferPoison)
+            fill = TILE_POISON;
+
+        int maskWidth  = rx * 2 + 1;
+        int maskHeight = ry * 2 + 1;
+        int maskSize   = maskWidth * maskHeight;
+
+        bool* mask = (bool*)calloc((size_t)maskSize, sizeof(bool));
+        if (!mask)
+            continue;
+
+        float orient     = rng01(rng) * 6.2831853f;
+        float cosA       = cosf(orient);
+        float sinA       = sinf(orient);
+        float axisScaleX = 0.65f + rng01(rng) * 1.15f;
+        float axisScaleY = 0.65f + rng01(rng) * 1.15f;
+        float offsetNX   = (rng01(rng) - 0.5f) * 0.6f;
+        float offsetNY   = (rng01(rng) - 0.5f) * 0.6f;
+        float lobeBias   = (rng01(rng) - 0.5f) * 0.9f;
+        float taperBias  = (rng01(rng) - 0.5f) * 0.35f;
+        uint32_t coarseSalt = (uint32_t)splitmix64_next(rng);
+        uint32_t detailSalt = (uint32_t)splitmix64_next(rng);
+
+        int candidateCount = 0;
+
+        for (int ly = -ry; ly <= ry; ++ly)
+        {
+            int gy = cy + ly;
+            if (gy < 0 || gy >= H)
+                continue;
+            for (int lx = -rx; lx <= rx; ++lx)
+            {
+                int gx = cx + lx;
+                if (gx < 0 || gx >= W)
+                    continue;
+
+                int localX = lx + rx;
+                int localY = ly + ry;
+                int idx    = localY * maskWidth + localX;
+
+                float normX = (float)lx / (float)rx - offsetNX;
+                float normY = (float)ly / (float)ry - offsetNY;
+
+                float rotX = normX * cosA - normY * sinA;
+                float rotY = normX * sinA + normY * cosA;
+
+                rotX *= axisScaleX;
+                rotY *= axisScaleY;
+
+                float ellipse = rotX * rotX + rotY * rotY;
+                if (ellipse > 2.6f)
+                    continue;
+
+                float radial = sqrtf(ellipse);
+
+                float coarse = fbm2D((float)gx * 0.05f, (float)gy * 0.05f, 3, 2.0f, 0.5f, 1.0f, 811u ^ coarseSalt) - 0.5f;
+                float detail = fbm2D((float)gx * 0.16f, (float)gy * 0.16f, 2, 2.0f, 0.5f, 1.0f, 1223u ^ detailSalt) - 0.5f;
+                float angular = fbm2D(rotX * 2.8f + 17.0f, rotY * 2.8f - 11.0f, 2, 2.0f, 0.5f, 1.0f, 1999u ^ (coarseSalt >> 1)) - 0.5f;
+
+                float threshold = 1.05f;
+                threshold += coarse * (0.9f + radial * 0.6f);
+                threshold += detail * 0.45f;
+                threshold += angular * 0.35f;
+                threshold += lobeBias * rotX;
+                threshold += taperBias * rotY;
+                threshold -= radial * 0.25f;
+
+                if (threshold < 0.4f)
+                    threshold = 0.4f;
+                if (threshold > 1.95f)
+                    threshold = 1.95f;
+
+                if (ellipse <= threshold)
+                {
+                    mask[idx] = true;
+                    candidateCount++;
+                }
+            }
+        }
+
+        int minOrganicArea = (int)(totalSamples * 0.35f);
+        if (minOrganicArea < 6)
+            minOrganicArea = 6;
+
+        bool fallbackEllipse = (candidateCount < minOrganicArea);
+
+        if (!fallbackEllipse)
+        {
+            for (int ly = 0; ly < maskHeight; ++ly)
+            {
+                int gy = cy + ly - ry;
+                if (gy < 0 || gy >= H)
+                    continue;
+                for (int lx = 0; lx < maskWidth; ++lx)
+                {
+                    if (!mask[ly * maskWidth + lx])
+                        continue;
+
+                    int gx = cx + lx - rx;
+                    if (gx < 0 || gx >= W)
+                        continue;
+
+                    map->tiles[gy][gx]   = fill;
+                    map->objects[gy][gx] = NULL;
+                }
+            }
+        }
+
+        free(mask);
+
+        if (fallbackEllipse)
+        {
+            for (int y = cy - ry; y <= cy + ry; y++)
+            {
+                if (y < 0 || y >= H)
+                    continue;
+                for (int x = cx - rx; x <= cx + rx; x++)
+                {
+                    if (x < 0 || x >= W)
+                        continue;
+                    float dx = (float)(x - cx) / (float)rx;
+                    float dy = (float)(y - cy) / (float)ry;
+                    if (dx * dx + dy * dy <= 1.0f)
+                    {
+                        map->tiles[y][x]   = fill;
+                        map->objects[y][x] = NULL;
+                    }
                 }
             }
         }
@@ -561,16 +747,7 @@ static bool place_cluster_member_instance(Map* map,
                                           int placedCap,
                                           int* structureCounts);
 
-
-static void spawn_cluster_members(Map* map,
-                                  const StructureDef* anchor,
-                                  int baseX,
-                                  int baseY,
-                                  uint64_t* rng,
-                                  PlacedStructure* placed,
-                                  int* placedCount,
-                                  int placedCap,
-                                  int* structureCounts)
+static void spawn_cluster_members(Map* map, const StructureDef* anchor, int baseX, int baseY, uint64_t* rng, PlacedStructure* placed, int* placedCount, int placedCap, int* structureCounts)
 {
     if (!map || !anchor || !anchor->clusterAnchor || anchor->clusterMemberCount <= 0)
         return;
@@ -586,9 +763,9 @@ static void spawn_cluster_members(Map* map,
     int desiredMin = anchor->clusterMinMembers > 0 ? anchor->clusterMinMembers : 0;
     int desiredMax = anchor->clusterMaxMembers > 0 ? anchor->clusterMaxMembers : INT_MAX;
 
-    int plannedCounts[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
-    int maxCounts[STRUCTURE_CLUSTER_MAX_MEMBERS]     = {0};
-    const StructureDef* memberDefs[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
+    int                 plannedCounts[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
+    int                 maxCounts[STRUCTURE_CLUSTER_MAX_MEMBERS]     = {0};
+    const StructureDef* memberDefs[STRUCTURE_CLUSTER_MAX_MEMBERS]    = {0};
 
     int totalPlanned = 0;
     for (int m = 0; m < anchor->clusterMemberCount; ++m)
@@ -609,8 +786,8 @@ static void spawn_cluster_members(Map* map,
             int remaining = memberDef->maxInstances - structureCounts[memberDef->kind];
             if (remaining <= 0)
             {
-                memberDefs[m]   = memberDef;
-                maxCounts[m]    = 0;
+                memberDefs[m]    = memberDef;
+                maxCounts[m]     = 0;
                 plannedCounts[m] = 0;
                 continue;
             }
@@ -625,8 +802,8 @@ static void spawn_cluster_members(Map* map,
             int remaining = desiredMax - totalPlanned;
             if (remaining <= 0)
             {
-                memberDefs[m]   = memberDef;
-                maxCounts[m]    = maxCount;
+                memberDefs[m]    = memberDef;
+                maxCounts[m]     = maxCount;
                 plannedCounts[m] = 0;
                 continue;
             }
@@ -695,14 +872,14 @@ static void spawn_cluster_members(Map* map,
         }
     }
 
-    int totalStructures = 1;
-    float sumWidths     = widthRef > 0.0f ? widthRef : 4.0f;
-    float sumHeights    = heightRef > 0.0f ? heightRef : 4.0f;
+    int   totalStructures = 1;
+    float sumWidths       = widthRef > 0.0f ? widthRef : 4.0f;
+    float sumHeights      = heightRef > 0.0f ? heightRef : 4.0f;
 
     for (int m = 0; m < anchor->clusterMemberCount; ++m)
     {
         const StructureDef* memberDef = memberDefs[m];
-        int count                     = plannedCounts[m];
+        int                 count     = plannedCounts[m];
         if (!memberDef || count <= 0)
             continue;
 
@@ -765,13 +942,13 @@ static void spawn_cluster_members(Map* map,
             halfHeight = baseHalf;
     }
 
-    int totalSpawned = 0;
+    int totalSpawned                                    = 0;
     int spawnedPerMember[STRUCTURE_CLUSTER_MAX_MEMBERS] = {0};
 
     for (int m = 0; m < anchor->clusterMemberCount; ++m)
     {
         const StructureDef* memberDef = memberDefs[m];
-        int toSpawn                   = plannedCounts[m];
+        int                 toSpawn   = plannedCounts[m];
         if (!memberDef || toSpawn <= 0)
             continue;
 
@@ -780,17 +957,7 @@ static void spawn_cluster_members(Map* map,
             if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
                 break;
 
-            if (place_cluster_member_instance(map,
-                                              memberDef,
-                                              centerX,
-                                              centerY,
-                                              halfWidth,
-                                              halfHeight,
-                                              rng,
-                                              placed,
-                                              placedCount,
-                                              placedCap,
-                                              structureCounts))
+            if (place_cluster_member_instance(map, memberDef, centerX, centerY, halfWidth, halfHeight, rng, placed, placedCount, placedCap, structureCounts))
             {
                 spawnedPerMember[m]++;
                 totalSpawned++;
@@ -822,17 +989,7 @@ static void spawn_cluster_members(Map* map,
                 if (desiredMax != INT_MAX && totalSpawned >= desiredMax)
                     break;
 
-                if (place_cluster_member_instance(map,
-                                                  memberDef,
-                                                  centerX,
-                                                  centerY,
-                                                  halfWidth,
-                                                  halfHeight,
-                                                  rng,
-                                                  placed,
-                                                  placedCount,
-                                                  placedCap,
-                                                  structureCounts))
+                if (place_cluster_member_instance(map, memberDef, centerX, centerY, halfWidth, halfHeight, rng, placed, placedCount, placedCap, structureCounts))
                 {
                     spawnedPerMember[m]++;
                     totalSpawned++;
@@ -862,11 +1019,7 @@ static int random_offset(uint64_t* rng, int radius)
     return (rand() % (radius * 2 + 1)) - radius;
 }
 
-static bool structure_spacing_ok(float centerX,
-                                 float centerY,
-                                 const PlacedStructure* placed,
-                                 int placedCount,
-                                 float minSpacing)
+static bool structure_spacing_ok(float centerX, float centerY, const PlacedStructure* placed, int placedCount, float minSpacing)
 {
     if (!placed || placedCount <= 0 || minSpacing <= 0.0f)
         return true;
@@ -905,8 +1058,7 @@ static bool structure_area_clear(Map* map, int startX, int startY, int width, in
             if (!type)
                 return false;
 
-            if (type->category == TILE_CATEGORY_WATER || type->category == TILE_CATEGORY_HAZARD ||
-                type->category == TILE_CATEGORY_OBSTACLE || !type->walkable)
+            if (type->category == TILE_CATEGORY_WATER || type->category == TILE_CATEGORY_HAZARD || type->category == TILE_CATEGORY_OBSTACLE || !type->walkable)
             {
                 return false;
             }
@@ -964,23 +1116,14 @@ static bool place_cluster_member_instance(Map* map,
     const int tries = 16;
     for (int attempt = 0; attempt < tries; ++attempt)
     {
-        float offsetX = (random01(rng) * 2.0f - 1.0f) * halfWidth;
-        float offsetY = (random01(rng) * 2.0f - 1.0f) * halfHeight;
-        float candidateCX = anchorCenterX + offsetX;
-        float candidateCY = anchorCenterY + offsetY;
+        float offsetX        = (random01(rng) * 2.0f - 1.0f) * halfWidth;
+        float offsetY        = (random01(rng) * 2.0f - 1.0f) * halfHeight;
+        float candidateCX    = anchorCenterX + offsetX;
+        float candidateCY    = anchorCenterY + offsetY;
         int   roundedCenterX = (int)roundf(candidateCX);
         int   roundedCenterY = (int)roundf(candidateCY);
 
-        if (attempt_spawn_structure(map,
-                                    def,
-                                    roundedCenterX,
-                                    roundedCenterY,
-                                    rng,
-                                    placed,
-                                    placedCount,
-                                    placedCap,
-                                    structureCounts,
-                                    true))
+        if (attempt_spawn_structure(map, def, roundedCenterX, roundedCenterY, rng, placed, placedCount, placedCap, structureCounts, true))
         {
             return true;
         }
@@ -1364,7 +1507,7 @@ void generate_world(Map* map)
         {
             // Skip liquids/hazard hard-tiles
             TileTypeID t = map->tiles[y][x];
-            if (t == TILE_WATER || t == TILE_LAVA)
+            if (t == TILE_WATER || t == TILE_LAVA || t == TILE_POISON)
                 continue;
 
             int             ci = cellCenterIdx[(y / MC) * cellsX + (x / MC)];
@@ -1431,9 +1574,9 @@ void generate_world(Map* map)
     //    Slightly reduced scan density by stepping over tiles (grid stride) to save time.
     //    Still deterministic, and spacing still enforced.
     PlacedStructure placed[1024];
-    int             placedCount              = 0;
+    int             placedCount                   = 0;
     int             structureCounts[STRUCT_COUNT] = {0};
-    const int       placedCap                = (int)(sizeof(placed) / sizeof(placed[0]));
+    const int       placedCap                     = (int)(sizeof(placed) / sizeof(placed[0]));
 
     const int STRIDE = 3; // check 1/STRIDE^2 of tiles as anchor candidates
     for (int y = 2; y < H - 10; y += STRIDE)
@@ -1497,7 +1640,7 @@ void generate_world(Map* map)
         if (!def || def->minInstances <= 0)
             continue;
 
-        int required    = def->minInstances;
+        int required = def->minInstances;
         if (def->maxInstances > 0 && required > def->maxInstances)
             required = def->maxInstances;
         if (required <= 0)
@@ -1555,10 +1698,7 @@ void generate_world(Map* map)
 
         if (structureCounts[k] < required)
         {
-            printf("⚠️  Unable to satisfy minimum %d instances for structure %s (placed %d)\n",
-                   required,
-                   def->name,
-                   structureCounts[k]);
+            printf("⚠️  Unable to satisfy minimum %d instances for structure %s (placed %d)\n", required, def->name, structureCounts[k]);
         }
     }
 

@@ -59,4 +59,25 @@ void unload_tile_types(void);
  */
 TileType* get_tile_type(TileTypeID id);
 
+/**
+ * @brief Computes the source rectangle to use when drawing a tile, taking into account texture variations.
+ *
+ * @param[in] type   Tile definition.
+ * @param[in] tileX  World X coordinate of the tile (used for deterministic variation selection).
+ * @param[in] tileY  World Y coordinate of the tile.
+ * @return Rectangle defining the portion of the texture to draw.
+ */
+Rectangle tile_get_source_rect(const TileType* type, int tileX, int tileY);
+
+/**
+ * @brief Draws the tile at the specified destination pixel coordinates.
+ *
+ * @param[in] type  Tile definition.
+ * @param[in] tileX World X coordinate of the tile (for variation hashing).
+ * @param[in] tileY World Y coordinate of the tile.
+ * @param[in] destX Destination pixel X.
+ * @param[in] destY Destination pixel Y.
+ */
+void tile_draw(const TileType* type, int tileX, int tileY, float destX, float destY);
+
 #endif /* TILE_H */

@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 100
+#define MAP_WIDTH 1000
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 100
+#define MAP_HEIGHT 1000
 
 /**
  * @def TILE_SIZE
@@ -173,6 +173,7 @@ typedef enum
     TILE_SWAMP,         /**< Swamp */
     TILE_DESERT,        /**< Desertt */
     TILE_MOUNTAIN,      /**< Mountain */
+    TILE_POISON,        /**< Toxic liquid hazard */
     TILE_MAX,           /**< Total number of defined tile types */
 } TileTypeID;
 
@@ -409,19 +410,24 @@ typedef struct
  */
 typedef struct
 {
-    const char*  name;         /**< Internal tile name (e.g., "grass") */
-    TileTypeID   id;           /**< Unique tile identifier */
-    TileCategory category;     /**< Tile classification (ground, wall, etc.) */
-    bool         walkable;     /**< Whether entities can move through it */
-    Color        color;        /**< Tile color (used when no texture is defined) */
-    Texture2D    texture;      /**< Texture for rendering (optional) */
-    const char*  texturePath;  /**< path to texture */
-    bool         isBreakable;  /**< Whether the tile can be terraformed */
-    int          durability;   /**< Hit points before terraformation */
-    float        movementCost; /**< Relative movement cost (1.0 = normal) */
-    float        humidity;     /**< Humidity level (0.0 dry to 1.0 wet) */
-    float        fertility;    /**< Fertility level (0.0 - 1.0) */
-    int          temperature;  /**<  Current Temperature ( °C )*/
+    const char*  name;                /**< Internal tile name (e.g., "grass") */
+    TileTypeID   id;                  /**< Unique tile identifier */
+    TileCategory category;            /**< Tile classification (ground, wall, etc.) */
+    bool         walkable;            /**< Whether entities can move through it */
+    Color        color;               /**< Tile color (used when no texture is defined) */
+    Texture2D    texture;             /**< Texture for rendering (optional) */
+    const char*  texturePath;         /**< Path to the source texture (spritesheet or single tile). */
+    int          textureVariations;   /**< Number of horizontal variations stored in the texture. */
+    int          variationFrameWidth; /**< Width in pixels for a single variation frame (derived). */
+    int          variationFrameHeight;/**< Height in pixels for a single variation frame (derived). */
+    int          variationColumns;    /**< Number of columns in the variation grid (optional). */
+    int          variationRows;       /**< Number of rows in the variation grid (optional). */
+    bool         isBreakable;         /**< Whether the tile can be terraformed */
+    int          durability;          /**< Hit points before terraformation */
+    float        movementCost;        /**< Relative movement cost (1.0 = normal) */
+    float        humidity;            /**< Humidity level (0.0 dry to 1.0 wet) */
+    float        fertility;           /**< Fertility level (0.0 - 1.0) */
+    int          temperature;         /**< Current Temperature (°C) */
 } TileType;
 
 /**

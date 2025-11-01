@@ -221,6 +221,7 @@ static BiomeKind infer_biome_from_tile(TileTypeID tile)
         case TILE_DESERT:
             return BIO_DESERT;
         case TILE_SWAMP:
+        case TILE_POISON:
             return BIO_SWAMP;
         case TILE_MOUNTAIN:
             return BIO_MOUNTAIN;

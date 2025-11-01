@@ -68,6 +68,7 @@ int load_tiles_from_stv(const char* path, TileType* outArray, int maxTiles)
 
     char     line[512];
     TileType current   = {0};
+    current.textureVariations = 1;
     int      count     = 0;
     bool     inSection = false;
 
@@ -82,6 +83,7 @@ int load_tiles_from_stv(const char* path, TileType* outArray, int maxTiles)
             if (inSection && count < maxTiles)
                 outArray[count++] = current;
             memset(&current, 0, sizeof(TileType));
+            current.textureVariations = 1;
             inSection = true;
             continue;
         }
@@ -114,6 +116,24 @@ int load_tiles_from_stv(const char* path, TileType* outArray, int maxTiles)
                 current.temperature = atof(value);
             else if (strcmp(key, "texture") == 0)
                 current.texturePath = str_dup(value);
+            else if (strcmp(key, "variations") == 0 || strcmp(key, "texture_variations") == 0)
+            {
+                current.textureVariations = atoi(value);
+                if (current.textureVariations <= 0)
+                    current.textureVariations = 1;
+            }
+            else if (strcmp(key, "variation_columns") == 0 || strcmp(key, "texture_columns") == 0 || strcmp(key, "spritesheet_columns") == 0)
+            {
+                current.variationColumns = atoi(value);
+                if (current.variationColumns < 0)
+                    current.variationColumns = 0;
+            }
+            else if (strcmp(key, "variation_rows") == 0 || strcmp(key, "texture_rows") == 0 || strcmp(key, "spritesheet_rows") == 0)
+            {
+                current.variationRows = atoi(value);
+                if (current.variationRows < 0)
+                    current.variationRows = 0;
+            }
             else if (strcmp(key, "color") == 0)
             {
                 int r, g, b, a;
