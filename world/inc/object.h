@@ -124,11 +124,16 @@ void draw_objects(Map* map, Camera2D* camera);
 void object_draw_dynamic(const Map* map, const Camera2D* camera);
 
 /**
+ * @brief Renders environmental effects (light/heat halos) for map objects.
+ */
+void object_draw_environment(const Map* map, const Camera2D* camera);
+
+/**
  * @brief Advances activation animations for dynamic objects.
  *
  * @param[in] dt Delta time in seconds.
  */
-void object_update_system(float dt);
+void object_update_system(Map* map, float dt);
 
 /**
  * @brief Computes the source rectangle for the given frame of an object type.

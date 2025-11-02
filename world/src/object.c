@@ -14,17 +14,167 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h>
 
 // Static and constant global array containing all object type definitions.
 // It uses the ObjectTypeID enumeration (e.g., [OBJ_BED_SMALL]) for indexing.
 static ObjectType G_OBJECT_TYPES[OBJ_COUNT] = {0};
 static Object*    G_DYNAMIC_OBJECTS         = NULL;
+static bool       G_ENVIRONMENT_DIRTY       = true;
 
 static bool object_type_is_dynamic(const ObjectType* type)
 {
     if (!type)
         return false;
     return type->activatable;
+}
+
+static int clamp_int(int value, int minimum, int maximum)
+{
+    if (value < minimum)
+        return minimum;
+    if (value > maximum)
+        return maximum;
+    return value;
+}
+
+static void environment_reset(Map* map)
+{
+    if (!map)
+        return;
+
+    for (int y = 0; y < map->height; ++y)
+    {
+        memset(map->lightField[y], 0, (size_t)map->width * sizeof(float));
+        memset(map->heatField[y], 0, (size_t)map->width * sizeof(float));
+    }
+}
+
+static void environment_apply_object(Map* map, const Object* obj)
+{
+    if (!map || !obj || !obj->type)
+        return;
+
+    const ObjectType* type       = obj->type;
+    bool              isActive   = !type->activatable || obj->isActive;
+    int               lightRadius = type->lightRadius;
+    int               heatRadius  = type->heatRadius;
+
+    if (!isActive)
+        return;
+
+    if ((lightRadius <= 0 || type->lightLevel <= 0) && (heatRadius <= 0 || type->warmth <= 0))
+        return;
+
+    int maxRadius = lightRadius > heatRadius ? lightRadius : heatRadius;
+    if (maxRadius <= 0)
+        return;
+
+    float centerX = obj->position.x + (float)type->width * 0.5f;
+    float centerY = obj->position.y + (float)type->height * 0.5f;
+
+    int minX = clamp_int((int)floorf(centerX - (float)maxRadius), 0, map->width - 1);
+    int maxX = clamp_int((int)ceilf(centerX + (float)maxRadius), 0, map->width - 1);
+    int minY = clamp_int((int)floorf(centerY - (float)maxRadius), 0, map->height - 1);
+    int maxY = clamp_int((int)ceilf(centerY + (float)maxRadius), 0, map->height - 1);
+
+    float lightIntensity = (float)type->lightLevel;
+    float heatIntensity  = (float)type->warmth;
+
+    for (int ty = minY; ty <= maxY; ++ty)
+    {
+        for (int tx = minX; tx <= maxX; ++tx)
+        {
+            float dx        = ((float)tx + 0.5f) - centerX;
+            float dy        = ((float)ty + 0.5f) - centerY;
+            float distance  = sqrtf(dx * dx + dy * dy);
+
+            if (lightRadius > 0 && lightIntensity > 0.0f && distance <= (float)lightRadius)
+            {
+                float falloff = 1.0f - (distance / (float)lightRadius);
+                if (falloff < 0.0f)
+                    falloff = 0.0f;
+                map->lightField[ty][tx] += lightIntensity * falloff;
+            }
+
+            if (heatRadius > 0 && heatIntensity > 0.0f && distance <= (float)heatRadius)
+            {
+                float falloff = 1.0f - (distance / (float)heatRadius);
+                if (falloff < 0.0f)
+                    falloff = 0.0f;
+                map->heatField[ty][tx] += heatIntensity * falloff;
+            }
+        }
+    }
+}
+
+static void rebuild_environment_fields(Map* map)
+{
+    if (!map)
+        return;
+
+    environment_reset(map);
+
+    for (int y = 0; y < map->height; ++y)
+    {
+        for (int x = 0; x < map->width; ++x)
+        {
+            Object* obj = map->objects[y][x];
+            if (!obj || (int)obj->position.x != x || (int)obj->position.y != y)
+                continue;
+            environment_apply_object(map, obj);
+        }
+    }
+}
+
+static void draw_object_environment_effect(const Object* obj, Rectangle viewRect)
+{
+    if (!obj || !obj->type)
+        return;
+
+    const ObjectType* type = obj->type;
+
+    if (type->activatable && !obj->isActive)
+        return;
+
+    bool hasLight = (type->lightRadius > 0 && type->lightLevel > 0);
+    bool hasHeat  = (type->heatRadius > 0 && type->warmth > 0);
+    if (!hasLight && !hasHeat)
+        return;
+
+    int maxRadius = type->lightRadius > type->heatRadius ? type->lightRadius : type->heatRadius;
+    if (maxRadius <= 0)
+        return;
+
+    float centerX = (obj->position.x + (float)type->width * 0.5f) * (float)TILE_SIZE;
+    float centerY = (obj->position.y + (float)type->height * 0.5f) * (float)TILE_SIZE;
+    float radiusPixels = (float)maxRadius * (float)TILE_SIZE;
+
+    Rectangle bounds = {
+        .x      = centerX - radiusPixels,
+        .y      = centerY - radiusPixels,
+        .width  = radiusPixels * 2.0f,
+        .height = radiusPixels * 2.0f,
+    };
+
+    if (!CheckCollisionRecs(viewRect, bounds))
+        return;
+
+    if (hasHeat)
+    {
+        float radius = (float)type->heatRadius * (float)TILE_SIZE;
+        Color inner  = Fade((Color){255, 140, 60, 255}, 0.35f + fminf(0.25f, (float)type->warmth / 10.0f));
+        Color outer  = Fade((Color){255, 140, 60, 255}, 0.0f);
+        DrawCircleGradient((int)centerX, (int)centerY, radius, inner, outer);
+    }
+
+    if (hasLight)
+    {
+        float radius = (float)type->lightRadius * (float)TILE_SIZE;
+        Color inner  = Fade((Color){255, 230, 150, 255}, 0.45f + fminf(0.35f, (float)type->lightLevel / 10.0f));
+        Color outer  = Fade((Color){255, 230, 150, 255}, 0.0f);
+        DrawCircleGradient((int)centerX, (int)centerY, radius, inner, outer);
+    }
 }
 
 Rectangle object_type_frame_rect(const ObjectType* type, int frameIndex)
@@ -361,6 +511,7 @@ Object* create_object(ObjectTypeID id, int x, int y)
     if (object_type_is_dynamic(type))
         dynamic_list_add(obj);
 
+    G_ENVIRONMENT_DIRTY = true;
     return obj;
 }
 
@@ -372,6 +523,7 @@ void object_destroy(Object* obj)
     if (object_type_is_dynamic(obj->type))
         dynamic_list_remove(obj);
 
+    G_ENVIRONMENT_DIRTY = true;
     free(obj);
 }
 
@@ -390,6 +542,7 @@ bool object_set_active(Object* obj, bool active)
 
     obj->isActive = active;
     object_start_animation(obj);
+    G_ENVIRONMENT_DIRTY = true;
     return true;
 }
 
@@ -439,7 +592,7 @@ int object_static_frame(const Object* obj)
     return frame;
 }
 
-void object_update_system(float dt)
+void object_update_system(Map* map, float dt)
 {
     if (dt <= 0.0f)
         dt = 0.0f;
@@ -487,6 +640,12 @@ void object_update_system(float dt)
             obj->variantFrame = obj->animation.currentFrame;
         }
     }
+
+    if (map && G_ENVIRONMENT_DIRTY)
+    {
+        rebuild_environment_fields(map);
+        G_ENVIRONMENT_DIRTY = false;
+    }
 }
 
 void object_draw_dynamic(const Map* map, const Camera2D* camera)
@@ -532,8 +691,54 @@ void object_draw_dynamic(const Map* map, const Camera2D* camera)
     }
 }
 
+void object_draw_environment(const Map* map, const Camera2D* camera)
+{
+    if (!map || !camera)
+        return;
+
+    Rectangle view = {.x      = camera->target.x - (GetScreenWidth() / 2) / camera->zoom,
+                      .y      = camera->target.y - (GetScreenHeight() / 2) / camera->zoom,
+                      .width  = GetScreenWidth() / camera->zoom,
+                      .height = GetScreenHeight() / camera->zoom};
+
+    float invZoom = 1.0f / camera->zoom;
+    Rectangle pixelView = {
+        .x      = camera->target.x - camera->offset.x * invZoom,
+        .y      = camera->target.y - camera->offset.y * invZoom,
+        .width  = GetScreenWidth() * invZoom,
+        .height = GetScreenHeight() * invZoom,
+    };
+
+    int startX = (int)(view.x / TILE_SIZE) - 1;
+    int startY = (int)(view.y / TILE_SIZE) - 1;
+    int endX   = (int)((view.x + view.width) / TILE_SIZE) + 1;
+    int endY   = (int)((view.y + view.height) / TILE_SIZE) + 1;
+
+    BeginBlendMode(BLEND_ADDITIVE);
+    for (int y = startY; y <= endY; y++)
+    {
+        for (int x = startX; x <= endX; x++)
+        {
+            int wx = (x % map->width + map->width) % map->width;
+            int wy = (y % map->height + map->height) % map->height;
+
+            Object* obj = map->objects[wy][wx];
+            if (!obj || !obj->type)
+                continue;
+            if ((int)obj->position.x != wx || (int)obj->position.y != wy)
+                continue;
+
+            draw_object_environment_effect(obj, pixelView);
+        }
+    }
+    EndBlendMode();
+}
+
 void draw_objects(Map* map, Camera2D* camera)
 {
+    if (!map || !camera)
+        return;
+
     Rectangle view = {.x      = camera->target.x - (GetScreenWidth() / 2) / camera->zoom,
                       .y      = camera->target.y - (GetScreenHeight() / 2) / camera->zoom,
                       .width  = GetScreenWidth() / camera->zoom,
@@ -555,7 +760,7 @@ void draw_objects(Map* map, Camera2D* camera)
             if (!obj)
                 continue;
 
-            const ObjectType* type   = obj->type;
+            const ObjectType* type = obj->type;
             if (!type)
                 continue;
 

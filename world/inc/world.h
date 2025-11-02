@@ -366,9 +366,11 @@ typedef struct
 
     int         maxHP;      /**< Maximum hit points */
     int         comfort;    /**< Comfort rating contribution */
-    int         warmth;     /**< Warmth rating contribution */
-    int         lightLevel; /**< Light emission level */
-    int         width;      /**< Object width in tiles */
+    int         warmth;      /**< Warmth rating contribution */
+    int         lightLevel;  /**< Light emission level */
+    int         lightRadius; /**< Light effect radius in tiles when active. */
+    int         heatRadius;  /**< Heat effect radius in tiles when active. */
+    int         width;       /**< Object width in tiles */
     int         height;     /**< Object height in tiles */
     bool        walkable;   /**< Whether the player can walk over it */
     bool        flammable;  /**< Whether it can catch fire */
@@ -455,9 +457,10 @@ typedef struct
     bool         isBreakable;          /**< Whether the tile can be terraformed */
     int          durability;           /**< Hit points before terraformation */
     float        movementCost;         /**< Relative movement cost (1.0 = normal) */
-    float        humidity;             /**< Humidity level (0.0 dry to 1.0 wet) */
-    float        fertility;            /**< Fertility level (0.0 - 1.0) */
-    int          temperature;          /**< Current Temperature (°C) */
+    float        darkness;             /**< Darkness factor [0.0 light .. 1.0 night]. */
+    float        fertility;            /**< Fertility level (0.0 - 1.0). */
+    float        humidity;             /**< Humidity level (0.0 dry to 1.0 wet). */
+    float        temperature;          /**< Current temperature in °C. */
 } TileType;
 
 /**
@@ -472,6 +475,8 @@ typedef struct
     int        height;                         /**< Map height in tiles */
     TileTypeID tiles[MAP_HEIGHT][MAP_WIDTH];   /**< 2D grid of terrain tiles */
     Object*    objects[MAP_HEIGHT][MAP_WIDTH]; /**< 2D grid of placed objects */
+    float      lightField[MAP_HEIGHT][MAP_WIDTH]; /**< Accumulated light intensity per tile. */
+    float      heatField[MAP_HEIGHT][MAP_WIDTH];  /**< Accumulated heat intensity per tile. */
 } Map;
 
 typedef struct StructureClusterMember

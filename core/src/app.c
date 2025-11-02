@@ -20,13 +20,15 @@
 #include "world_chunk.h"
 #include "debug.h"
 #include "entity.h"
+#include "world_time.h"
 // -----------------------------------------------------------------------------
 // Global world data
 // -----------------------------------------------------------------------------
-static Map          G_MAP      = {0};
-static Camera2D     G_CAMERA   = {0};
-static InputState   G_INPUT    = {0};
-static EntitySystem G_ENTITIES = {0};
+static Map          G_MAP        = {0};
+static Camera2D     G_CAMERA     = {0};
+static InputState   G_INPUT      = {0};
+static EntitySystem G_ENTITIES   = {0};
+static WorldTime    G_WORLD_TIME = {0};
 // ChunkGrid*        gChunks  = NULL;
 static bool      G_BUILDING_DIRTY      = false;
 static Rectangle G_BUILDING_DIRTY_BBOX = {0};
@@ -89,6 +91,8 @@ static void app_init(void)
 
     // Build the world and load entity definitions.
     map_init(&G_MAP, seed);
+    world_time_init(&G_WORLD_TIME);
+    world_apply_season_effects(&G_MAP, &G_WORLD_TIME);
     Rectangle fullRegion = {
         .x      = 0.0f,
         .y      = 0.0f,
@@ -117,14 +121,17 @@ static void app_update(void)
     ui_update_inventory(&G_INPUT, &G_ENTITIES);
     update_camera(&G_CAMERA, &G_INPUT.camera);
 
+    if (IsKeyPressed(KEY_T))
+        world_time_cycle_timewarp(&G_WORLD_TIME);
+
     if (IsKeyPressed(KEY_F))
     {
         MouseState mouse;
         input_update_mouse(&mouse, &G_CAMERA, &G_MAP);
         if (mouse.insideMap)
         {
-            int tx = mouse.tileX;
-            int ty = mouse.tileY;
+            int     tx  = mouse.tileX;
+            int     ty  = mouse.tileY;
             Object* obj = G_MAP.objects[ty][tx];
             if (object_has_activation(obj) && object_toggle(obj))
                 chunkgrid_redraw_cell(gChunks, &G_MAP, tx, ty);
@@ -133,8 +140,10 @@ static void app_update(void)
 
     // Advance gameplay systems using the frame time delta.
     float dt = GetFrameTime();
+    world_time_update(&G_WORLD_TIME, dt);
+    world_apply_season_effects(&G_MAP, &G_WORLD_TIME);
     entity_system_update(&G_ENTITIES, &G_MAP, &G_CAMERA, dt);
-    object_update_system(dt);
+    object_update_system(&G_MAP, dt);
 
     Rectangle dirtyWorld = {0.0f, 0.0f, 0.0f, 0.0f};
     bool      changed    = editor_update(&G_MAP, &G_CAMERA, &G_INPUT, &G_ENTITIES, &dirtyWorld);
@@ -182,6 +191,7 @@ static void app_draw_world(void)
 
     // Draw static geometry (tiles + static objects)
     chunkgrid_draw_visible(gChunks, &G_MAP, &G_CAMERA);
+    object_draw_environment(&G_MAP, &G_CAMERA);
     object_draw_dynamic(&G_MAP, &G_CAMERA);
     entity_system_draw(&G_ENTITIES);
 
@@ -268,12 +278,21 @@ static void app_draw_world(void)
 
     EndMode2D();
 
+    float darkness = world_time_get_darkness();
+    if (darkness > 0.0f)
+    {
+        float alpha = fminf(1.0f, darkness * 0.75f);
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), ColorAlpha(BLACK, alpha));
+    }
+
     // Draw optional overlays such as biome debug view and the build inventory.
     static bool showBiomeDebug = false;
     debug_biome_draw(&G_MAP, &G_CAMERA, &showBiomeDebug);
 
     // Optional: draw current tile/object selection
     ui_draw_inventory(&G_INPUT, &G_ENTITIES);
+
+    world_time_draw_ui(&G_WORLD_TIME, &G_MAP, &G_CAMERA);
 }
 
 /**
@@ -320,7 +339,7 @@ void app_run(void)
         app_update();
 
         BeginDrawing();
-        // ClearBackground(BLACK);
+        ClearBackground(BLANK);
 
         app_draw_world();
         app_handle_chunk_eviction();

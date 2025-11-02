@@ -6,6 +6,7 @@
 #include "map.h"
 #include "tile.h"
 #include "object.h"
+#include <string.h>
 #include <stdlib.h>
 #include "world_generation.h"
 #include "world_chunk.h"
@@ -27,6 +28,10 @@ void map_init(Map* map, unsigned int seed)
         return;
     map->width  = MAP_WIDTH;
     map->height = MAP_HEIGHT;
+    memset(map->tiles, 0, sizeof(map->tiles));
+    memset(map->objects, 0, sizeof(map->objects));
+    memset(map->lightField, 0, sizeof(map->lightField));
+    memset(map->heatField, 0, sizeof(map->heatField));
 
     // Configure the generation pipeline before creating terrain content.
     worldgen_seed(seed);

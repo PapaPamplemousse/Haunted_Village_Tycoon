@@ -181,6 +181,10 @@ int load_objects_from_stv(const char* path, ObjectType* outArray, int maxObjects
                 current.warmth = atoi(value);
             else if (strcmp(key, "light") == 0)
                 current.lightLevel = atoi(value);
+            else if (strcmp(key, "light_radius") == 0 || strcmp(key, "activation_light_radius") == 0)
+                current.lightRadius = atoi(value);
+            else if (strcmp(key, "heat_radius") == 0 || strcmp(key, "activation_heat_radius") == 0 || strcmp(key, "warmth_radius") == 0)
+                current.heatRadius = atoi(value);
             else if (strcmp(key, "width") == 0)
                 current.width = atoi(value);
             else if (strcmp(key, "height") == 0)

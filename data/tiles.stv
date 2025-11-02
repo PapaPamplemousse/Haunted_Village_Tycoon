@@ -29,6 +29,9 @@ fertility    = 0.8
 temperature  = 18
 color        = 34,139,34,255
 texture      = assets/textures/grass.png
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [WATER]
 id           = 1
@@ -43,9 +46,9 @@ fertility    = 0.0
 temperature  = 12
 color        = 70,130,180,255
 texture      = assets/textures/water.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [LAVA]
 id           = 2
@@ -60,9 +63,9 @@ fertility    = 0.0
 temperature  = 1000
 color        = 255,69,0,255
 texture      = assets/textures/lava.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [FOREST]
 id           = 3
@@ -77,9 +80,9 @@ fertility    = 0.7
 temperature  = 15
 color        = 34,100,34,255
 texture      = assets/textures/forest.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [PLAIN]
 id           = 4
@@ -94,7 +97,9 @@ fertility    = 0.6
 temperature  = 20
 color        = 124,252,0,255
 texture      = assets/textures/plain.png
-
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [SAVANNA]
 id           = 5
@@ -109,9 +114,9 @@ fertility    = 0.3
 temperature  = 28
 color        = 189,183,107,255
 texture      = assets/textures/savana.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [TUNDRA]
 id           = 6
@@ -126,9 +131,9 @@ fertility    = 0.1
 temperature  = -10
 color        = 176,196,222,255
 texture      = assets/textures/tundra.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [TUNDRA_2]
 id           = 7
@@ -143,9 +148,9 @@ fertility    = 0.1
 temperature  = -10
 color        = 176,196,222,255
 texture      = assets/textures/tundra_2.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [HELL]
 id           = 8
@@ -160,9 +165,9 @@ fertility    = 0.0
 temperature  = 50
 color        = 139,0,0,255
 texture      = assets/textures/hell.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [CURSED_FOREST]
 id           = 9
@@ -177,9 +182,9 @@ fertility    = 0.5
 temperature  = 8
 color        = 85,107,47,255
 texture      = assets/textures/cursed_forest.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [SWAMP]
 id           = 10
@@ -194,9 +199,9 @@ fertility    = 0.8
 temperature  = 10
 color        = 102,102,51,255
 texture      = assets/textures/swamp.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [DESERT]
 id           = 11
@@ -211,6 +216,9 @@ fertility    = 0.05
 temperature  = 40
 color        = 244,164,96,255
 texture      = assets/textures/desert.png
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [MOUNTAIN]
 id           = 12
@@ -225,6 +233,9 @@ fertility    = 0.05
 temperature  = 0
 color        = 105,105,105,255
 texture      = assets/textures/mountain.png
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
 
 [POISON]
 id           = 13
@@ -239,6 +250,6 @@ fertility    = 0.0
 temperature  = 6
 color        = 135,0,170,255
 texture      = assets/textures/poison.png
-texture_variations = 1024
-variation_columns  = 32
-variation_rows     = 32
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1

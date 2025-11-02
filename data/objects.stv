@@ -126,6 +126,12 @@ is_wall      = false
 is_door      = false
 color        = 255,165,0,255
 texture      = assets/objects/utility/torch_wall.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = true
+activation_walkable_active    = true
+activation_light_radius       = 4
+activation_heat_radius        = 4
 
 [WORKBENCH]
 id           = 6
@@ -318,6 +324,13 @@ is_wall      = false
 is_door      = false
 color        = 110,110,110,255
 texture      = assets/objects/resource/rock.png
+sprite_frame_width   = 32
+sprite_frame_height  = 26
+sprite_columns       = 5
+sprite_rows          = 1
+sprite_frame_count   = 5
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
 
 [TREE]
 id           = 15
@@ -336,6 +349,13 @@ is_wall      = false
 is_door      = false
 color        = 20,120,20,255
 texture      = assets/objects/resource/tree.png
+sprite_frame_width   = 32
+sprite_frame_height  = 26
+sprite_columns       = 3
+sprite_rows          = 2
+sprite_frame_count   = 6
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
 
 [DEAD_TREE]
 id           = 16
@@ -445,6 +465,12 @@ is_wall      = false
 is_door      = false
 color        = 255,120,20,255
 texture      = assets/objects/utility/firepit.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = false
+activation_walkable_active    = false
+activation_light_radius       = 5
+activation_heat_radius        = 5
 
 [ALTAR]
 id           = 21
@@ -574,7 +600,7 @@ texture                       = assets/objects/structure/Obelisk.png
 activatable                   = true
 activation_default            = false
 activation_walkable_inactive  = false
-activation_walkable_active    = true
+activation_walkable_active    = false
 sprite_frame_width            = 32
 sprite_frame_height           = 32
 sprite_columns                = 4
