@@ -108,17 +108,16 @@ typedef enum
     OBJ_STDBUSH_DRY = 18, /**< Dry bush */
 
     // --- Hazards / Special ---
-    OBJ_SULFUR_VENT    = 19, /**< Sulfur vent */
-    OBJ_FIREPIT        = 20, /**< Exterior fire pit */
-    OBJ_ALTAR          = 21, /**< Altar */
-    OBJ_CAULDRON       = 22, /**< Bubbling witch cauldron */
-    OBJ_TOTEM_BLOOD    = 23, /**< Bloodied totem pole */
-    OBJ_RITUAL_CIRCLE  = 24, /**< Ritual circle marker */
-    OBJ_GALLOW         = 25, /**< Execution gallows */
-    OBJ_MEAT_HOOK      = 26, /**< Rusted meat hook rack */
-    OBJ_VOID_OBELISK   = 27, /**< Void-touched obelisk */
-    OBJ_PLAGUE_POD     = 28, /**< Bloated plague pod */
-    OBJ_DOOR_WOOD_OPEN = 29, /**< Wooden door left open */
+    OBJ_SULFUR_VENT   = 19, /**< Sulfur vent */
+    OBJ_FIREPIT       = 20, /**< Exterior fire pit */
+    OBJ_ALTAR         = 21, /**< Altar */
+    OBJ_CAULDRON      = 22, /**< Bubbling witch cauldron */
+    OBJ_TOTEM_BLOOD   = 23, /**< Bloodied totem pole */
+    OBJ_RITUAL_CIRCLE = 24, /**< Ritual circle marker */
+    OBJ_GALLOW        = 25, /**< Execution gallows */
+    OBJ_MEAT_HOOK     = 26, /**< Rusted meat hook rack */
+    OBJ_VOID_OBELISK  = 27, /**< Void-touched obelisk */
+    OBJ_PLAGUE_POD    = 28, /**< Bloated plague pod */
 
     OBJ_COUNT /**< Sentinel (number of object types) */
 } ObjectTypeID;
@@ -332,7 +331,8 @@ typedef enum
     ENTITY_TYPE_CRIMSON_CHOIR,
     ENTITY_TYPE_HEART_OF_TOWN,
     ENTITY_TYPE_DREAMING_GOD,
-
+    ENTITY_TYPE_IMP,
+    ENTITY_TYPE_LICH,
     ENTITY_TYPE_COUNT
 } EntitiesTypeID;
 
@@ -377,6 +377,24 @@ typedef struct
     Color       color;       /**< Default color (fallback if no texture) */
     const char* texturePath; /**< path to texture */
     Texture2D   texture;     /**< Texture used for rendering */
+
+    // --- Activation & animation metadata ---
+    bool activatable;             /**< Whether this object supports activation toggling. */
+    bool activationDefaultActive; /**< Default activation state when instantiated. */
+    bool activationWalkableOn;    /**< Walkable flag when the object is active. */
+    bool activationWalkableOff;   /**< Walkable flag when the object is inactive. */
+
+    int spriteFrameWidth;  /**< Width in pixels of a single frame inside the spritesheet (0 = auto). */
+    int spriteFrameHeight; /**< Height in pixels of a single frame inside the spritesheet (0 = auto). */
+    int spriteColumns;     /**< Number of columns in the spritesheet (0 = auto). */
+    int spriteRows;        /**< Number of rows in the spritesheet (0 = auto). */
+    int spriteFrameCount;  /**< Total number of frames available (0 = auto). */
+    int spriteSpacingX;    /**< Horizontal spacing between frames, in pixels. */
+    int spriteSpacingY;    /**< Vertical spacing between frames, in pixels. */
+
+    int   activationFrameInactive; /**< Frame index (0-based) representing the inactive state. */
+    int   activationFrameActive;   /**< Frame index (0-based) representing the active state. */
+    float activationFrameTime;     /**< Time per animation frame when toggling states (seconds). */
 } ObjectType;
 
 /**
@@ -388,7 +406,18 @@ typedef struct Object
     const ObjectType* type;     /**< Pointer to its object type definition */
     Vector2           position; /**< Position in tile coordinates */
     int               hp;       /**< Current health points */
-    bool              isActive; /**< Whether the object is active or disabled */
+    bool              isActive; /**< Whether the object is currently active */
+
+    struct
+    {
+        int   currentFrame; /**< Currently displayed animation frame. */
+        int   targetFrame;  /**< Target frame during activation/deactivation transitions. */
+        float accumulator;  /**< Accumulated time since the last frame advance. */
+        bool  playing;      /**< True while the activation animation is running. */
+        bool  forward;      /**< True if animating towards higher frame indices. */
+    } animation;
+
+    struct Object* nextDynamic; /**< Intrusive list pointer for dynamic rendering. */
 } Object;
 
 /**
@@ -410,24 +439,24 @@ typedef struct
  */
 typedef struct
 {
-    const char*  name;                /**< Internal tile name (e.g., "grass") */
-    TileTypeID   id;                  /**< Unique tile identifier */
-    TileCategory category;            /**< Tile classification (ground, wall, etc.) */
-    bool         walkable;            /**< Whether entities can move through it */
-    Color        color;               /**< Tile color (used when no texture is defined) */
-    Texture2D    texture;             /**< Texture for rendering (optional) */
-    const char*  texturePath;         /**< Path to the source texture (spritesheet or single tile). */
-    int          textureVariations;   /**< Number of horizontal variations stored in the texture. */
-    int          variationFrameWidth; /**< Width in pixels for a single variation frame (derived). */
-    int          variationFrameHeight;/**< Height in pixels for a single variation frame (derived). */
-    int          variationColumns;    /**< Number of columns in the variation grid (optional). */
-    int          variationRows;       /**< Number of rows in the variation grid (optional). */
-    bool         isBreakable;         /**< Whether the tile can be terraformed */
-    int          durability;          /**< Hit points before terraformation */
-    float        movementCost;        /**< Relative movement cost (1.0 = normal) */
-    float        humidity;            /**< Humidity level (0.0 dry to 1.0 wet) */
-    float        fertility;           /**< Fertility level (0.0 - 1.0) */
-    int          temperature;         /**< Current Temperature (°C) */
+    const char*  name;                 /**< Internal tile name (e.g., "grass") */
+    TileTypeID   id;                   /**< Unique tile identifier */
+    TileCategory category;             /**< Tile classification (ground, wall, etc.) */
+    bool         walkable;             /**< Whether entities can move through it */
+    Color        color;                /**< Tile color (used when no texture is defined) */
+    Texture2D    texture;              /**< Texture for rendering (optional) */
+    const char*  texturePath;          /**< Path to the source texture (spritesheet or single tile). */
+    int          textureVariations;    /**< Number of horizontal variations stored in the texture. */
+    int          variationFrameWidth;  /**< Width in pixels for a single variation frame (derived). */
+    int          variationFrameHeight; /**< Height in pixels for a single variation frame (derived). */
+    int          variationColumns;     /**< Number of columns in the variation grid (optional). */
+    int          variationRows;        /**< Number of rows in the variation grid (optional). */
+    bool         isBreakable;          /**< Whether the tile can be terraformed */
+    int          durability;           /**< Hit points before terraformation */
+    float        movementCost;         /**< Relative movement cost (1.0 = normal) */
+    float        humidity;             /**< Humidity level (0.0 dry to 1.0 wet) */
+    float        fertility;            /**< Fertility level (0.0 - 1.0) */
+    int          temperature;          /**< Current Temperature (°C) */
 } TileType;
 
 /**

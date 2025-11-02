@@ -286,7 +286,7 @@ bool entity_position_is_walkable(const Map* map, Vector2 position, float radius)
                 return false;
 
             Object* obj = map->objects[y][x];
-            if (obj && obj->type && !obj->type->walkable)
+            if (obj && !object_is_walkable(obj))
                 return false;
         }
     }

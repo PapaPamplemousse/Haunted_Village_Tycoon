@@ -94,7 +94,7 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
 
     // --- Redessine l’objet éventuel ---
     Object* o = map->objects[y][x];
-    if (o)
+    if (o && o->type && !o->type->activatable)
     {
         if (o->type->texture.id)
             DrawTextureEx(o->type->texture, (Vector2){(float)localX, (float)localY}, 0.0f, 1.0f, WHITE);
@@ -171,7 +171,7 @@ static void rebuild_chunk(MapChunk* c, Map* map)
                 break;
 
             Object* o = map->objects[y][x];
-            if (!o)
+            if (!o || !o->type || o->type->activatable)
                 continue;
 
             int px = tx * TILE_SIZE;

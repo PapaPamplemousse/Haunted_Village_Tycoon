@@ -200,7 +200,7 @@ static inline bool is_non_structural_blocker(const Object* obj)
     if (is_structural_object(obj))
         return false;
 
-    return !obj->type->walkable;
+    return !object_is_walkable(obj);
 }
 
 /**

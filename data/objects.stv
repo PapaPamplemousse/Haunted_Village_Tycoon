@@ -189,10 +189,10 @@ texture      = assets/objects/storage/crate.png
 # --- Structures ---
 # =========================================================
 
-[DOOR_WOOD_CLOSED]
+[DOOR_WOOD]
 id           = 9
-name         = door_wood_close
-display_name = Wooden Door (Closed)
+name         = door_wood
+display_name = Wooden Door
 category     = structure
 max_hp       = 100
 comfort      = 0
@@ -205,25 +205,21 @@ flammable    = true
 is_wall      = false
 is_door      = true
 color        = 139,69,19,255
-texture      = assets/objects/structure/door_wood_close.png
-
-[DOOR_WOOD_OPEN]
-id           = 29
-name         = door_wood_open
-display_name = Wooden Door (Open)
-category     = structure
-max_hp       = 80
-comfort      = 0
-warmth       = 0
-light        = 0
-width        = 1
-height       = 2
-walkable     = true
-flammable    = true
-is_wall      = false
-is_door      = true
-color        = 180,120,90,255
-texture      = assets/objects/structure/door_wood_open.png
+texture                       = assets/objects/structure/door_wood.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = false
+activation_walkable_active    = true
+sprite_frame_width            = 32
+sprite_frame_height           = 32
+sprite_columns                = 4
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 4
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
 
 [WALL_STONE]
 id           = 10
@@ -559,7 +555,21 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 60,0,120,255
-texture      = none
+texture                       = assets/objects/structure/Obelisk.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = false
+activation_walkable_active    = true
+sprite_frame_width            = 32
+sprite_frame_height           = 32
+sprite_columns                = 4
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 4
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
 
 [PLAGUE_POD]
 id           = 28

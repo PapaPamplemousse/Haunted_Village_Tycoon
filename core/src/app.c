@@ -117,9 +117,24 @@ static void app_update(void)
     ui_update_inventory(&G_INPUT, &G_ENTITIES);
     update_camera(&G_CAMERA, &G_INPUT.camera);
 
+    if (IsKeyPressed(KEY_F))
+    {
+        MouseState mouse;
+        input_update_mouse(&mouse, &G_CAMERA, &G_MAP);
+        if (mouse.insideMap)
+        {
+            int tx = mouse.tileX;
+            int ty = mouse.tileY;
+            Object* obj = G_MAP.objects[ty][tx];
+            if (object_has_activation(obj) && object_toggle(obj))
+                chunkgrid_redraw_cell(gChunks, &G_MAP, tx, ty);
+        }
+    }
+
     // Advance gameplay systems using the frame time delta.
     float dt = GetFrameTime();
     entity_system_update(&G_ENTITIES, &G_MAP, &G_CAMERA, dt);
+    object_update_system(dt);
 
     Rectangle dirtyWorld = {0.0f, 0.0f, 0.0f, 0.0f};
     bool      changed    = editor_update(&G_MAP, &G_CAMERA, &G_INPUT, &G_ENTITIES, &dirtyWorld);
@@ -167,6 +182,7 @@ static void app_draw_world(void)
 
     // Draw static geometry (tiles + static objects)
     chunkgrid_draw_visible(gChunks, &G_MAP, &G_CAMERA);
+    object_draw_dynamic(&G_MAP, &G_CAMERA);
     entity_system_draw(&G_ENTITIES);
 
     // --- Mouse highlight ---

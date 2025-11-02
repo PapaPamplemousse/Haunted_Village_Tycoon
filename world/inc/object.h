@@ -78,6 +78,35 @@ ObjectTypeID object_type_id_from_name(const char* name);
 Object* create_object(ObjectTypeID id, int x, int y);
 
 /**
+ * @brief Releases memory associated with an object instance.
+ *
+ * @param[in,out] obj Pointer to the object to destroy.
+ */
+void object_destroy(Object* obj);
+
+/**
+ * @brief Returns whether the object supports activation toggling.
+ */
+bool object_has_activation(const Object* obj);
+
+/**
+ * @brief Sets the activation state of an object, triggering animations if defined.
+ *
+ * @param[in,out] obj Pointer to the object instance.
+ * @param[in] active Desired activation state.
+ * @return true if the state changed, false otherwise.
+ */
+bool object_set_active(Object* obj, bool active);
+
+/**
+ * @brief Toggles the activation state of an object.
+ *
+ * @param[in,out] obj Pointer to the object instance.
+ * @return true if the state changed, false otherwise.
+ */
+bool object_toggle(Object* obj);
+
+/**
  * @brief Draws all active objects on the map using the given camera view.
  *
  * This function iterates through all object instances stored
@@ -88,6 +117,18 @@ Object* create_object(ObjectTypeID id, int x, int y);
  * @param[in] camera Pointer to the active camera used for world-to-screen projection.
  */
 void draw_objects(Map* map, Camera2D* camera);
+
+/**
+ * @brief Draws dynamic (activatable/animated) objects each frame.
+ */
+void object_draw_dynamic(const Map* map, const Camera2D* camera);
+
+/**
+ * @brief Advances activation animations for dynamic objects.
+ *
+ * @param[in] dt Delta time in seconds.
+ */
+void object_update_system(float dt);
 
 /**
  * @brief Determines whether the given object is considered a wall structure.
@@ -115,5 +156,13 @@ bool is_door_object(const Object* o);
  * @return `true` if the object is blocking, `false` otherwise.
  */
 bool is_blocking_object(const Object* o);
+
+/**
+ * @brief Computes whether an object currently allows entities to walk through.
+ *
+ * @param[in] o Pointer to the object to evaluate.
+ * @return true if the object is non-blocking for entities.
+ */
+bool object_is_walkable(const Object* o);
 
 #endif /* OBJECT_H */

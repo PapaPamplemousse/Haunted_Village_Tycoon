@@ -17,15 +17,205 @@
 // Static and constant global array containing all object type definitions.
 // It uses the ObjectTypeID enumeration (e.g., [OBJ_BED_SMALL]) for indexing.
 static ObjectType G_OBJECT_TYPES[OBJ_COUNT] = {0};
+static Object*    G_DYNAMIC_OBJECTS         = NULL;
+
+static bool object_type_is_dynamic(const ObjectType* type)
+{
+    if (!type)
+        return false;
+    return type->activatable;
+}
+
+static Rectangle object_frame_rect(const ObjectType* type, int frameIndex)
+{
+    if (!type || type->texture.id == 0)
+        return (Rectangle){0.0f, 0.0f, (float)TILE_SIZE, (float)TILE_SIZE};
+
+    int frameCount = type->spriteFrameCount > 0 ? type->spriteFrameCount : 1;
+    if (frameIndex < 0)
+        frameIndex = 0;
+    if (frameIndex >= frameCount)
+        frameIndex = frameCount - 1;
+
+    int columns = type->spriteColumns > 0 ? type->spriteColumns : frameCount;
+    if (columns <= 0)
+        columns = 1;
+
+    int rows = type->spriteRows > 0 ? type->spriteRows : ((frameCount + columns - 1) / columns);
+    if (rows <= 0)
+        rows = 1;
+
+    int frameWidth  = type->spriteFrameWidth > 0 ? type->spriteFrameWidth : type->texture.width;
+    int frameHeight = type->spriteFrameHeight > 0 ? type->spriteFrameHeight : type->texture.height;
+
+    int spacingX = type->spriteSpacingX;
+    int spacingY = type->spriteSpacingY;
+
+    int col = frameIndex % columns;
+    int row = frameIndex / columns;
+
+    float srcX = (float)col * (float)(frameWidth + spacingX);
+    float srcY = (float)row * (float)(frameHeight + spacingY);
+
+    return (Rectangle){srcX, srcY, (float)frameWidth, (float)frameHeight};
+}
+
+static int object_state_frame(const ObjectType* type, bool active)
+{
+    if (!type)
+        return 0;
+
+    int frameCount = type->spriteFrameCount > 0 ? type->spriteFrameCount : 1;
+    int frame      = active ? type->activationFrameActive : type->activationFrameInactive;
+
+    if (frame < 0)
+        frame = 0;
+    if (frame >= frameCount)
+        frame = frameCount - 1;
+    return frame;
+}
+
+static void object_start_animation(Object* obj)
+{
+    if (!obj || !obj->type || !obj->type->activatable)
+        return;
+
+    int targetFrame = object_state_frame(obj->type, obj->isActive);
+    obj->animation.targetFrame = targetFrame;
+
+    float frameTime = obj->type->activationFrameTime;
+    if (frameTime <= 0.0f || obj->animation.currentFrame == targetFrame)
+    {
+        obj->animation.currentFrame = targetFrame;
+        obj->animation.accumulator  = 0.0f;
+        obj->animation.playing      = false;
+        obj->animation.forward      = true;
+        return;
+    }
+
+    obj->animation.forward     = (obj->animation.currentFrame < targetFrame);
+    obj->animation.playing     = true;
+    obj->animation.accumulator = 0.0f;
+}
+
+static void dynamic_list_add(Object* obj)
+{
+    if (!obj)
+        return;
+    obj->nextDynamic    = G_DYNAMIC_OBJECTS;
+    G_DYNAMIC_OBJECTS   = obj;
+}
+
+static void dynamic_list_remove(Object* obj)
+{
+    if (!obj)
+        return;
+
+    if (G_DYNAMIC_OBJECTS == obj)
+    {
+        G_DYNAMIC_OBJECTS = obj->nextDynamic;
+        obj->nextDynamic  = NULL;
+        return;
+    }
+
+    Object* cursor = G_DYNAMIC_OBJECTS;
+    while (cursor && cursor->nextDynamic != obj)
+        cursor = cursor->nextDynamic;
+
+    if (cursor && cursor->nextDynamic == obj)
+    {
+        cursor->nextDynamic = obj->nextDynamic;
+        obj->nextDynamic    = NULL;
+    }
+}
+
+static void finalize_sprite_info(ObjectType* type)
+{
+    if (!type)
+        return;
+
+    if (type->texture.id == 0)
+    {
+        if (type->spriteFrameWidth <= 0)
+            type->spriteFrameWidth = TILE_SIZE;
+        if (type->spriteFrameHeight <= 0)
+            type->spriteFrameHeight = TILE_SIZE;
+        if (type->spriteFrameCount <= 0)
+            type->spriteFrameCount = 1;
+        if (type->activationFrameInactive < 0)
+            type->activationFrameInactive = 0;
+        if (type->activationFrameActive < 0)
+            type->activationFrameActive = type->activationFrameInactive;
+        return;
+    }
+
+    if (type->spriteColumns <= 0 && type->spriteFrameWidth > 0)
+    {
+        int step = type->spriteFrameWidth + type->spriteSpacingX;
+        if (step > 0)
+            type->spriteColumns = (type->texture.width + type->spriteSpacingX) / step;
+    }
+
+    if (type->spriteColumns <= 0)
+        type->spriteColumns = 1;
+
+    if (type->spriteRows <= 0 && type->spriteFrameHeight > 0)
+    {
+        int step = type->spriteFrameHeight + type->spriteSpacingY;
+        if (step > 0)
+            type->spriteRows = (type->texture.height + type->spriteSpacingY) / step;
+    }
+
+    if (type->spriteRows <= 0)
+        type->spriteRows = 1;
+
+    if (type->spriteFrameWidth <= 0)
+    {
+        int totalSpacing = (type->spriteColumns - 1) * type->spriteSpacingX;
+        type->spriteFrameWidth = (type->texture.width - totalSpacing) / (type->spriteColumns > 0 ? type->spriteColumns : 1);
+    }
+
+    if (type->spriteFrameHeight <= 0)
+    {
+        int totalSpacing = (type->spriteRows - 1) * type->spriteSpacingY;
+        type->spriteFrameHeight = (type->texture.height - totalSpacing) / (type->spriteRows > 0 ? type->spriteRows : 1);
+    }
+
+    if (type->spriteFrameWidth <= 0)
+        type->spriteFrameWidth = type->texture.width;
+    if (type->spriteFrameHeight <= 0)
+        type->spriteFrameHeight = type->texture.height;
+
+    if (type->spriteFrameCount <= 0)
+        type->spriteFrameCount = type->spriteColumns * type->spriteRows;
+
+    if (type->spriteFrameCount <= 0)
+        type->spriteFrameCount = 1;
+
+    if (type->activationFrameInactive < 0)
+        type->activationFrameInactive = 0;
+    if (type->activationFrameInactive >= type->spriteFrameCount)
+        type->activationFrameInactive = type->spriteFrameCount - 1;
+
+    if (type->activationFrameActive < 0)
+        type->activationFrameActive = type->activationFrameInactive;
+    if (type->activationFrameActive >= type->spriteFrameCount)
+        type->activationFrameActive = type->spriteFrameCount - 1;
+
+    if (type->activationFrameTime <= 0.0f)
+        type->activationFrameTime = 0.12f;
+}
 
 void init_objects(void)
 {
+    G_DYNAMIC_OBJECTS = NULL;
     int objCount  = load_objects_from_stv("data/objects.stv", G_OBJECT_TYPES, OBJ_COUNT);
 
     for (int i = 0; i < OBJ_COUNT; ++i)
     {
         if (G_OBJECT_TYPES[i].texturePath != NULL)
             G_OBJECT_TYPES[i].texture = LoadTexture(G_OBJECT_TYPES[i].texturePath);
+        finalize_sprite_info(&G_OBJECT_TYPES[i]);
     }
     debug_print_objects(G_OBJECT_TYPES, objCount);
 }
@@ -37,6 +227,7 @@ void unload_object_textures(void)
         if (G_OBJECT_TYPES[i].texturePath != NULL)
             UnloadTexture(G_OBJECT_TYPES[i].texture);
     }
+    G_DYNAMIC_OBJECTS = NULL;
 }
 
 const ObjectType* get_object_type(ObjectTypeID id)
@@ -116,12 +307,167 @@ const StructureDef* analyze_building_type(const Building* b)
 
 Object* create_object(ObjectTypeID id, int x, int y)
 {
-    Object* obj   = malloc(sizeof(Object));
-    obj->type     = get_object_type(id);
-    obj->position = (Vector2){x, y};
-    obj->hp       = obj->type->maxHP;
-    obj->isActive = true;
+    Object*       obj  = malloc(sizeof(Object));
+    const ObjectType* type = get_object_type(id);
+    if (!obj || !type)
+    {
+        free(obj);
+        return NULL;
+    }
+
+    obj->type     = type;
+    obj->position = (Vector2){(float)x, (float)y};
+    obj->hp       = type->maxHP;
+    obj->isActive = type->activatable ? type->activationDefaultActive : true;
+
+    obj->animation.currentFrame = object_state_frame(type, obj->isActive);
+    obj->animation.targetFrame  = obj->animation.currentFrame;
+    obj->animation.accumulator  = 0.0f;
+    obj->animation.playing      = false;
+    obj->animation.forward      = true;
+    obj->nextDynamic            = NULL;
+
+    if (object_type_is_dynamic(type))
+        dynamic_list_add(obj);
+
     return obj;
+}
+
+void object_destroy(Object* obj)
+{
+    if (!obj)
+        return;
+
+    if (object_type_is_dynamic(obj->type))
+        dynamic_list_remove(obj);
+
+    free(obj);
+}
+
+bool object_has_activation(const Object* obj)
+{
+    return obj && obj->type && obj->type->activatable;
+}
+
+bool object_set_active(Object* obj, bool active)
+{
+    if (!object_has_activation(obj))
+        return false;
+
+    if (obj->isActive == active)
+        return false;
+
+    obj->isActive = active;
+    object_start_animation(obj);
+    return true;
+}
+
+bool object_toggle(Object* obj)
+{
+    if (!object_has_activation(obj))
+        return false;
+    return object_set_active(obj, !obj->isActive);
+}
+
+bool object_is_walkable(const Object* obj)
+{
+    if (!obj || !obj->type)
+        return true;
+
+    if (!obj->type->activatable)
+        return obj->type->walkable;
+
+    return obj->isActive ? obj->type->activationWalkableOn : obj->type->activationWalkableOff;
+}
+
+void object_update_system(float dt)
+{
+    if (dt <= 0.0f)
+        dt = 0.0f;
+
+    for (Object* obj = G_DYNAMIC_OBJECTS; obj; obj = obj->nextDynamic)
+    {
+        if (!obj->animation.playing || !obj->type || obj->type->activationFrameTime <= 0.0f)
+        {
+            if (obj->animation.playing)
+            {
+                obj->animation.currentFrame = obj->animation.targetFrame;
+                obj->animation.playing      = false;
+                obj->animation.accumulator  = 0.0f;
+            }
+            continue;
+        }
+
+        obj->animation.accumulator += dt;
+        float frameTime = obj->type->activationFrameTime;
+
+        while (obj->animation.accumulator >= frameTime)
+        {
+            obj->animation.accumulator -= frameTime;
+
+            if (obj->animation.forward)
+                obj->animation.currentFrame++;
+            else
+                obj->animation.currentFrame--;
+
+            if (obj->animation.currentFrame == obj->animation.targetFrame)
+            {
+                obj->animation.playing     = false;
+                obj->animation.accumulator = 0.0f;
+                break;
+            }
+
+            int maxFrame = obj->type->spriteFrameCount > 0 ? obj->type->spriteFrameCount - 1 : 0;
+            if (obj->animation.currentFrame < 0)
+                obj->animation.currentFrame = 0;
+            if (obj->animation.currentFrame > maxFrame)
+                obj->animation.currentFrame = maxFrame;
+        }
+    }
+}
+
+void object_draw_dynamic(const Map* map, const Camera2D* camera)
+{
+    (void)map;
+    if (!camera)
+        return;
+
+    float invZoom = 1.0f / camera->zoom;
+    Rectangle view = {
+        .x      = camera->target.x - camera->offset.x * invZoom,
+        .y      = camera->target.y - camera->offset.y * invZoom,
+        .width  = GetScreenWidth() * invZoom,
+        .height = GetScreenHeight() * invZoom,
+    };
+
+    for (Object* obj = G_DYNAMIC_OBJECTS; obj; obj = obj->nextDynamic)
+    {
+        if (!obj->type)
+            continue;
+
+        float baseX = obj->position.x * TILE_SIZE;
+        float baseY = obj->position.y * TILE_SIZE;
+
+        Rectangle bounds = {
+            .x      = baseX,
+            .y      = baseY,
+            .width  = (float)(obj->type->spriteFrameWidth > 0 ? obj->type->spriteFrameWidth : TILE_SIZE),
+            .height = (float)(obj->type->spriteFrameHeight > 0 ? obj->type->spriteFrameHeight : TILE_SIZE),
+        };
+
+        if (!CheckCollisionRecs(view, bounds))
+            continue;
+
+        if (obj->type->texture.id != 0)
+        {
+            Rectangle src = object_frame_rect(obj->type, obj->animation.currentFrame);
+            DrawTextureRec(obj->type->texture, src, (Vector2){baseX, baseY}, WHITE);
+        }
+        else
+        {
+            DrawRectangle(baseX + 2.0f, baseY + 2.0f, bounds.width - 4.0f, bounds.height - 4.0f, obj->type->color);
+        }
+    }
 }
 
 void draw_objects(Map* map, Camera2D* camera)
@@ -148,18 +494,20 @@ void draw_objects(Map* map, Camera2D* camera)
                 continue;
 
             const ObjectType* type   = obj->type;
+            if (!type)
+                continue;
+
+            if (object_type_is_dynamic(type))
+                continue; // drawn separately
+
             float             worldX = x * TILE_SIZE;
             float             worldY = y * TILE_SIZE;
 
             // --- If object had a texture ---
             if (type->texture.id != 0)
             {
-                DrawTextureEx(type->texture, (Vector2){worldX, worldY}, 0.0f, (float)TILE_SIZE / type->texture.width, WHITE);
-
-                // float scale  = (TILE_SIZE * 0.6f) / type->texture.width;
-                // float offset = (TILE_SIZE - TILE_SIZE * 0.6f) / 2.0f;
-                // Vector2 pos = {worldX + offset, worldY + offset};
-                // DrawTextureEx(type->texture, pos, 0.0f, scale, WHITE);
+                Rectangle src = object_frame_rect(type, object_state_frame(type, obj->isActive));
+                DrawTextureRec(type->texture, src, (Vector2){worldX, worldY}, WHITE);
             }
             else
             {
@@ -198,5 +546,5 @@ bool is_blocking_object(const Object* o)
         return false; // the door does not "block" the fill (it counts as a border)
     if (is_wall_object(o))
         return true; // mur = blocking
-    return !o->type->walkable;
+    return !object_is_walkable(o);
 }

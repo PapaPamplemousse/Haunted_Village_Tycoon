@@ -41,6 +41,50 @@ static char* str_dup(const char* s)
     return copy;
 }
 
+static void finalize_object_definition(ObjectType* obj,
+                                       int          walkableOnRaw,
+                                       int          walkableOffRaw,
+                                       int          frameInactiveRaw,
+                                       int          frameActiveRaw,
+                                       float        frameTimeRaw)
+{
+    if (!obj)
+        return;
+
+    if (walkableOnRaw == -1)
+        obj->activationWalkableOn = obj->walkable;
+    else
+        obj->activationWalkableOn = (walkableOnRaw != 0);
+
+    if (walkableOffRaw == -1)
+        obj->activationWalkableOff = obj->walkable;
+    else
+        obj->activationWalkableOff = (walkableOffRaw != 0);
+
+    if (frameInactiveRaw >= 0)
+        obj->activationFrameInactive = frameInactiveRaw;
+    else if (obj->activationFrameInactive < 0)
+        obj->activationFrameInactive = 0;
+
+    if (frameActiveRaw >= 0)
+        obj->activationFrameActive = frameActiveRaw;
+    else if (obj->activationFrameActive < 0)
+        obj->activationFrameActive = obj->activationFrameInactive;
+
+    if (frameTimeRaw > 0.0f)
+        obj->activationFrameTime = frameTimeRaw;
+
+    if (obj->activationFrameTime <= 0.0f)
+        obj->activationFrameTime = 0.12f;
+
+    if (!obj->activatable)
+    {
+        obj->activationDefaultActive = true;
+        obj->activationWalkableOn    = obj->walkable;
+        obj->activationWalkableOff   = obj->walkable;
+    }
+}
+
 void debug_print_objects(const ObjectType* objects, int count)
 {
     TraceLog(LOG_INFO, "=== OBJECT TABLE CHECK (%d entries) ===", count);
@@ -76,9 +120,14 @@ int load_objects_from_stv(const char* path, ObjectType* outArray, int maxObjects
     }
 
     char       line[512];
-    ObjectType current   = {0};
+    ObjectType current   = (ObjectType){0};
     int        count     = 0;
     bool       inSection = false;
+    int        walkableOnRaw        = -1;
+    int        walkableOffRaw       = -1;
+    int        frameInactiveRaw     = -1;
+    int        frameActiveRaw       = -1;
+    float      frameTimeRaw         = -1.0f;
 
     while (fgets(line, sizeof(line), f))
     {
@@ -89,8 +138,23 @@ int load_objects_from_stv(const char* path, ObjectType* outArray, int maxObjects
         if (line[0] == '[')
         {
             if (inSection && count < maxObjects)
+            {
+                finalize_object_definition(&current, walkableOnRaw, walkableOffRaw, frameInactiveRaw, frameActiveRaw, frameTimeRaw);
                 outArray[count++] = current;
+            }
+
             memset(&current, 0, sizeof(ObjectType));
+            current.activationFrameTime     = 0.12f;
+            current.activationDefaultActive = true;
+            current.activationFrameInactive = -1;
+            current.activationFrameActive   = -1;
+
+            walkableOnRaw    = -1;
+            walkableOffRaw   = -1;
+            frameInactiveRaw = -1;
+            frameActiveRaw   = -1;
+            frameTimeRaw     = -1.0f;
+
             inSection = true;
             continue;
         }
@@ -122,20 +186,71 @@ int load_objects_from_stv(const char* path, ObjectType* outArray, int maxObjects
             else if (strcmp(key, "height") == 0)
                 current.height = atoi(value);
             else if (strcmp(key, "walkable") == 0)
+            {
                 current.walkable = (strcmp(value, "true") == 0);
+                if (walkableOnRaw == -1)
+                    current.activationWalkableOn = current.walkable;
+                if (walkableOffRaw == -1)
+                    current.activationWalkableOff = current.walkable;
+            }
             else if (strcmp(key, "flammable") == 0)
                 current.flammable = (strcmp(value, "true") == 0);
             else if (strcmp(key, "is_wall") == 0)
                 current.isWall = (strcmp(value, "true") == 0);
             else if (strcmp(key, "is_door") == 0)
                 current.isDoor = (strcmp(value, "true") == 0);
+            else if (strcmp(key, "activatable") == 0)
+                current.activatable = (strcmp(value, "true") == 0);
+            else if (strcmp(key, "activation_default") == 0 || strcmp(key, "activation_default_active") == 0 || strcmp(key, "activation_default_state") == 0)
+                current.activationDefaultActive = (strcmp(value, "true") == 0);
+            else if (strcmp(key, "activation_walkable_active") == 0 || strcmp(key, "activation_walkable_on") == 0)
+            {
+                walkableOnRaw                = (strcmp(value, "true") == 0) ? 1 : 0;
+                current.activationWalkableOn = (walkableOnRaw != 0);
+            }
+            else if (strcmp(key, "activation_walkable_inactive") == 0 || strcmp(key, "activation_walkable_off") == 0)
+            {
+                walkableOffRaw                = (strcmp(value, "true") == 0) ? 1 : 0;
+                current.activationWalkableOff = (walkableOffRaw != 0);
+            }
+            else if (strcmp(key, "sprite_frame_width") == 0 || strcmp(key, "frame_width") == 0)
+                current.spriteFrameWidth = atoi(value);
+            else if (strcmp(key, "sprite_frame_height") == 0 || strcmp(key, "frame_height") == 0)
+                current.spriteFrameHeight = atoi(value);
+            else if (strcmp(key, "sprite_columns") == 0 || strcmp(key, "frames_per_row") == 0)
+                current.spriteColumns = atoi(value);
+            else if (strcmp(key, "sprite_rows") == 0 || strcmp(key, "frames_per_column") == 0)
+                current.spriteRows = atoi(value);
+            else if (strcmp(key, "sprite_frame_count") == 0 || strcmp(key, "frame_count") == 0)
+                current.spriteFrameCount = atoi(value);
+            else if (strcmp(key, "sprite_spacing_x") == 0 || strcmp(key, "frame_spacing_x") == 0)
+                current.spriteSpacingX = atoi(value);
+            else if (strcmp(key, "sprite_spacing_y") == 0 || strcmp(key, "frame_spacing_y") == 0)
+                current.spriteSpacingY = atoi(value);
+            else if (strcmp(key, "activation_frame_time") == 0 || strcmp(key, "animation_frame_time") == 0 || strcmp(key, "activation_animation_ms") == 0)
+                frameTimeRaw = (float)atof(value);
+            else if (strcmp(key, "activation_frame_inactive") == 0 || strcmp(key, "activation_frame_start") == 0 || strcmp(key, "inactive_frame") == 0)
+            {
+                int idx           = atoi(value);
+                if (idx > 0)
+                    idx -= 1;
+                frameInactiveRaw             = idx;
+                current.activationFrameInactive = (idx < 0) ? 0 : idx;
+            }
+            else if (strcmp(key, "activation_frame_active") == 0 || strcmp(key, "activation_frame_end") == 0 || strcmp(key, "active_frame") == 0)
+            {
+                int idx         = atoi(value);
+                if (idx > 0)
+                    idx -= 1;
+                frameActiveRaw            = idx;
+                current.activationFrameActive = (idx < 0) ? 0 : idx;
+            }
             else if (strcmp(key, "color") == 0)
                 parse_color(value, &current.color);
             else if (strcmp(key, "texture") == 0)
             {
                 trim(value);
 
-                // Retire les guillemets si présents
                 if (value[0] == '"' && value[strlen(value) - 1] == '"')
                 {
                     value[strlen(value) - 1] = '\0';
@@ -148,9 +263,11 @@ int load_objects_from_stv(const char* path, ObjectType* outArray, int maxObjects
     }
 
     if (inSection && count < maxObjects)
+    {
+        finalize_object_definition(&current, walkableOnRaw, walkableOffRaw, frameInactiveRaw, frameActiveRaw, frameTimeRaw);
         outArray[count++] = current;
+    }
 
     fclose(f);
     return count;
 }
-
