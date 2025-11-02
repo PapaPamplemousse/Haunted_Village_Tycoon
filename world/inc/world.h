@@ -407,6 +407,7 @@ typedef struct Object
     Vector2           position; /**< Position in tile coordinates */
     int               hp;       /**< Current health points */
     bool              isActive; /**< Whether the object is currently active */
+    int               variantFrame; /**< Selected static frame variation (-1 if unused). */
 
     struct
     {

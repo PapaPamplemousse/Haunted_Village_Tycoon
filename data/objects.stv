@@ -354,6 +354,13 @@ is_wall      = false
 is_door      = false
 color        = 90,70,50,255
 texture      = assets/objects/resource/dead_tree.png
+sprite_frame_width   = 40
+sprite_frame_height  = 45
+sprite_columns       = 3
+sprite_rows          = 2
+sprite_frame_count   = 6
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
 
 [BUSH]
 id           = 17
@@ -372,6 +379,14 @@ is_wall      = false
 is_door      = false
 color        = 40,140,40,255
 texture      = assets/objects/resource/standard_bush.png
+sprite_frame_width   = 32
+sprite_frame_height  = 32
+sprite_columns       = 4
+sprite_rows          = 1
+sprite_frame_count   = 4
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
+
 
 [BUSH_DRY]
 id           = 18

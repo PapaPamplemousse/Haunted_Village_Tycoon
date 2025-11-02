@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 
 // Static and constant global array containing all object type definitions.
 // It uses the ObjectTypeID enumeration (e.g., [OBJ_BED_SMALL]) for indexing.
@@ -26,7 +27,7 @@ static bool object_type_is_dynamic(const ObjectType* type)
     return type->activatable;
 }
 
-static Rectangle object_frame_rect(const ObjectType* type, int frameIndex)
+Rectangle object_type_frame_rect(const ObjectType* type, int frameIndex)
 {
     if (!type || type->texture.id == 0)
         return (Rectangle){0.0f, 0.0f, (float)TILE_SIZE, (float)TILE_SIZE};
@@ -75,6 +76,34 @@ static int object_state_frame(const ObjectType* type, bool active)
     return frame;
 }
 
+Vector2 object_frame_draw_position(const Object* obj, int frameWidth, int frameHeight)
+{
+    if (!obj || !obj->type)
+        return (Vector2){0.0f, 0.0f};
+
+    float widthTiles  = obj->type->width > 0 ? (float)obj->type->width : 1.0f;
+    float baseCenterX = (obj->position.x + widthTiles * 0.5f) * (float)TILE_SIZE;
+    float destX       = baseCenterX - (float)frameWidth * 0.5f;
+
+    float anchorBottom = (obj->position.y + 1.0f) * (float)TILE_SIZE;
+    float destY        = anchorBottom - (float)frameHeight;
+
+    return (Vector2){destX, destY};
+}
+
+static int object_pick_variant_frame(const ObjectType* type, int tileX, int tileY)
+{
+    if (!type)
+        return 0;
+
+    int frameCount = type->spriteFrameCount > 0 ? type->spriteFrameCount : 1;
+    if (frameCount <= 1)
+        return 0;
+
+    uint32_t hash = (uint32_t)(tileX * 73856093u) ^ (uint32_t)(tileY * 19349663u) ^ ((uint32_t)type->id * 83492791u);
+    return (int)(hash % (uint32_t)frameCount);
+}
+
 static void object_start_animation(Object* obj)
 {
     if (!obj || !obj->type || !obj->type->activatable)
@@ -90,6 +119,7 @@ static void object_start_animation(Object* obj)
         obj->animation.accumulator  = 0.0f;
         obj->animation.playing      = false;
         obj->animation.forward      = true;
+        obj->variantFrame           = obj->animation.currentFrame;
         return;
     }
 
@@ -325,6 +355,7 @@ Object* create_object(ObjectTypeID id, int x, int y)
     obj->animation.accumulator  = 0.0f;
     obj->animation.playing      = false;
     obj->animation.forward      = true;
+    obj->variantFrame           = type->activatable ? obj->animation.currentFrame : object_pick_variant_frame(type, x, y);
     obj->nextDynamic            = NULL;
 
     if (object_type_is_dynamic(type))
@@ -380,6 +411,34 @@ bool object_is_walkable(const Object* obj)
     return obj->isActive ? obj->type->activationWalkableOn : obj->type->activationWalkableOff;
 }
 
+int object_static_frame(const Object* obj)
+{
+    if (!obj || !obj->type)
+        return 0;
+
+    if (obj->type->activatable)
+    {
+        int frame = obj->animation.playing ? obj->animation.currentFrame : object_state_frame(obj->type, obj->isActive);
+        if (frame < 0)
+            frame = 0;
+        int frameCount = obj->type->spriteFrameCount > 0 ? obj->type->spriteFrameCount : 1;
+        if (frame >= frameCount)
+            frame = frameCount - 1;
+        return frame;
+    }
+
+    int frameCount = obj->type->spriteFrameCount > 0 ? obj->type->spriteFrameCount : 1;
+    if (frameCount <= 1)
+        return 0;
+
+    int frame = obj->variantFrame;
+    if (frame < 0)
+        frame = 0;
+    if (frame >= frameCount)
+        frame = frameCount - 1;
+    return frame;
+}
+
 void object_update_system(float dt)
 {
     if (dt <= 0.0f)
@@ -394,6 +453,7 @@ void object_update_system(float dt)
                 obj->animation.currentFrame = obj->animation.targetFrame;
                 obj->animation.playing      = false;
                 obj->animation.accumulator  = 0.0f;
+                obj->variantFrame           = obj->animation.currentFrame;
             }
             continue;
         }
@@ -414,6 +474,7 @@ void object_update_system(float dt)
             {
                 obj->animation.playing     = false;
                 obj->animation.accumulator = 0.0f;
+                obj->variantFrame          = obj->animation.currentFrame;
                 break;
             }
 
@@ -422,6 +483,8 @@ void object_update_system(float dt)
                 obj->animation.currentFrame = 0;
             if (obj->animation.currentFrame > maxFrame)
                 obj->animation.currentFrame = maxFrame;
+
+            obj->variantFrame = obj->animation.currentFrame;
         }
     }
 }
@@ -445,27 +508,26 @@ void object_draw_dynamic(const Map* map, const Camera2D* camera)
         if (!obj->type)
             continue;
 
-        float baseX = obj->position.x * TILE_SIZE;
-        float baseY = obj->position.y * TILE_SIZE;
-
-        Rectangle bounds = {
-            .x      = baseX,
-            .y      = baseY,
-            .width  = (float)(obj->type->spriteFrameWidth > 0 ? obj->type->spriteFrameWidth : TILE_SIZE),
-            .height = (float)(obj->type->spriteFrameHeight > 0 ? obj->type->spriteFrameHeight : TILE_SIZE),
-        };
-
-        if (!CheckCollisionRecs(view, bounds))
-            continue;
-
         if (obj->type->texture.id != 0)
         {
-            Rectangle src = object_frame_rect(obj->type, obj->animation.currentFrame);
-            DrawTextureRec(obj->type->texture, src, (Vector2){baseX, baseY}, WHITE);
+            Rectangle src     = object_type_frame_rect(obj->type, obj->animation.currentFrame);
+            Vector2   drawPos = object_frame_draw_position(obj, (int)src.width, (int)src.height);
+            Rectangle bounds  = {.x = drawPos.x, .y = drawPos.y, .width = src.width, .height = src.height};
+
+            if (!CheckCollisionRecs(view, bounds))
+                continue;
+
+            DrawTextureRec(obj->type->texture, src, drawPos, WHITE);
         }
         else
         {
-            DrawRectangle(baseX + 2.0f, baseY + 2.0f, bounds.width - 4.0f, bounds.height - 4.0f, obj->type->color);
+            Vector2 drawPos = object_frame_draw_position(obj, TILE_SIZE, TILE_SIZE);
+            Rectangle bounds = {.x = drawPos.x, .y = drawPos.y, .width = (float)TILE_SIZE, .height = (float)TILE_SIZE};
+
+            if (!CheckCollisionRecs(view, bounds))
+                continue;
+
+            DrawRectangle(drawPos.x + 2.0f, drawPos.y + 2.0f, bounds.width - 4.0f, bounds.height - 4.0f, obj->type->color);
         }
     }
 }
@@ -500,21 +562,21 @@ void draw_objects(Map* map, Camera2D* camera)
             if (object_type_is_dynamic(type))
                 continue; // drawn separately
 
-            float             worldX = x * TILE_SIZE;
-            float             worldY = y * TILE_SIZE;
-
             // --- If object had a texture ---
             if (type->texture.id != 0)
             {
-                Rectangle src = object_frame_rect(type, object_state_frame(type, obj->isActive));
-                DrawTextureRec(type->texture, src, (Vector2){worldX, worldY}, WHITE);
+                Rectangle src     = object_type_frame_rect(type, object_static_frame(obj));
+                Vector2   drawPos = object_frame_draw_position(obj, (int)src.width, (int)src.height);
+                DrawTextureRec(type->texture, src, drawPos, WHITE);
             }
             else
             {
                 // --- otherwise colored rectangle ---
-                float size   = TILE_SIZE * 0.6f; // plus petit que la tuile
-                float offset = (TILE_SIZE - size) / 2.0f;
-                DrawRectangle(worldX + offset, worldY + offset, size, size, type->color);
+                Vector2 drawPos = object_frame_draw_position(obj, TILE_SIZE, TILE_SIZE);
+                float   size    = TILE_SIZE * 0.6f; // plus petit que la tuile
+                float   offsetX = ((float)TILE_SIZE - size) * 0.5f;
+                float   offsetY = ((float)TILE_SIZE - size) * 0.5f;
+                DrawRectangle(drawPos.x + offsetX, drawPos.y + offsetY, size, size, type->color);
             }
         }
     }

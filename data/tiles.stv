@@ -77,6 +77,9 @@ fertility    = 0.7
 temperature  = 15
 color        = 34,100,34,255
 texture      = assets/textures/forest.png
+texture_variations = 1024
+variation_columns  = 32
+variation_rows     = 32
 
 [PLAIN]
 id           = 4
@@ -157,7 +160,9 @@ fertility    = 0.0
 temperature  = 50
 color        = 139,0,0,255
 texture      = assets/textures/hell.png
-variations   = 4
+texture_variations = 1024
+variation_columns  = 32
+variation_rows     = 32
 
 [CURSED_FOREST]
 id           = 9

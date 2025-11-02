@@ -131,6 +131,35 @@ void object_draw_dynamic(const Map* map, const Camera2D* camera);
 void object_update_system(float dt);
 
 /**
+ * @brief Computes the source rectangle for the given frame of an object type.
+ *
+ * @param[in] type Object type definition.
+ * @param[in] frameIndex 0-based frame index.
+ * @return Source rectangle in texture coordinates.
+ */
+Rectangle object_type_frame_rect(const ObjectType* type, int frameIndex);
+
+/**
+ * @brief Computes the screen-space draw position for an object's frame.
+ *
+ * The position is aligned so that the sprite rests on the object's footprint.
+ *
+ * @param[in] obj Object instance.
+ * @param[in] frameWidth Width of the frame in pixels.
+ * @param[in] frameHeight Height of the frame in pixels.
+ * @return Screen position where the frame should be drawn.
+ */
+Vector2 object_frame_draw_position(const Object* obj, int frameWidth, int frameHeight);
+
+/**
+ * @brief Returns the currently visible frame index for a static object.
+ *
+ * @param[in] obj Object instance.
+ * @return Frame index clamped to the available frames.
+ */
+int object_static_frame(const Object* obj);
+
+/**
  * @brief Determines whether the given object is considered a wall structure.
  *
  * @param[in] o Pointer to the object to check.

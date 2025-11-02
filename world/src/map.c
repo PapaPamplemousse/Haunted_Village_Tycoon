@@ -104,6 +104,7 @@ void map_remove_object(Map* map, int x, int y)
 
         // chunkgrid_mark_dirty_tile(gChunks, wx, wy);
         // Force a redraw because the tile visuals changed.
+        chunkgrid_mark_dirty_tile(gChunks, x, y);
         chunkgrid_redraw_cell(gChunks, map, x, y);
     }
 }

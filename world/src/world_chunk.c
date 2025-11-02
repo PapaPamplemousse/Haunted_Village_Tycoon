@@ -77,6 +77,47 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
         return;
     }
 
+    const int chunkPixelWidth  = CHUNK_W * TILE_SIZE;
+    const int chunkPixelHeight = CHUNK_H * TILE_SIZE;
+    const int originTileX      = c->cx * CHUNK_W;
+    const int originTileY      = c->cy * CHUNK_H;
+    const int originPixelX     = originTileX * TILE_SIZE;
+    const int originPixelY     = originTileY * TILE_SIZE;
+
+    Object* o = map->objects[y][x];
+    bool    drawObject = false;
+    Rectangle objectSrc = {0};
+    Vector2   objectLocalPos = {0};
+
+    if (o && o->type && !o->type->activatable)
+    {
+        drawObject = true;
+
+        int frameIndex = object_static_frame(o);
+        if (o->type->texture.id != 0)
+            objectSrc = object_type_frame_rect(o->type, frameIndex);
+        else
+        {
+            float fw = (float)(o->type->spriteFrameWidth > 0 ? o->type->spriteFrameWidth : TILE_SIZE);
+            float fh = (float)(o->type->spriteFrameHeight > 0 ? o->type->spriteFrameHeight : TILE_SIZE);
+            objectSrc = (Rectangle){0.0f, 0.0f, fw, fh};
+        }
+
+        Vector2 drawPos = object_frame_draw_position(o, (int)objectSrc.width, (int)objectSrc.height);
+        objectLocalPos  = (Vector2){drawPos.x - originPixelX, drawPos.y - originPixelY};
+
+        if (objectLocalPos.x < -1.0f || objectLocalPos.y < -1.0f || objectLocalPos.x + objectSrc.width > (float)chunkPixelWidth + 1.0f ||
+            objectLocalPos.y + objectSrc.height > (float)chunkPixelHeight + 1.0f)
+        {
+            c->dirty = true;
+            return;
+        }
+    }
+    else if (o && o->type && o->type->activatable)
+    {
+        drawObject = false;
+    }
+
     // Coordonnées locales dans la texture du chunk
     int localX = (x % CHUNK_W) * TILE_SIZE;
     int localY = (y % CHUNK_H) * TILE_SIZE;
@@ -93,13 +134,21 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
         tile_draw(tt, x, y, (float)localX, (float)localY);
 
     // --- Redessine l’objet éventuel ---
-    Object* o = map->objects[y][x];
-    if (o && o->type && !o->type->activatable)
+    if (drawObject)
     {
+        DrawRectangleRec((Rectangle){objectLocalPos.x, objectLocalPos.y, objectSrc.width, objectSrc.height}, BLANK);
         if (o->type->texture.id)
-            DrawTextureEx(o->type->texture, (Vector2){(float)localX, (float)localY}, 0.0f, 1.0f, WHITE);
+            DrawTextureRec(o->type->texture, objectSrc, objectLocalPos, WHITE);
         else
-            DrawRectangle(localX + 2, localY + 2, TILE_SIZE - 4, TILE_SIZE - 4, o->type->color);
+        {
+            Rectangle fill = {
+                .x      = objectLocalPos.x + 2.0f,
+                .y      = objectLocalPos.y + 2.0f,
+                .width  = objectSrc.width - 4.0f,
+                .height = objectSrc.height - 4.0f,
+            };
+            DrawRectangleRec(fill, o->type->color);
+        }
     }
 
     EndTextureMode();
@@ -174,13 +223,35 @@ static void rebuild_chunk(MapChunk* c, Map* map)
             if (!o || !o->type || o->type->activatable)
                 continue;
 
-            int px = tx * TILE_SIZE;
-            int py = ty * TILE_SIZE;
+            int       frameIndex = object_static_frame(o);
+            Rectangle src;
+            if (o->type->texture.id)
+                src = object_type_frame_rect(o->type, frameIndex);
+            else
+            {
+                float fw = (float)(o->type->spriteFrameWidth > 0 ? o->type->spriteFrameWidth : TILE_SIZE);
+                float fh = (float)(o->type->spriteFrameHeight > 0 ? o->type->spriteFrameHeight : TILE_SIZE);
+                src      = (Rectangle){0.0f, 0.0f, fw, fh};
+            }
+
+            Vector2 drawPos = object_frame_draw_position(o, (int)src.width, (int)src.height);
+            Vector2 localPos = {
+                drawPos.x - (float)(x0 * TILE_SIZE),
+                drawPos.y - (float)(y0 * TILE_SIZE),
+            };
 
             if (o->type->texture.id)
-                DrawTextureEx(o->type->texture, (Vector2){(float)px, (float)py}, 0.0f, 1.0f, WHITE);
+                DrawTextureRec(o->type->texture, src, localPos, WHITE);
             else
-                DrawRectangle(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4, o->type->color);
+            {
+                Rectangle fill = {
+                    .x      = localPos.x + 2.0f,
+                    .y      = localPos.y + 2.0f,
+                    .width  = src.width - 4.0f,
+                    .height = src.height - 4.0f,
+                };
+                DrawRectangleRec(fill, o->type->color);
+            }
         }
     }
 
