@@ -21,6 +21,7 @@
 #include "debug.h"
 #include "entity.h"
 #include "world_time.h"
+#include "music.h"
 // -----------------------------------------------------------------------------
 // Global world data
 // -----------------------------------------------------------------------------
@@ -105,6 +106,9 @@ static void app_init(void)
     if (!entity_system_init(&G_ENTITIES, &G_MAP, seed ^ 0x13572468u, "data/entities.stv"))
         TraceLog(LOG_WARNING, "Entity definitions failed to load, using built-in defaults.");
 
+    if (!music_system_init("data/music.stv", "gameplay"))
+        TraceLog(LOG_WARNING, "Music system failed to initialize.");
+
     // Set up world chunk streaming, the camera and initial input state.
     gChunks  = chunkgrid_create(&G_MAP);
     G_CAMERA = init_camera();
@@ -140,6 +144,7 @@ static void app_update(void)
 
     // Advance gameplay systems using the frame time delta.
     float dt = GetFrameTime();
+    music_system_update(dt);
     world_time_update(&G_WORLD_TIME, dt);
     world_apply_season_effects(&G_MAP, &G_WORLD_TIME);
     entity_system_update(&G_ENTITIES, &G_MAP, &G_CAMERA, dt);
@@ -322,6 +327,8 @@ static void app_cleanup(void)
     map_unload(&G_MAP);
     chunkgrid_destroy(gChunks);
     gChunks = NULL;
+
+    music_system_shutdown();
 
     CloseWindow();
 }

@@ -1,0 +1,70 @@
+# =========================================================
+# MUSIC DEFINITIONS (.stv)
+# =========================================================
+# usage       = gameplay | event | ambient | menu
+# group       = Optional playlist bucket for gameplay tracks
+# event       = Event key used to trigger the music
+# file        = Relative path to the audio asset
+# loop        = true/false, defaults to true
+# volume      = Base volume multiplier (0..1)
+# fade_in     = Suggested fade-in duration in seconds
+# fade_out    = Suggested fade-out duration in seconds
+# crossfade_lead = Seconds remaining before the track should crossfade
+# =========================================================
+
+[GAMEPLAY_DREAM]
+id              = 0
+name            = Under The Hollow Moon
+usage           = gameplay
+group           = gameplay
+file            = assets/audio/loop/under_the_hollow_moon.mp3
+loop            = true
+volume          = 0.75
+fade_in         = 2.5
+fade_out        = 2.5
+crossfade_lead  = 6.0
+
+[GAMEPLAY_TENSION]
+id              = 1
+name            = The Quiet Curse
+usage           = gameplay
+group           = gameplay
+file            = assets/audio/loop/the_quiet_curse.mp3
+loop            = true
+volume          = 0.80
+fade_in         = 2.0
+fade_out        = 2.0
+crossfade_lead  = 5.0
+
+[EVENT_RED_MOON]
+id              = 100
+name            = The Crimson Veil
+usage           = event
+event           = red_moon
+file            = assets/audio/rituals/the_crimson_veil.mp3
+loop            = true
+volume          = 0.85
+fade_in         = 1.2
+fade_out        = 1.0
+
+[EVENT_RAID]
+id              = 101
+name            = Cursed Bells of Hollowmoor
+usage           = event
+event           = raid_attack
+file            = assets/audio/raids/Cursed Bells of Hollowmoor.mp3
+loop            = false
+volume          = 0.90
+fade_in         = 0.8
+fade_out        = 0.8
+
+[EVENT_LOCUST_SWARM]
+id              = 102
+name            = Shadows of the Fallen Crossroads
+usage           = event
+event           = locust_invasion
+file            = assets/audio/raids/shadows_of_the_fallen_crossroads.mp3
+loop            = false
+volume          = 0.88
+fade_in         = 0.8
+fade_out        = 0.8

@@ -113,8 +113,8 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
     if (!sys || !e || !map || !e->type)
         return;
 
-    Map* mutableMap = (Map*)map;
-    CannibalBrain* brain = (CannibalBrain*)e->brain;
+    Map*           mutableMap = (Map*)map;
+    CannibalBrain* brain      = (CannibalBrain*)e->brain;
     if (sizeof(CannibalBrain) > ENTITY_BRAIN_BYTES)
         return;
 
@@ -125,13 +125,13 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
             brain->attackCooldown = 0.0f;
     }
 
-    bool         wasHit    = (brain->lastHP > e->hp);
-    Entity*      target    = NULL;
-    const bool   isNight   = behavior_is_night(0.55f);
-    const bool   canShelter = behavior_entity_has_competence(e, ENTITY_COMPETENCE_SEEK_SHELTER_AT_NIGHT);
-    bool         seekingShelter = false;
-    Vector2      desiredGoal    = e->position;
-    bool         haveGoal       = false;
+    bool       wasHit         = (brain->lastHP > e->hp);
+    Entity*    target         = NULL;
+    const bool isNight        = behavior_is_night(0.55f);
+    const bool canShelter     = behavior_entity_has_competence(e, ENTITY_COMPETENCE_SEEK_SHELTER_AT_NIGHT);
+    bool       seekingShelter = false;
+    Vector2    desiredGoal    = e->position;
+    bool       haveGoal       = false;
 
     if (behavior_entity_has_competence(e, ENTITY_COMPETENCE_LIGHT_AT_NIGHT))
         behavior_sync_nearby_lights(e, mutableMap, isNight, 1);
@@ -188,8 +188,7 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
 
     if (haveGoal)
     {
-        float goalDistSq = (desiredGoal.x - e->position.x) * (desiredGoal.x - e->position.x)
-                         + (desiredGoal.y - e->position.y) * (desiredGoal.y - e->position.y);
+        float goalDistSq = (desiredGoal.x - e->position.x) * (desiredGoal.x - e->position.x) + (desiredGoal.y - e->position.y) * (desiredGoal.y - e->position.y);
 
         bool usedPath = false;
         if (goalDistSq > 64.0f)
@@ -198,8 +197,7 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
             bool needNewWaypoint = !brain->waypointValid;
             if (!needNewWaypoint)
             {
-                float goalDelta = (brain->pathGoal.x - desiredGoal.x) * (brain->pathGoal.x - desiredGoal.x)
-                                + (brain->pathGoal.y - desiredGoal.y) * (brain->pathGoal.y - desiredGoal.y);
+                float goalDelta = (brain->pathGoal.x - desiredGoal.x) * (brain->pathGoal.x - desiredGoal.x) + (brain->pathGoal.y - desiredGoal.y) * (brain->pathGoal.y - desiredGoal.y);
                 if (goalDelta > TILE_SIZE * TILE_SIZE)
                     needNewWaypoint = true;
             }
@@ -207,7 +205,7 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
             if (needNewWaypoint || brain->repathTimer <= 0.0f)
             {
                 PathfindingOptions options = {
-                    .allowDiagonal = false,
+                    .allowDiagonal = true,
                     .canOpenDoors  = behavior_entity_has_competence(e, ENTITY_COMPETENCE_OPEN_DOORS),
                     .agentRadius   = e->type->radius,
                 };
@@ -251,7 +249,7 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
 
         if (!usedPath)
         {
-            Vector2 toGoal = {desiredGoal.x - e->position.x, desiredGoal.y - e->position.y};
+            Vector2 toGoal   = {desiredGoal.x - e->position.x, desiredGoal.y - e->position.y};
             float   distance = sqrtf(toGoal.x * toGoal.x + toGoal.y * toGoal.y);
             if (distance > 1e-3f)
             {
@@ -313,10 +311,10 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
         bool openedDoor = behavior_try_open_doors(e, mutableMap, next);
         if (!openedDoor || !entity_position_is_walkable(map, next, e->type->radius))
         {
-            e->velocity.x      = -e->velocity.x * 0.3f;
-            e->velocity.y      = -e->velocity.y * 0.3f;
-            brain->wanderTimer = 0.0f;
-            brain->lastHP      = e->hp;
+            e->velocity.x        = -e->velocity.x * 0.3f;
+            e->velocity.y        = -e->velocity.y * 0.3f;
+            brain->wanderTimer   = 0.0f;
+            brain->lastHP        = e->hp;
             brain->waypointValid = 0;
             return;
         }
