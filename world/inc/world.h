@@ -173,6 +173,10 @@ typedef enum
     TILE_DESERT,        /**< Desertt */
     TILE_MOUNTAIN,      /**< Mountain */
     TILE_POISON,        /**< Toxic liquid hazard */
+    TILE_WOOD_FLOOR,    /**< Interior plank flooring */
+    TILE_STRAW_FLOOR,   /**< Packed straw flooring */
+    TILE_STONE_FLOOR,   /**< Cut stone flooring */
+    TILE_MUD_ROAD,      /**< Mud road path */
     TILE_MAX,           /**< Total number of defined tile types */
 } TileTypeID;
 

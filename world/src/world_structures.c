@@ -414,6 +414,26 @@ static void rect_walls(Map* map, int x, int y, int w, int h, ObjectTypeID wall, 
     map_place_object(map, OBJ_DOOR_WOOD, px, py);
 }
 
+static void fill_tiles(Map* map, int startX, int startY, int width, int height, TileTypeID tile)
+{
+    if (!map || width <= 0 || height <= 0)
+        return;
+
+    int endX = startX + width;
+    int endY = startY + height;
+    for (int y = startY; y < endY; ++y)
+    {
+        if (y < 0 || y >= map->height)
+            continue;
+        for (int x = startX; x < endX; ++x)
+        {
+            if (x < 0 || x >= map->width)
+                continue;
+            map_set_tile(map, x, y, tile);
+        }
+    }
+}
+
 // ======================= STRUCTURES CONCRÈTES =======================
 
 void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng)
@@ -423,6 +443,7 @@ void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng)
 
     (void)rng;
     rect_walls(map, x, y, w, h, OBJ_WALL_WOOD, OBJ_DOOR_WOOD);
+    fill_tiles(map, x + 1, y + 1, w - 2, h - 2, TILE_STRAW_FLOOR);
 
     // Décor intérieur (ossements, feu, caisse)
     for (int j = y + 1; j < y + h - 1; j++)
@@ -450,6 +471,7 @@ void build_cannibal_longhouse(Map* map, int x, int y, uint64_t* rng)
 
     (void)rng;
     rect_walls(map, x, y, w, h, OBJ_WALL_WOOD, OBJ_DOOR_WOOD);
+    fill_tiles(map, x + 1, y + 1, w - 2, h - 2, TILE_WOOD_FLOOR);
 
     int centerX = x + w / 2;
     int centerY = y + h / 2;
@@ -471,6 +493,7 @@ void build_cannibal_cook_tent(Map* map, int x, int y, uint64_t* rng)
 
     (void)rng;
     rect_walls(map, x, y, w, h, OBJ_WALL_WOOD, OBJ_DOOR_WOOD);
+    fill_tiles(map, x + 1, y + 1, w - 2, h - 2, TILE_STONE_FLOOR);
 
     int centerX = x + w / 2;
     int centerY = y + h / 2;
@@ -496,6 +519,7 @@ void build_cannibal_shaman_hut(Map* map, int x, int y, uint64_t* rng)
 
     (void)rng;
     rect_walls(map, x, y, w, h, OBJ_WALL_WOOD, OBJ_DOOR_WOOD);
+    fill_tiles(map, x + 1, y + 1, w - 2, h - 2, TILE_STONE_FLOOR);
 
     int centerX = x + w / 2;
     int centerY = y + h / 2;
@@ -515,6 +539,7 @@ void build_cannibal_bone_pit(Map* map, int x, int y, uint64_t* rng)
 
     (void)rng;
     rect_walls(map, x, y, w, h, OBJ_WALL_STONE, OBJ_DOOR_WOOD);
+    fill_tiles(map, x + 1, y + 1, w - 2, h - 2, TILE_STONE_FLOOR);
 
     for (int j = y + 1; j < y + h - 1; ++j)
     {

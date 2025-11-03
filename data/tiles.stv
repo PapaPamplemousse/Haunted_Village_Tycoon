@@ -227,7 +227,7 @@ category     = obstacle
 walkable     = false
 is_breakable = true
 durability   = 500
-movement     = 100.0
+movement     = 3.0
 humidity     = 0.2
 fertility    = 0.05
 temperature  = 0
@@ -250,6 +250,74 @@ fertility    = 0.0
 temperature  = 6
 color        = 135,0,170,255
 texture      = assets/textures/poison.png
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
+
+[WOOD_FLOOR]
+id           = 14
+name         = Wood_Floor
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 120
+movement     = 0.85
+humidity     = 0.4
+fertility    = 0.0
+temperature  = 19
+color        = 150,110,70,255
+texture      = assets/textures/wood_floor.png
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
+
+[STRAW_FLOOR]
+id           = 15
+name         = Straw_Floor
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 80
+movement     = 0.95
+humidity     = 0.3
+fertility    = 0.0
+temperature  = 21
+color        = 194,172,92,255
+texture      = assets/textures/straw_floor.png
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
+
+[STONE_FLOOR]
+id           = 16
+name         = Stone_Floor
+category     = ground
+walkable     = true
+is_breakable = false
+durability   = 200
+movement     = 0.9
+humidity     = 0.2
+fertility    = 0.0
+temperature  = 16
+color        = 128,128,128,255
+texture      = assets/textures/stone_floor.png
+texture_variations = 1
+variation_columns  = 1
+variation_rows     = 1
+
+[MUD_ROAD]
+id           = 17
+name         = Mud_Road
+category     = road
+walkable     = true
+is_breakable = false
+durability   = 150
+movement     = 0.7
+humidity     = 0.6
+fertility    = 0.0
+temperature  = 18
+color        = 115,82,56,255
+texture      = assets/textures/mud_road.png
 texture_variations = 1
 variation_columns  = 1
 variation_rows     = 1

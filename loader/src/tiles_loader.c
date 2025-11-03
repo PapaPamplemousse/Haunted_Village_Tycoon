@@ -52,6 +52,8 @@ static TileCategory parse_tile_category(const char* s)
         return TILE_CATEGORY_WATER;
     if (strcmp(s, "hazard") == 0)
         return TILE_CATEGORY_HAZARD;
+    if (strcmp(s, "road") == 0)
+        return TILE_CATEGORY_ROAD;
     if (strcmp(s, "obstacle") == 0)
         return TILE_CATEGORY_OBSTACLE;
     return TILE_CATEGORY_GROUND;
