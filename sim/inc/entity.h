@@ -102,6 +102,7 @@ typedef struct EntityType
     char                  identifier[ENTITY_TYPE_NAME_MAX];                 /**< Internal identifier used in debug logs. */
     char                  displayName[ENTITY_TYPE_NAME_MAX];                /**< Optional human readable name. */
     EntityFlags           flags;                                            /**< Capability & faction tags. */
+    uint32_t              competences;                                      /**< Bitmask of special competences/abilities. */
     char                  category[ENTITY_CATEGORY_NAME_MAX];               /**< Normalised faction/category label. */
     int                   traitCount;                                       /**< Number of active trait labels. */
     char                  traits[ENTITY_MAX_TRAITS][ENTITY_TRAIT_NAME_MAX]; /**< Normalised trait labels. */
@@ -282,6 +283,11 @@ int          entity_randomi(EntitySystem* sys, int min, int max);
  * @brief Queries whether an entity type declares a specific trait.
  */
 bool entity_type_has_trait(const EntityType* type, const char* trait);
+
+/**
+ * @brief Checks whether the given entity type owns the provided competence mask.
+ */
+bool entity_type_has_competence(const EntityType* type, uint32_t competenceMask);
 
 /**
  * @brief Checks if an entity type belongs to the specified category label.

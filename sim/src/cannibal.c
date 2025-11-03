@@ -3,7 +3,9 @@
 #include <math.h>
 #include <string.h>
 
+#include "behavior.h"
 #include "map.h"
+#include "pathfinding.h"
 #include "tile.h"
 
 #ifndef PI
@@ -14,8 +16,13 @@ typedef struct CannibalBrain
 {
     float    wanderTimer;
     uint16_t targetId;
+    uint8_t  waypointValid;
+    uint8_t  padding;
     float    attackCooldown;
     int      lastHP;
+    float    repathTimer;
+    Vector2  pathGoal;
+    Vector2  waypoint;
 } CannibalBrain;
 
 static bool cannibal_is_friendly(const Entity* other)
@@ -94,6 +101,10 @@ static void cannibal_on_spawn(EntitySystem* sys, Entity* e)
         brain->targetId       = ENTITY_ID_INVALID;
         brain->attackCooldown = 0.0f;
         brain->lastHP         = e->hp;
+        brain->repathTimer    = 0.0f;
+        brain->waypoint       = e->position;
+        brain->pathGoal       = e->home;
+        brain->waypointValid  = 0;
     }
 }
 
@@ -114,8 +125,17 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
             brain->attackCooldown = 0.0f;
     }
 
-    bool    wasHit = (brain->lastHP > e->hp);
-    Entity* target = NULL;
+    bool         wasHit    = (brain->lastHP > e->hp);
+    Entity*      target    = NULL;
+    const bool   isNight   = behavior_is_night(0.55f);
+    const bool   canShelter = behavior_entity_has_competence(e, ENTITY_COMPETENCE_SEEK_SHELTER_AT_NIGHT);
+    bool         seekingShelter = false;
+    Vector2      desiredGoal    = e->position;
+    bool         haveGoal       = false;
+
+    if (behavior_entity_has_competence(e, ENTITY_COMPETENCE_LIGHT_AT_NIGHT))
+        behavior_sync_nearby_lights(e, mutableMap, isNight, 1);
+
     if (brain->targetId != ENTITY_ID_INVALID)
     {
         target = entity_acquire(sys, brain->targetId);
@@ -141,17 +161,108 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
     Vector2     toHome     = {e->home.x - e->position.x, e->home.y - e->position.y};
     float       homeDistSq = toHome.x * toHome.x + toHome.y * toHome.y;
 
-    if (target)
+    if (!target && canShelter && isNight)
     {
-        Vector2 toTarget = {target->position.x - e->position.x, target->position.y - e->position.y};
-        float   distance = sqrtf(toTarget.x * toTarget.x + toTarget.y * toTarget.y);
-        if (distance > 1e-3f)
+        float dist = sqrtf(homeDistSq);
+        if (dist > e->type->radius * 1.5f)
         {
-            float inv      = 1.0f / distance;
-            e->velocity.x  = toTarget.x * inv * e->type->maxSpeed;
-            e->velocity.y  = toTarget.y * inv * e->type->maxSpeed;
-            e->orientation = atan2f(e->velocity.y, e->velocity.x);
+            desiredGoal    = e->home;
+            haveGoal       = true;
+            seekingShelter = true;
         }
+    }
+
+    if (!haveGoal)
+    {
+        if (target)
+        {
+            desiredGoal = target->position;
+            haveGoal    = true;
+        }
+        else if (homeDistSq > maxRangeSq)
+        {
+            desiredGoal = e->home;
+            haveGoal    = true;
+        }
+    }
+
+    if (haveGoal)
+    {
+        float goalDistSq = (desiredGoal.x - e->position.x) * (desiredGoal.x - e->position.x)
+                         + (desiredGoal.y - e->position.y) * (desiredGoal.y - e->position.y);
+
+        bool usedPath = false;
+        if (goalDistSq > 64.0f)
+        {
+            brain->repathTimer -= dt;
+            bool needNewWaypoint = !brain->waypointValid;
+            if (!needNewWaypoint)
+            {
+                float goalDelta = (brain->pathGoal.x - desiredGoal.x) * (brain->pathGoal.x - desiredGoal.x)
+                                + (brain->pathGoal.y - desiredGoal.y) * (brain->pathGoal.y - desiredGoal.y);
+                if (goalDelta > TILE_SIZE * TILE_SIZE)
+                    needNewWaypoint = true;
+            }
+
+            if (needNewWaypoint || brain->repathTimer <= 0.0f)
+            {
+                PathfindingOptions options = {
+                    .allowDiagonal = false,
+                    .canOpenDoors  = behavior_entity_has_competence(e, ENTITY_COMPETENCE_OPEN_DOORS),
+                    .agentRadius   = e->type->radius,
+                };
+
+                PathfindingPath path;
+                if (pathfinding_find_path(map, e->position, desiredGoal, &options, &path) && path.count > 0)
+                {
+                    Vector2 nextPoint = path.points[0];
+                    if (path.count >= 2)
+                        nextPoint = path.points[1];
+
+                    brain->waypoint      = nextPoint;
+                    brain->pathGoal      = desiredGoal;
+                    brain->waypointValid = 1;
+                    brain->repathTimer   = 0.6f;
+                }
+                else
+                {
+                    brain->waypointValid = 0;
+                    brain->repathTimer   = 0.3f;
+                }
+            }
+
+            if (brain->waypointValid)
+            {
+                Vector2 toWaypoint = {brain->waypoint.x - e->position.x, brain->waypoint.y - e->position.y};
+                float   distance   = sqrtf(toWaypoint.x * toWaypoint.x + toWaypoint.y * toWaypoint.y);
+                if (distance > 1e-3f)
+                {
+                    float inv      = 1.0f / distance;
+                    e->velocity.x  = toWaypoint.x * inv * e->type->maxSpeed;
+                    e->velocity.y  = toWaypoint.y * inv * e->type->maxSpeed;
+                    e->orientation = atan2f(e->velocity.y, e->velocity.x);
+                    usedPath       = true;
+                }
+
+                if (distance < TILE_SIZE * 0.2f)
+                    brain->waypointValid = 0;
+            }
+        }
+
+        if (!usedPath)
+        {
+            Vector2 toGoal = {desiredGoal.x - e->position.x, desiredGoal.y - e->position.y};
+            float   distance = sqrtf(toGoal.x * toGoal.x + toGoal.y * toGoal.y);
+            if (distance > 1e-3f)
+            {
+                float inv      = 1.0f / distance;
+                e->velocity.x  = toGoal.x * inv * ((seekingShelter ? 0.9f : 1.0f) * e->type->maxSpeed);
+                e->velocity.y  = toGoal.y * inv * ((seekingShelter ? 0.9f : 1.0f) * e->type->maxSpeed);
+                e->orientation = atan2f(e->velocity.y, e->velocity.x);
+            }
+            brain->waypointValid = 0;
+        }
+
         brain->wanderTimer = 0.0f;
     }
     else if (homeDistSq > maxRangeSq)
@@ -199,34 +310,14 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
 
     if (!entity_position_is_walkable(map, next, e->type->radius))
     {
-        bool openedDoor = false;
-        int  minTileX   = (int)floorf((next.x - e->type->radius) / TILE_SIZE);
-        int  maxTileX   = (int)floorf((next.x + e->type->radius) / TILE_SIZE);
-        int  minTileY   = (int)floorf((next.y - e->type->radius) / TILE_SIZE);
-        int  maxTileY   = (int)floorf((next.y + e->type->radius) / TILE_SIZE);
-
-        for (int ty = minTileY; ty <= maxTileY && !openedDoor; ++ty)
-        {
-            for (int tx = minTileX; tx <= maxTileX; ++tx)
-            {
-                if (map_toggle_door(mutableMap, tx, ty, true))
-                {
-                    openedDoor = true;
-                    break;
-                }
-            }
-        }
-
-        if (openedDoor && entity_position_is_walkable(map, next, e->type->radius))
-        {
-            // Door opened successfully, continue towards the target.
-        }
-        else
+        bool openedDoor = behavior_try_open_doors(e, mutableMap, next);
+        if (!openedDoor || !entity_position_is_walkable(map, next, e->type->radius))
         {
             e->velocity.x      = -e->velocity.x * 0.3f;
             e->velocity.y      = -e->velocity.y * 0.3f;
             brain->wanderTimer = 0.0f;
             brain->lastHP      = e->hp;
+            brain->waypointValid = 0;
             return;
         }
     }

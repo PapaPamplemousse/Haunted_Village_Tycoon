@@ -84,9 +84,9 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
     const int originPixelX     = originTileX * TILE_SIZE;
     const int originPixelY     = originTileY * TILE_SIZE;
 
-    Object* o = map->objects[y][x];
-    bool    drawObject = false;
-    Rectangle objectSrc = {0};
+    Object*   o              = map->objects[y][x];
+    bool      drawObject     = false;
+    Rectangle objectSrc      = {0};
     Vector2   objectLocalPos = {0};
 
     if (o && o->type && !o->type->activatable)
@@ -98,16 +98,15 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
             objectSrc = object_type_frame_rect(o->type, frameIndex);
         else
         {
-            float fw = (float)(o->type->spriteFrameWidth > 0 ? o->type->spriteFrameWidth : TILE_SIZE);
-            float fh = (float)(o->type->spriteFrameHeight > 0 ? o->type->spriteFrameHeight : TILE_SIZE);
+            float fw  = (float)(o->type->spriteFrameWidth > 0 ? o->type->spriteFrameWidth : TILE_SIZE);
+            float fh  = (float)(o->type->spriteFrameHeight > 0 ? o->type->spriteFrameHeight : TILE_SIZE);
             objectSrc = (Rectangle){0.0f, 0.0f, fw, fh};
         }
 
         Vector2 drawPos = object_frame_draw_position(o, (int)objectSrc.width, (int)objectSrc.height);
         objectLocalPos  = (Vector2){drawPos.x - originPixelX, drawPos.y - originPixelY};
 
-        if (objectLocalPos.x < -1.0f || objectLocalPos.y < -1.0f || objectLocalPos.x + objectSrc.width > (float)chunkPixelWidth + 1.0f ||
-            objectLocalPos.y + objectSrc.height > (float)chunkPixelHeight + 1.0f)
+        if (objectLocalPos.x < -1.0f || objectLocalPos.y < -1.0f || objectLocalPos.x + objectSrc.width > (float)chunkPixelWidth + 1.0f || objectLocalPos.y + objectSrc.height > (float)chunkPixelHeight + 1.0f)
         {
             c->dirty = true;
             return;
@@ -117,13 +116,14 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
     {
         drawObject = false;
     }
-
     // Coordonnées locales dans la texture du chunk
     int localX = (x % CHUNK_W) * TILE_SIZE;
     int localY = (y % CHUNK_H) * TILE_SIZE;
 
-    // Prépare le dessin dans le RenderTexture existant
     BeginTextureMode(c->rt);
+
+    // --- Active un "clip" pour limiter le dessin à la tuile ---
+    BeginScissorMode(localX, localY, TILE_SIZE, TILE_SIZE);
 
     // Efface juste cette zone (fond transparent)
     DrawRectangle(localX, localY, TILE_SIZE, TILE_SIZE, BLANK);
@@ -136,7 +136,7 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
     // --- Redessine l’objet éventuel ---
     if (drawObject)
     {
-        DrawRectangleRec((Rectangle){objectLocalPos.x, objectLocalPos.y, objectSrc.width, objectSrc.height}, BLANK);
+        // On redessine normalement, mais tout ce qui dépasse la tuile sera "coupé"
         if (o->type->texture.id)
             DrawTextureRec(o->type->texture, objectSrc, objectLocalPos, WHITE);
         else
@@ -151,7 +151,42 @@ void chunkgrid_redraw_cell(ChunkGrid* cg, Map* map, int x, int y)
         }
     }
 
+    EndScissorMode();
     EndTextureMode();
+    // // Coordonnées locales dans la texture du chunk
+    // int localX = (x % CHUNK_W) * TILE_SIZE;
+    // int localY = (y % CHUNK_H) * TILE_SIZE;
+
+    // // Prépare le dessin dans le RenderTexture existant
+    // BeginTextureMode(c->rt);
+
+    // // Efface juste cette zone (fond transparent)
+    // DrawRectangle(localX, localY, TILE_SIZE, TILE_SIZE, BLANK);
+
+    // // --- Redessine la tuile ---
+    // const TileType* tt = get_tile_type(map->tiles[y][x]);
+    // if (tt)
+    //     tile_draw(tt, x, y, (float)localX, (float)localY);
+
+    // // --- Redessine l’objet éventuel ---
+    // if (drawObject)
+    // {
+    //     DrawRectangleRec((Rectangle){objectLocalPos.x, objectLocalPos.y, objectSrc.width, objectSrc.height}, BLANK);
+    //     if (o->type->texture.id)
+    //         DrawTextureRec(o->type->texture, objectSrc, objectLocalPos, WHITE);
+    //     else
+    //     {
+    //         Rectangle fill = {
+    //             .x      = objectLocalPos.x + 2.0f,
+    //             .y      = objectLocalPos.y + 2.0f,
+    //             .width  = objectSrc.width - 4.0f,
+    //             .height = objectSrc.height - 4.0f,
+    //         };
+    //         DrawRectangleRec(fill, o->type->color);
+    //     }
+    // }
+
+    // EndTextureMode();
 
     c->dirty = false;
 }
@@ -234,7 +269,7 @@ static void rebuild_chunk(MapChunk* c, Map* map)
                 src      = (Rectangle){0.0f, 0.0f, fw, fh};
             }
 
-            Vector2 drawPos = object_frame_draw_position(o, (int)src.width, (int)src.height);
+            Vector2 drawPos  = object_frame_draw_position(o, (int)src.width, (int)src.height);
             Vector2 localPos = {
                 drawPos.x - (float)(x0 * TILE_SIZE),
                 drawPos.y - (float)(y0 * TILE_SIZE),

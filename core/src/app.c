@@ -78,7 +78,7 @@ static void app_init(void)
 {
     const int      screenWidth  = 1280;
     const int      screenHeight = 720;
-    const uint64_t seed         = 0xA1B2C3D4u;
+    const uint64_t seed         = 0x12042023; // 0xA1B2C3D4u;
 
     // Prepare the rendering window and the frame pacing.
     // SetConfigFlags(FLAG_FULLSCREEN_MODE);

@@ -55,8 +55,8 @@ static void environment_apply_object(Map* map, const Object* obj)
     if (!map || !obj || !obj->type)
         return;
 
-    const ObjectType* type       = obj->type;
-    bool              isActive   = !type->activatable || obj->isActive;
+    const ObjectType* type        = obj->type;
+    bool              isActive    = !type->activatable || obj->isActive;
     int               lightRadius = type->lightRadius;
     int               heatRadius  = type->heatRadius;
 
@@ -85,9 +85,9 @@ static void environment_apply_object(Map* map, const Object* obj)
     {
         for (int tx = minX; tx <= maxX; ++tx)
         {
-            float dx        = ((float)tx + 0.5f) - centerX;
-            float dy        = ((float)ty + 0.5f) - centerY;
-            float distance  = sqrtf(dx * dx + dy * dy);
+            float dx       = ((float)tx + 0.5f) - centerX;
+            float dy       = ((float)ty + 0.5f) - centerY;
+            float distance = sqrtf(dx * dx + dy * dy);
 
             if (lightRadius > 0 && lightIntensity > 0.0f && distance <= (float)lightRadius)
             {
@@ -146,8 +146,8 @@ static void draw_object_environment_effect(const Object* obj, Rectangle viewRect
     if (maxRadius <= 0)
         return;
 
-    float centerX = (obj->position.x + (float)type->width * 0.5f) * (float)TILE_SIZE;
-    float centerY = (obj->position.y + (float)type->height * 0.5f) * (float)TILE_SIZE;
+    float centerX      = (obj->position.x + (float)type->width * 0.5f) * (float)TILE_SIZE;
+    float centerY      = (obj->position.y + (float)type->height * 0.5f) * (float)TILE_SIZE;
     float radiusPixels = (float)maxRadius * (float)TILE_SIZE;
 
     Rectangle bounds = {
@@ -259,7 +259,7 @@ static void object_start_animation(Object* obj)
     if (!obj || !obj->type || !obj->type->activatable)
         return;
 
-    int targetFrame = object_state_frame(obj->type, obj->isActive);
+    int targetFrame            = object_state_frame(obj->type, obj->isActive);
     obj->animation.targetFrame = targetFrame;
 
     float frameTime = obj->type->activationFrameTime;
@@ -282,8 +282,8 @@ static void dynamic_list_add(Object* obj)
 {
     if (!obj)
         return;
-    obj->nextDynamic    = G_DYNAMIC_OBJECTS;
-    G_DYNAMIC_OBJECTS   = obj;
+    obj->nextDynamic  = G_DYNAMIC_OBJECTS;
+    G_DYNAMIC_OBJECTS = obj;
 }
 
 static void dynamic_list_remove(Object* obj)
@@ -351,13 +351,13 @@ static void finalize_sprite_info(ObjectType* type)
 
     if (type->spriteFrameWidth <= 0)
     {
-        int totalSpacing = (type->spriteColumns - 1) * type->spriteSpacingX;
+        int totalSpacing       = (type->spriteColumns - 1) * type->spriteSpacingX;
         type->spriteFrameWidth = (type->texture.width - totalSpacing) / (type->spriteColumns > 0 ? type->spriteColumns : 1);
     }
 
     if (type->spriteFrameHeight <= 0)
     {
-        int totalSpacing = (type->spriteRows - 1) * type->spriteSpacingY;
+        int totalSpacing        = (type->spriteRows - 1) * type->spriteSpacingY;
         type->spriteFrameHeight = (type->texture.height - totalSpacing) / (type->spriteRows > 0 ? type->spriteRows : 1);
     }
 
@@ -389,7 +389,7 @@ static void finalize_sprite_info(ObjectType* type)
 void init_objects(void)
 {
     G_DYNAMIC_OBJECTS = NULL;
-    int objCount  = load_objects_from_stv("data/objects.stv", G_OBJECT_TYPES, OBJ_COUNT);
+    int objCount      = load_objects_from_stv("data/objects.stv", G_OBJECT_TYPES, OBJ_COUNT);
 
     for (int i = 0; i < OBJ_COUNT; ++i)
     {
@@ -397,7 +397,7 @@ void init_objects(void)
             G_OBJECT_TYPES[i].texture = LoadTexture(G_OBJECT_TYPES[i].texturePath);
         finalize_sprite_info(&G_OBJECT_TYPES[i]);
     }
-    debug_print_objects(G_OBJECT_TYPES, objCount);
+    debug_print_objects(G_OBJECT_TYPES, OBJ_COUNT);
 }
 
 void unload_object_textures(void)
@@ -462,8 +462,8 @@ const StructureDef* analyze_building_type(const Building* b)
         bool valid = true;
         for (int j = 0; j < def->requirementCount; j++)
         {
-            const ObjectRequirement* req   = &def->requirements[j];
-            int                      count = 0;
+            const ObjectRequirement* req    = &def->requirements[j];
+            int                      count  = 0;
             const ObjectType*        reqObj = get_object_type(req->objectId);
             printf("[ANALYZE] Checking requirement: %s, min: %d\n", reqObj ? reqObj->name : "(unknown)", req->minCount);
             for (int k = 0; k < b->objectCount; k++)
@@ -487,7 +487,7 @@ const StructureDef* analyze_building_type(const Building* b)
 
 Object* create_object(ObjectTypeID id, int x, int y)
 {
-    Object*       obj  = malloc(sizeof(Object));
+    Object*           obj  = malloc(sizeof(Object));
     const ObjectType* type = get_object_type(id);
     if (!obj || !type)
     {
@@ -654,12 +654,12 @@ void object_draw_dynamic(const Map* map, const Camera2D* camera)
     if (!camera)
         return;
 
-    float invZoom = 1.0f / camera->zoom;
-    Rectangle view = {
-        .x      = camera->target.x - camera->offset.x * invZoom,
-        .y      = camera->target.y - camera->offset.y * invZoom,
-        .width  = GetScreenWidth() * invZoom,
-        .height = GetScreenHeight() * invZoom,
+    float     invZoom = 1.0f / camera->zoom;
+    Rectangle view    = {
+           .x      = camera->target.x - camera->offset.x * invZoom,
+           .y      = camera->target.y - camera->offset.y * invZoom,
+           .width  = GetScreenWidth() * invZoom,
+           .height = GetScreenHeight() * invZoom,
     };
 
     for (Object* obj = G_DYNAMIC_OBJECTS; obj; obj = obj->nextDynamic)
@@ -680,8 +680,8 @@ void object_draw_dynamic(const Map* map, const Camera2D* camera)
         }
         else
         {
-            Vector2 drawPos = object_frame_draw_position(obj, TILE_SIZE, TILE_SIZE);
-            Rectangle bounds = {.x = drawPos.x, .y = drawPos.y, .width = (float)TILE_SIZE, .height = (float)TILE_SIZE};
+            Vector2   drawPos = object_frame_draw_position(obj, TILE_SIZE, TILE_SIZE);
+            Rectangle bounds  = {.x = drawPos.x, .y = drawPos.y, .width = (float)TILE_SIZE, .height = (float)TILE_SIZE};
 
             if (!CheckCollisionRecs(view, bounds))
                 continue;
@@ -701,7 +701,7 @@ void object_draw_environment(const Map* map, const Camera2D* camera)
                       .width  = GetScreenWidth() / camera->zoom,
                       .height = GetScreenHeight() / camera->zoom};
 
-    float invZoom = 1.0f / camera->zoom;
+    float     invZoom   = 1.0f / camera->zoom;
     Rectangle pixelView = {
         .x      = camera->target.x - camera->offset.x * invZoom,
         .y      = camera->target.y - camera->offset.y * invZoom,

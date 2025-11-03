@@ -21,13 +21,13 @@
  * @def MAP_WIDTH
  * @brief Width of the game map in tiles.
  */
-#define MAP_WIDTH 1000
+#define MAP_WIDTH 200
 
 /**
  * @def MAP_HEIGHT
  * @brief Height of the game map in tiles.
  */
-#define MAP_HEIGHT 1000
+#define MAP_HEIGHT 200
 
 /**
  * @def TILE_SIZE
@@ -364,16 +364,16 @@ typedef struct
     const char*  displayName; /**< Human-readable name for UI display */
     const char*  category;    /**< Category string (e.g., "furniture", "structure") */
 
-    int         maxHP;      /**< Maximum hit points */
-    int         comfort;    /**< Comfort rating contribution */
+    int         maxHP;       /**< Maximum hit points */
+    int         comfort;     /**< Comfort rating contribution */
     int         warmth;      /**< Warmth rating contribution */
     int         lightLevel;  /**< Light emission level */
     int         lightRadius; /**< Light effect radius in tiles when active. */
     int         heatRadius;  /**< Heat effect radius in tiles when active. */
     int         width;       /**< Object width in tiles */
-    int         height;     /**< Object height in tiles */
-    bool        walkable;   /**< Whether the player can walk over it */
-    bool        flammable;  /**< Whether it can catch fire */
+    int         height;      /**< Object height in tiles */
+    bool        walkable;    /**< Whether the player can walk over it */
+    bool        flammable;   /**< Whether it can catch fire */
     bool        isWall;
     bool        isDoor;
     Color       color;       /**< Default color (fallback if no texture) */
@@ -405,10 +405,10 @@ typedef struct
  */
 typedef struct Object
 {
-    const ObjectType* type;     /**< Pointer to its object type definition */
-    Vector2           position; /**< Position in tile coordinates */
-    int               hp;       /**< Current health points */
-    bool              isActive; /**< Whether the object is currently active */
+    const ObjectType* type;         /**< Pointer to its object type definition */
+    Vector2           position;     /**< Position in tile coordinates */
+    int               hp;           /**< Current health points */
+    bool              isActive;     /**< Whether the object is currently active */
     int               variantFrame; /**< Selected static frame variation (-1 if unused). */
 
     struct
@@ -471,10 +471,10 @@ typedef struct
  */
 typedef struct
 {
-    int        width;                          /**< Map width in tiles */
-    int        height;                         /**< Map height in tiles */
-    TileTypeID tiles[MAP_HEIGHT][MAP_WIDTH];   /**< 2D grid of terrain tiles */
-    Object*    objects[MAP_HEIGHT][MAP_WIDTH]; /**< 2D grid of placed objects */
+    int        width;                             /**< Map width in tiles */
+    int        height;                            /**< Map height in tiles */
+    TileTypeID tiles[MAP_HEIGHT][MAP_WIDTH];      /**< 2D grid of terrain tiles */
+    Object*    objects[MAP_HEIGHT][MAP_WIDTH];    /**< 2D grid of placed objects */
     float      lightField[MAP_HEIGHT][MAP_WIDTH]; /**< Accumulated light intensity per tile. */
     float      heatField[MAP_HEIGHT][MAP_WIDTH];  /**< Accumulated heat intensity per tile. */
 } Map;

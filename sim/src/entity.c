@@ -1039,6 +1039,13 @@ bool entity_type_has_trait(const EntityType* type, const char* trait)
     return false;
 }
 
+bool entity_type_has_competence(const EntityType* type, uint32_t competenceMask)
+{
+    if (!type || competenceMask == 0)
+        return false;
+    return (type->competences & competenceMask) == competenceMask;
+}
+
 bool entity_type_is_category(const EntityType* type, const char* category)
 {
     if (!type || !category)

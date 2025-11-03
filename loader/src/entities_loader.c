@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include "behavior.h"
 #include "world_structures.h"
 #include "biome_loader.h"
 #include "tile.h"
@@ -163,6 +164,31 @@ static EntityFlags parse_flags(const char* value)
         token = strtok(NULL, "|, ");
     }
     return flags;
+}
+
+static uint32_t parse_competences(const char* value)
+{
+    if (!value)
+        return 0;
+
+    uint32_t mask = 0;
+    char     buf[128];
+    snprintf(buf, sizeof(buf), "%s", value);
+
+    char* token = strtok(buf, "|, ");
+    while (token)
+    {
+        if (strcasecmp(token, "open_doors") == 0 || strcasecmp(token, "open_door") == 0)
+            mask |= ENTITY_COMPETENCE_OPEN_DOORS;
+        else if (strcasecmp(token, "seek_shelter_at_night") == 0 || strcasecmp(token, "shelter_night") == 0
+                 || strcasecmp(token, "seek_shelter") == 0)
+            mask |= ENTITY_COMPETENCE_SEEK_SHELTER_AT_NIGHT;
+        else if (strcasecmp(token, "light_at_night") == 0 || strcasecmp(token, "light_when_night") == 0
+                 || strcasecmp(token, "light_torch") == 0 || strcasecmp(token, "light_torches") == 0)
+            mask |= ENTITY_COMPETENCE_LIGHT_AT_NIGHT;
+        token = strtok(NULL, "|, ");
+    }
+    return mask;
 }
 
 static TileTypeID tile_from_string(const char* value)
@@ -370,6 +396,10 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
         else if (strcasecmp(key, "flags") == 0)
         {
             currentType.flags = parse_flags(value);
+        }
+        else if (strcasecmp(key, "competences") == 0)
+        {
+            currentType.competences = parse_competences(value);
         }
         else if (strcasecmp(key, "referred.structure") == 0 || strcasecmp(key, "referred_structure") == 0)
         {

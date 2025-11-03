@@ -50,6 +50,13 @@ is_wall      = false
 is_door      = false
 color        = 180,0,0,255
 texture      = assets/objects/furniture/single_bed.png
+sprite_frame_width   = 19
+sprite_frame_height  = 32
+sprite_columns       = 3
+sprite_rows          = 1
+sprite_frame_count   = 3
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
 
 [BED_LARGE]
 id           = 2
@@ -68,6 +75,13 @@ is_wall      = false
 is_door      = false
 color        = 200,0,0,255
 texture      = assets/objects/furniture/double_bed.png
+sprite_frame_width   = 32
+sprite_frame_height  = 32
+sprite_columns       = 3
+sprite_rows          = 1
+sprite_frame_count   = 3
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
 
 [TABLE_WOOD]
 id           = 3
@@ -86,6 +100,13 @@ is_wall      = false
 is_door      = false
 color        = 139,69,19,255
 texture      = assets/objects/furniture/table_wood.png
+sprite_frame_width            = 32
+sprite_frame_height           = 28
+sprite_columns                = 2
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 2
 
 [CHAIR_WOOD]
 id           = 4
@@ -104,6 +125,13 @@ is_wall      = false
 is_door      = false
 color        = 139,69,19,255
 texture      = assets/objects/furniture/chair_wood.png
+sprite_frame_width            = 20
+sprite_frame_height           = 29
+sprite_columns                = 2
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 2
 
 # =========================================================
 # --- Utility ---
@@ -130,8 +158,18 @@ activatable                   = true
 activation_default            = false
 activation_walkable_inactive  = true
 activation_walkable_active    = true
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
 activation_light_radius       = 4
 activation_heat_radius        = 4
+sprite_frame_width            = 14
+sprite_frame_height           = 29
+sprite_columns                = 5
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 5
 
 [WORKBENCH]
 id           = 6
@@ -302,6 +340,13 @@ is_wall      = false
 is_door      = false
 color        = 200,200,200,255
 texture      = assets/objects/decoration/bone_pile.png
+sprite_frame_width   = 29
+sprite_frame_height  = 22
+sprite_columns       = 3
+sprite_rows          = 1
+sprite_frame_count   = 3
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
 
 # =========================================================
 # --- Resources / Nature ---
@@ -465,12 +510,23 @@ is_wall      = false
 is_door      = false
 color        = 255,120,20,255
 texture      = assets/objects/utility/firepit.png
+sprite_frame_width   = 24
+sprite_frame_height  = 25
+sprite_columns       = 4
+sprite_rows          = 1
+sprite_frame_count   = 4
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
 activatable                   = true
 activation_default            = false
-activation_walkable_inactive  = false
+activation_walkable_inactive  = true
 activation_walkable_active    = false
 activation_light_radius       = 5
 activation_heat_radius        = 5
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
+
 
 [ALTAR]
 id           = 21
@@ -489,6 +545,18 @@ is_wall      = false
 is_door      = false
 color        = 180,180,220,255
 texture      = assets/objects/utility/altar.png
+sprite_frame_width   = 30
+sprite_frame_height  = 32
+sprite_columns       = 4
+sprite_rows          = 1
+sprite_frame_count   = 4
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
+activatable                   = true
+activation_default            = false
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
 
 [CAULDRON]
 id           = 22
@@ -506,13 +574,27 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 60,80,90,255
-texture      = none
+texture      = assets/objects/utility/cauldron.png
+sprite_frame_width   = 30
+sprite_frame_height  = 32
+sprite_columns       = 2
+sprite_rows          = 1
+sprite_frame_count   = 2
+sprite_spacing_x     = 0
+sprite_spacing_y     = 0
+activatable                   = true
+activation_default            = false
+activation_light_radius       = 3
+activation_heat_radius        = 3
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
 
 [TOTEM_BLOOD]
 id           = 23
 name         = totem_blood
 display_name = Blood Totem
-category     = structure
+category     = utility
 max_hp       = 180
 comfort      = 0
 warmth       = 0
@@ -524,13 +606,27 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 150,20,40,255
-texture      = none
+texture      = assets/objects/utility/totem_blood.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = false
+activation_walkable_active    = false
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
+sprite_frame_width            = 18
+sprite_frame_height           = 32
+sprite_columns                = 4
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 4
 
 [RITUAL_CIRCLE]
 id           = 24
 name         = ritual_circle
 display_name = Ritual Circle
-category     = decoration
+category     = utility
 max_hp       = 80
 comfort      = 0
 warmth       = 0
@@ -543,6 +639,21 @@ is_wall      = false
 is_door      = false
 color        = 200,30,90,200
 texture      = none
+texture      = assets/objects/utility/ritual_circle.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = false
+activation_walkable_active    = false
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
+sprite_frame_width            = 32
+sprite_frame_height           = 32
+sprite_columns                = 4
+sprite_rows                   = 1
+sprite_spacing_x              = 3
+sprite_spacing_y              = 0
+sprite_frame_count            = 4
 
 [GALLOW]
 id           = 25
@@ -560,7 +671,21 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 90,60,40,255
-texture      = none
+texture      = assets/objects/decoration/gallow.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = false
+activation_walkable_active    = false
+activation_frame_inactive     = 1
+activation_frame_active       = 4
+activation_frame_time         = 0.12
+sprite_frame_width            = 16
+sprite_frame_height           = 32
+sprite_columns                = 4
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 4
 
 [MEAT_HOOK]
 id           = 26
@@ -578,7 +703,21 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 150,30,30,255
-texture      = none
+texture      = assets/objects/decoration/meat_hook.png
+activatable                   = true
+activation_default            = false
+activation_walkable_inactive  = false
+activation_walkable_active    = false
+activation_frame_inactive     = 1
+activation_frame_active       = 3
+activation_frame_time         = 0.12
+sprite_frame_width            = 22
+sprite_frame_height           = 24
+sprite_columns                = 3
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 3
 
 [VOID_OBELISK]
 id           = 27
@@ -596,21 +735,21 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 60,0,120,255
-texture                       = assets/objects/structure/Obelisk.png
+texture                       = assets/objects/utility/obelisk.png
 activatable                   = true
 activation_default            = false
 activation_walkable_inactive  = false
 activation_walkable_active    = false
-sprite_frame_width            = 32
+activation_frame_inactive     = 1
+activation_frame_active       = 28
+activation_frame_time         = 0.12
+sprite_frame_width            = 13
 sprite_frame_height           = 32
-sprite_columns                = 4
+sprite_columns                = 28
 sprite_rows                   = 1
 sprite_spacing_x              = 0
 sprite_spacing_y              = 0
-sprite_frame_count            = 4
-activation_frame_inactive     = 1
-activation_frame_active       = 4
-activation_frame_time         = 0.12
+sprite_frame_count            = 28
 
 [PLAGUE_POD]
 id           = 28
@@ -628,4 +767,11 @@ flammable    = false
 is_wall      = false
 is_door      = false
 color        = 120,180,60,255
-texture      = none
+texture      = assets/objects/hazard/plague_pod.png
+sprite_frame_width            = 28
+sprite_frame_height           = 31
+sprite_columns                = 4
+sprite_rows                   = 1
+sprite_spacing_x              = 0
+sprite_spacing_y              = 0
+sprite_frame_count            = 4
