@@ -231,12 +231,39 @@ Vector2 object_frame_draw_position(const Object* obj, int frameWidth, int frameH
     if (!obj || !obj->type)
         return (Vector2){0.0f, 0.0f};
 
-    float widthTiles  = obj->type->width > 0 ? (float)obj->type->width : 1.0f;
-    float baseCenterX = (obj->position.x + widthTiles * 0.5f) * (float)TILE_SIZE;
-    float destX       = baseCenterX - (float)frameWidth * 0.5f;
+    const ObjectType* type        = obj->type;
+    float             widthTiles  = type->width > 0 ? (float)type->width : 1.0f;
+    float             heightTiles = type->height > 0 ? (float)type->height : 1.0f;
 
-    float anchorBottom = (obj->position.y + 1.0f) * (float)TILE_SIZE;
-    float destY        = anchorBottom - (float)frameHeight;
+    float destX;
+    if (frameWidth <= 0)
+        frameWidth = TILE_SIZE;
+
+    if (frameWidth <= TILE_SIZE)
+    {
+        float tileLeft = obj->position.x * (float)TILE_SIZE;
+        destX          = tileLeft + ((float)TILE_SIZE - (float)frameWidth) * 0.5f;
+    }
+    else
+    {
+        float baseCenterX = (obj->position.x + widthTiles * 0.5f) * (float)TILE_SIZE;
+        destX             = baseCenterX - (float)frameWidth * 0.5f;
+    }
+
+    float destY;
+    if (frameHeight <= 0)
+        frameHeight = TILE_SIZE;
+
+    if (frameHeight <= TILE_SIZE)
+    {
+        float tileTop = obj->position.y * (float)TILE_SIZE;
+        destY         = tileTop + ((float)TILE_SIZE - (float)frameHeight) * 0.5f;
+    }
+    else
+    {
+        float anchorBottom = (obj->position.y + heightTiles) * (float)TILE_SIZE;
+        destY              = anchorBottom - (float)frameHeight;
+    }
 
     return (Vector2){destX, destY};
 }
