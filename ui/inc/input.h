@@ -32,6 +32,35 @@ typedef enum
 } SelectionMode;
 
 /**
+ * @brief Logical input actions that can be rebound from the settings menu.
+ */
+typedef enum
+{
+    INPUT_ACTION_MOVE_UP = 0,
+    INPUT_ACTION_MOVE_DOWN,
+    INPUT_ACTION_MOVE_LEFT,
+    INPUT_ACTION_MOVE_RIGHT,
+    INPUT_ACTION_TOGGLE_INVENTORY,
+    INPUT_ACTION_TOGGLE_BUILDING_NAMES,
+    INPUT_ACTION_TOGGLE_PAUSE,
+    INPUT_ACTION_COUNT
+} InputAction;
+
+/**
+ * @brief Keyboard bindings associated with each logical action.
+ */
+typedef struct
+{
+    KeyboardKey moveUp;
+    KeyboardKey moveDown;
+    KeyboardKey moveLeft;
+    KeyboardKey moveRight;
+    KeyboardKey toggleInventory;
+    KeyboardKey toggleBuildingNames;
+    KeyboardKey togglePause;
+} KeyBindings;
+
+/**
  * @brief Stores the current input and editor selection state.
  */
 typedef struct
@@ -44,6 +73,7 @@ typedef struct
     SelectionMode  currentMode;
     int            tileIndex;
     int            objectIndex;
+    KeyBindings    bindings;          /**< Rebindable keyboard actions. */
 } InputState;
 
 /**
@@ -90,5 +120,30 @@ void input_update(InputState* input);
  * @param[in] map Pointer to the Map (for bounds checking).
  */
 void input_update_mouse(MouseState* mouse, const Camera2D* camera, const Map* map);
+
+/**
+ * @brief Restores the provided bindings structure to the default layout.
+ */
+void input_bindings_reset_default(KeyBindings* bindings);
+
+/**
+ * @brief Returns a localized display name for an input action.
+ */
+const char* input_action_display_name(InputAction action);
+
+/**
+ * @brief Retrieves the key bound to the provided action.
+ */
+KeyboardKey input_get_binding(const KeyBindings* bindings, InputAction action);
+
+/**
+ * @brief Updates the key bound to the provided action.
+ */
+void input_set_binding(KeyBindings* bindings, InputAction action, KeyboardKey key);
+
+/**
+ * @brief Prevents duplicate bindings by checking whether a key is already in use.
+ */
+bool input_is_key_already_bound(const KeyBindings* bindings, KeyboardKey key, InputAction* outAction);
 
 #endif // INPUT_H

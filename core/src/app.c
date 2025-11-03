@@ -10,6 +10,7 @@
 
 #include "input.h"
 #include "ui.h"
+#include "ui_theme.h"
 #include "editor.h"
 #include "map.h"
 #include "camera.h"
@@ -84,6 +85,7 @@ static void app_init(void)
     // Prepare the rendering window and the frame pacing.
     // SetConfigFlags(FLAG_FULLSCREEN_MODE);
     InitWindow(screenWidth, screenHeight, "Containment Tycoon (Top-Down)");
+    SetExitKey(KEY_NULL);
     SetTargetFPS(40);
 
     // Load static resources such as tiles and placeable objects.
@@ -108,6 +110,8 @@ static void app_init(void)
 
     if (!music_system_init("data/music.stv", "gameplay"))
         TraceLog(LOG_WARNING, "Music system failed to initialize.");
+    if (!ui_init("assets/ui/ui.png"))
+        TraceLog(LOG_WARNING, "UI theme failed to initialize.");
 
     // Set up world chunk streaming, the camera and initial input state.
     gChunks  = chunkgrid_create(&G_MAP);
@@ -120,31 +124,39 @@ static void app_init(void)
  */
 static void app_update(void)
 {
-    // Gather user input for the frame and update UI state that depends on it.
     input_update(&G_INPUT);
-    ui_update_inventory(&G_INPUT, &G_ENTITIES);
+
+    float dt = GetFrameTime();
+    ui_update(&G_INPUT, &G_ENTITIES, dt);
+
     update_camera(&G_CAMERA, &G_INPUT.camera);
 
-    if (IsKeyPressed(KEY_T))
-        world_time_cycle_timewarp(&G_WORLD_TIME);
-
-    if (IsKeyPressed(KEY_F))
+    bool paused = ui_is_paused();
+    if (!paused)
     {
-        MouseState mouse;
-        input_update_mouse(&mouse, &G_CAMERA, &G_MAP);
-        if (mouse.insideMap)
+        if (IsKeyPressed(KEY_T))
+            world_time_cycle_timewarp(&G_WORLD_TIME);
+
+        if (IsKeyPressed(KEY_F))
         {
-            int     tx  = mouse.tileX;
-            int     ty  = mouse.tileY;
-            Object* obj = G_MAP.objects[ty][tx];
-            if (object_has_activation(obj) && object_toggle(obj))
-                chunkgrid_redraw_cell(gChunks, &G_MAP, tx, ty);
+            MouseState mouse;
+            input_update_mouse(&mouse, &G_CAMERA, &G_MAP);
+            if (mouse.insideMap)
+            {
+                int     tx  = mouse.tileX;
+                int     ty  = mouse.tileY;
+                Object* obj = G_MAP.objects[ty][tx];
+                if (object_has_activation(obj) && object_toggle(obj))
+                    chunkgrid_redraw_cell(gChunks, &G_MAP, tx, ty);
+            }
         }
     }
 
-    // Advance gameplay systems using the frame time delta.
-    float dt = GetFrameTime();
     music_system_update(dt);
+
+    if (paused)
+        return;
+
     world_time_update(&G_WORLD_TIME, dt);
     world_apply_season_effects(&G_MAP, &G_WORLD_TIME);
     entity_system_update(&G_ENTITIES, &G_MAP, &G_CAMERA, dt);
@@ -166,10 +178,10 @@ static void app_update(void)
     float     viewWidth  = GetScreenWidth() / G_CAMERA.zoom;
     float     viewHeight = GetScreenHeight() / G_CAMERA.zoom;
     Rectangle worldView  = {
-         .x      = G_CAMERA.target.x - viewWidth * 0.5f,
-         .y      = G_CAMERA.target.y - viewHeight * 0.5f,
-         .width  = viewWidth,
-         .height = viewHeight,
+        .x      = G_CAMERA.target.x - viewWidth * 0.5f,
+        .y      = G_CAMERA.target.y - viewHeight * 0.5f,
+        .width  = viewWidth,
+        .height = viewHeight,
     };
 
     Rectangle paddedView = worldView;
@@ -183,7 +195,6 @@ static void app_update(void)
         update_building_detection(&G_MAP, paddedView);
         G_BUILDING_DIRTY      = false;
         G_BUILDING_DIRTY_BBOX = (Rectangle){0.0f, 0.0f, 0.0f, 0.0f};
-        // chunkgrid_mark_all(gChunks, &G_MAP);
     }
 }
 
@@ -207,7 +218,16 @@ static void app_draw_world(void)
     if (mouse.insideMap)
     {
         Rectangle highlight = {(float)mouse.tileX * TILE_SIZE, (float)mouse.tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-        DrawRectangleLinesEx(highlight, 2.0f, YELLOW);
+        const UiTheme* ui = ui_theme_get();
+        if (ui && ui_theme_is_ready())
+        {
+            Rectangle dest = {highlight.x - 2.0f, highlight.y - 2.0f, highlight.width + 4.0f, highlight.height + 4.0f};
+            DrawTexturePro(ui->atlas, ui->tileHighlight, dest, (Vector2){0.0f, 0.0f}, 0.0f, ColorAlpha(WHITE, 0.85f));
+        }
+        else
+        {
+            DrawRectangleLinesEx(highlight, 2.0f, YELLOW);
+        }
     }
 
     // --- Building labels ---
@@ -244,22 +264,46 @@ static void app_draw_world(void)
         if (G_INPUT.showBuildingNames)
         {
             const char* displayName = (b->name[0] != '\0') ? b->name : "Structure";
+            const UiTheme* ui = ui_theme_get();
+            int labelWidth = MeasureText(displayName, 12);
+            if (ui && ui_theme_is_ready())
+            {
+                Rectangle labelRect = {(float)textX - 6.0f, (float)textY - 4.0f, (float)labelWidth + 12.0f, 18.0f};
+                DrawRectangleRounded(labelRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.75f));
+            }
+            else
+            {
+                Rectangle labelRect = {(float)textX - 6.0f, (float)textY - 4.0f, (float)labelWidth + 12.0f, 18.0f};
+                DrawRectangleRounded(labelRect, 0.2f, 4, ColorAlpha(BLACK, 0.6f));
+            }
             DrawText(displayName, textX, textY, 12, WHITE);
 
-            int infoY = textY + 14;
+            int infoY = textY + 18;
             if (b->structureDef)
             {
                 if (b->auraName[0])
                 {
                     char auraLine[160];
                     snprintf(auraLine, sizeof(auraLine), "Aura: %s (r=%.1f, pwr=%.1f)", b->auraName, b->auraRadius, b->auraIntensity);
-                    DrawText(auraLine, textX, infoY, 10, ColorAlpha(WHITE, 0.85f));
-                    infoY += 12;
+                    int auraWidth = MeasureText(auraLine, 10);
+                    Rectangle auraRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)auraWidth + 12.0f, 16.0f};
+                    if (ui && ui_theme_is_ready())
+                        DrawRectangleRounded(auraRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.6f));
+                    else
+                        DrawRectangleRounded(auraRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
+                    DrawText(auraLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
+                    infoY += 16;
 
                     if (b->auraDescription[0])
                     {
-                        DrawText(b->auraDescription, textX, infoY, 9, ColorAlpha(WHITE, 0.7f));
-                        infoY += 11;
+                        int auraDescWidth = MeasureText(b->auraDescription, 9);
+                        Rectangle descRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)auraDescWidth + 12.0f, 14.0f};
+                        if (ui && ui_theme_is_ready())
+                            DrawRectangleRounded(descRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.55f));
+                        else
+                            DrawRectangleRounded(descRect, 0.2f, 4, ColorAlpha(BLACK, 0.45f));
+                        DrawText(b->auraDescription, textX, infoY, 9, ColorAlpha(WHITE, 0.75f));
+                        infoY += 14;
                     }
                 }
 
@@ -268,14 +312,26 @@ static void app_draw_world(void)
                     char occLine[160];
                     snprintf(occLine, sizeof(occLine), "Residents: %d/%d (min %d, max %d) %s", b->occupantActive, b->occupantCurrent, b->occupantMin, b->occupantMax,
                              b->occupantDescription[0] ? b->occupantDescription : "residents");
+                    int occWidth = MeasureText(occLine, 10);
+                    Rectangle occRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)occWidth + 12.0f, 16.0f};
+                    if (ui && ui_theme_is_ready())
+                        DrawRectangleRounded(occRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.6f));
+                    else
+                        DrawRectangleRounded(occRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
                     DrawText(occLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
-                    infoY += 12;
+                    infoY += 16;
                 }
 
                 if (b->triggerDescription[0])
                 {
-                    DrawText(b->triggerDescription, textX, infoY, 10, ColorAlpha(WHITE, 0.8f));
-                    infoY += 12;
+                    int triggerWidth = MeasureText(b->triggerDescription, 10);
+                    Rectangle triggerRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)triggerWidth + 12.0f, 16.0f};
+                    if (ui && ui_theme_is_ready())
+                        DrawRectangleRounded(triggerRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.6f));
+                    else
+                        DrawRectangleRounded(triggerRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
+                    DrawText(b->triggerDescription, textX, infoY, 10, ColorAlpha(WHITE, 0.85f));
+                    infoY += 16;
                 }
             }
         }
@@ -294,10 +350,10 @@ static void app_draw_world(void)
     static bool showBiomeDebug = false;
     debug_biome_draw(&G_MAP, &G_CAMERA, &showBiomeDebug);
 
-    // Optional: draw current tile/object selection
-    ui_draw_inventory(&G_INPUT, &G_ENTITIES);
-
     world_time_draw_ui(&G_WORLD_TIME, &G_MAP, &G_CAMERA);
+
+    // Optional: draw current tile/object selection and overlays
+    ui_draw(&G_INPUT, &G_ENTITIES);
 }
 
 /**
@@ -329,6 +385,7 @@ static void app_cleanup(void)
     gChunks = NULL;
 
     music_system_shutdown();
+    ui_shutdown();
 
     CloseWindow();
 }
@@ -344,6 +401,8 @@ void app_run(void)
     {
         // Advance the simulation and render the current frame.
         app_update();
+        if (ui_should_close_application())
+            break;
 
         BeginDrawing();
         ClearBackground(BLANK);

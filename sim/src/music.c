@@ -77,6 +77,8 @@ typedef struct MusicSystemState
     bool                pendingIsEvent;
     bool                pendingStartAfterFade;
     bool                transitionInProgress;
+    char**              gameplayGroups;
+    int                 gameplayGroupCount;
 } MusicSystemState;
 
 static MusicSystemState G_MUSIC = {0};
@@ -335,6 +337,83 @@ static void stop_all_layers(void)
 static float positive_or_default(float value, float fallback)
 {
     return (value > 0.0f) ? value : fallback;
+}
+
+static void free_gameplay_groups(void)
+{
+    if (!G_MUSIC.gameplayGroups)
+        return;
+
+    for (int i = 0; i < G_MUSIC.gameplayGroupCount; ++i)
+    {
+        if (G_MUSIC.gameplayGroups[i])
+            free(G_MUSIC.gameplayGroups[i]);
+    }
+
+    free(G_MUSIC.gameplayGroups);
+    G_MUSIC.gameplayGroups     = NULL;
+    G_MUSIC.gameplayGroupCount = 0;
+}
+
+static bool group_equals(const char* a, const char* b)
+{
+    if (!a || a[0] == '\0')
+        return (!b || b[0] == '\0');
+    if (!b || b[0] == '\0')
+        return false;
+    return strcasecmp(a, b) == 0;
+}
+
+static void rebuild_gameplay_groups(void)
+{
+    free_gameplay_groups();
+
+    int capacity = 8;
+    G_MUSIC.gameplayGroups = (char**)malloc(sizeof(char*) * (size_t)capacity);
+    if (!G_MUSIC.gameplayGroups)
+        return;
+
+    // Always expose a default entry (NULL indicates "all tracks").
+    G_MUSIC.gameplayGroups[G_MUSIC.gameplayGroupCount++] = NULL;
+
+    if (!G_MUSIC.defs || G_MUSIC.defCount == 0)
+        return;
+
+    for (int i = 0; i < G_MUSIC.defCount; ++i)
+    {
+        MusicDefinition* def = &G_MUSIC.defs[i];
+        if (!def || def->usage != MUSIC_USAGE_GAMEPLAY)
+            continue;
+
+        const char* group = def->group;
+        if (!group || group[0] == '\0')
+            continue;
+
+        bool exists = false;
+        for (int g = 0; g < G_MUSIC.gameplayGroupCount; ++g)
+        {
+            if (group_equals(G_MUSIC.gameplayGroups[g], group))
+            {
+                exists = true;
+                break;
+            }
+        }
+        if (exists)
+            continue;
+
+        if (G_MUSIC.gameplayGroupCount >= capacity)
+        {
+            capacity *= 2;
+            char** resized = (char**)realloc(G_MUSIC.gameplayGroups, sizeof(char*) * (size_t)capacity);
+            if (!resized)
+                break;
+            G_MUSIC.gameplayGroups = resized;
+        }
+
+        char* copy = str_dup(group);
+        if (copy)
+            G_MUSIC.gameplayGroups[G_MUSIC.gameplayGroupCount++] = copy;
+    }
 }
 
 static void rebuild_gameplay_playlist(const char* groupName)
@@ -633,6 +712,7 @@ bool music_system_init(const char* configPath, const char* gameplayGroup)
             SetMusicLoopCount(G_MUSIC.tracks[i].handle, G_MUSIC.defs[i].loopCount);
     }
 
+    rebuild_gameplay_groups();
     rebuild_gameplay_playlist(G_MUSIC.gameplayGroup);
     if (G_MUSIC.gameplayCount > 0)
     {
@@ -674,6 +754,8 @@ void music_system_shutdown(void)
     free(G_MUSIC.gameplayOrder);
     G_MUSIC.gameplayOrder = NULL;
     G_MUSIC.gameplayCount = 0;
+    free_gameplay_groups();
+    clear_music_loops();
 
     G_MUSIC.initialized         = false;
     G_MUSIC.eventActive         = false;
@@ -808,4 +890,78 @@ void music_system_set_master_volume(float volume)
 bool music_system_is_event_active(void)
 {
     return G_MUSIC.eventActive;
+}
+
+int music_system_get_group_count(void)
+{
+    if (G_MUSIC.gameplayGroupCount <= 0)
+        return 1; // Always expose at least the default entry.
+    return G_MUSIC.gameplayGroupCount;
+}
+
+const char* music_system_get_group_name(int index)
+{
+    if (G_MUSIC.gameplayGroupCount <= 0)
+        return NULL;
+    if (index < 0 || index >= G_MUSIC.gameplayGroupCount)
+        return G_MUSIC.gameplayGroups[0];
+    return G_MUSIC.gameplayGroups[index];
+}
+
+int music_system_get_selected_group_index(void)
+{
+    if (G_MUSIC.gameplayGroupCount <= 0 || !G_MUSIC.gameplayGroups)
+        return 0;
+
+    if (!G_MUSIC.gameplayGroup || G_MUSIC.gameplayGroup[0] == '\0')
+        return 0;
+
+    for (int i = 0; i < G_MUSIC.gameplayGroupCount; ++i)
+    {
+        const char* group = G_MUSIC.gameplayGroups[i];
+        if (group && G_MUSIC.gameplayGroup && strcasecmp(group, G_MUSIC.gameplayGroup) == 0)
+            return i;
+    }
+
+    return 0;
+}
+
+bool music_system_set_gameplay_group_index(int index, bool restartImmediately)
+{
+    if (!G_MUSIC.initialized)
+        return false;
+
+    if (G_MUSIC.gameplayGroupCount <= 0 || !G_MUSIC.gameplayGroups)
+        return music_system_set_gameplay_group(NULL, restartImmediately);
+
+    if (index < 0 || index >= G_MUSIC.gameplayGroupCount)
+        index = 0;
+
+    const char* group = G_MUSIC.gameplayGroups[index];
+    return music_system_set_gameplay_group(group, restartImmediately);
+}
+
+const char* music_system_get_current_track_name(void)
+{
+    if (!G_MUSIC.initialized || !G_MUSIC.defs)
+        return NULL;
+
+    int clip = -1;
+    if (G_MUSIC.eventActive && G_MUSIC.eventClipIndex >= 0)
+        clip = G_MUSIC.eventClipIndex;
+    else if (G_MUSIC.currentGameplayClip >= 0)
+        clip = G_MUSIC.currentGameplayClip;
+
+    if (clip < 0 || clip >= G_MUSIC.defCount)
+        return NULL;
+
+    MusicDefinition* def = &G_MUSIC.defs[clip];
+    if (def->name && def->name[0] != '\0')
+        return def->name;
+    return def->filePath;
+}
+
+float music_system_get_master_volume(void)
+{
+    return G_MUSIC.masterVolume;
 }

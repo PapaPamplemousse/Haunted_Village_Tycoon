@@ -11,9 +11,6 @@
 
 void debug_biome_draw(Map* map, Camera2D* cam, bool* showDebug)
 {
-    if (IsKeyPressed(KEY_B))
-        *showDebug = !*showDebug;
-
     if (!(*showDebug))
         return;
 
@@ -76,5 +73,5 @@ void debug_biome_draw(Map* map, Camera2D* cam, bool* showDebug)
 
     EndMode2D();
 
-    DrawText("Biome Debug Overlay [B]", 20, 20, 20, YELLOW);
+    DrawText("Biome Debug Overlay", 20, 20, 20, YELLOW);
 }

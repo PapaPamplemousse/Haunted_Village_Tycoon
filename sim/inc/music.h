@@ -98,4 +98,34 @@ void music_system_set_master_volume(float volume);
  */
 bool music_system_is_event_active(void);
 
+/**
+ * @brief Returns how many gameplay groups are exposed (including the default "all" entry).
+ */
+int music_system_get_group_count(void);
+
+/**
+ * @brief Returns the name of the group at the given index (NULL represents the default group).
+ */
+const char* music_system_get_group_name(int index);
+
+/**
+ * @brief Returns the currently selected gameplay group index.
+ */
+int music_system_get_selected_group_index(void);
+
+/**
+ * @brief Convenience helper to select a gameplay group by index.
+ */
+bool music_system_set_gameplay_group_index(int index, bool restartImmediately);
+
+/**
+ * @brief Retrieves the display name of the currently playing track.
+ */
+const char* music_system_get_current_track_name(void);
+
+/**
+ * @brief Reports the current master volume multiplier.
+ */
+float music_system_get_master_volume(void);
+
 #endif /* MUSIC_H */

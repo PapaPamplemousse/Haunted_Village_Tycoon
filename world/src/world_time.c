@@ -12,6 +12,7 @@
 
 #include "biome_loader.h"
 #include "tile.h"
+#include "ui_theme.h"
 
 static const float s_timeWarpMultipliers[] = {1.0f, 6.0f, 24.0f, 72.0f};
 static const int   s_timeWarpCount         = (int)(sizeof(s_timeWarpMultipliers) / sizeof(s_timeWarpMultipliers[0]));
@@ -415,28 +416,12 @@ void world_time_draw_ui(const WorldTime* t, const Map* map, const Camera2D* came
              hour,
              minute);
 
-    const int fontSize = 20;
-    int       width    = MeasureText(infoLine, fontSize);
-    int       x        = GetScreenWidth() - width - 20;
-    int       y        = 20;
-
-    DrawText(infoLine, x, y, fontSize, WHITE);
-
     float warp = world_time_get_timewarp_multiplier(t);
     char  warpLine[160];
     if (warp > 1.0f)
-    {
-        snprintf(warpLine, sizeof(warpLine), "Time warp x%.0f (T to cycle) | Darkness: %.2f", warp, s_currentDarkness);
-    }
+        snprintf(warpLine, sizeof(warpLine), "Accélération x%.0f | Obscurité %.2f", warp, s_currentDarkness);
     else
-    {
-        snprintf(warpLine, sizeof(warpLine), "Darkness: %.2f | T: cycle time warp", s_currentDarkness);
-    }
-
-    int warpWidth = MeasureText(warpLine, 16);
-    int warpX     = GetScreenWidth() - warpWidth - 20;
-    int warpY     = y + fontSize + 6;
-    DrawText(warpLine, warpX, warpY, 16, ColorAlpha(WHITE, 0.9f));
+        snprintf(warpLine, sizeof(warpLine), "Obscurité %.2f | T pour accélérer", s_currentDarkness);
 
     const char* biomeName       = "GLOBAL";
     float       biomeFertility  = s_avgFertility;
@@ -474,14 +459,41 @@ void world_time_draw_ui(const WorldTime* t, const Map* map, const Camera2D* came
         biomeTiles = s_totalTiles;
 
     char statsLine[200];
-    snprintf(statsLine, sizeof(statsLine), "Biome: %s (%d tiles) | Fertility %.2f | Humidity %.2f | Temp %.1fC",
+    snprintf(statsLine, sizeof(statsLine), "Biome %s (%d) | Fert %.2f | Humid %.2f | %.1fC",
              biomeName,
              biomeTiles,
              biomeFertility,
              biomeHumidity,
              biomeTemp);
-    int statsWidth = MeasureText(statsLine, 16);
-    int statsX     = GetScreenWidth() - statsWidth - 20;
-    int statsY     = warpY + 22;
-    DrawText(statsLine, statsX, statsY, 16, ColorAlpha(WHITE, 0.85f));
+    const UiTheme* ui = ui_theme_get();
+    Color textPrimary   = ui ? ui->textPrimary : WHITE;
+    Color textSecondary = ui ? ui->textSecondary : ColorAlpha(WHITE, 0.85f);
+    Color textAccent    = ui ? ui->accent : (Color){255, 200, 120, 255};
+
+    const int mainFont   = 22;
+    const int secondaryFont = 18;
+    float padding = 16.0f;
+
+    float width = (float)MeasureText(infoLine, mainFont);
+    float warpWidth = (float)MeasureText(warpLine, secondaryFont);
+    float statsWidth = (float)MeasureText(statsLine, secondaryFont);
+    width = fmaxf(width, fmaxf(warpWidth, statsWidth));
+
+    Rectangle panel = {20.0f, 20.0f, width + padding * 2.0f, mainFont + secondaryFont * 2.0f + padding * 3.0f};
+
+    if (ui && ui_theme_is_ready())
+        DrawTextureNPatch(ui->atlas, ui->panelSmall, panel, (Vector2){0.0f, 0.0f}, 0.0f, ColorAlpha(WHITE, 0.95f));
+    else
+        DrawRectangleRec(panel, ColorAlpha(BLACK, 0.5f));
+
+    float textX = panel.x + padding;
+    float textY = panel.y + padding;
+    DrawText(infoLine, (int)textX, (int)textY, mainFont, textPrimary);
+
+    textY += mainFont + 6.0f;
+    Color warpColor = (warp > 1.0f) ? textAccent : textSecondary;
+    DrawText(warpLine, (int)textX, (int)textY, secondaryFont, warpColor);
+
+    textY += secondaryFont + 6.0f;
+    DrawText(statsLine, (int)textX, (int)textY, secondaryFont, textSecondary);
 }
