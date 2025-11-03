@@ -32,6 +32,10 @@ static int        s_biomeTileCounts[BIO_MAX];
 static float      s_biomeAvgFertility[BIO_MAX];
 static float      s_biomeAvgHumidity[BIO_MAX];
 static float      s_biomeAvgTemperature[BIO_MAX];
+static int        s_currentDayIndex     = 1;
+static float      s_currentTimeOfDay    = 0.0f;
+static float      s_currentSecondsPerDay = 600.0f;
+static float      s_lastStepSeconds     = 0.0f;
 
 static const char* season_to_string(SeasonKind season)
 {
@@ -268,10 +272,14 @@ void world_time_init(WorldTime* t)
     t->timeOfDay       = 0.0f;
     t->currentDay      = 1;
     t->season          = SEASON_SPRING;
-    t->timeWarpIndex   = 0;
-    t->lastDeltaSeconds = 0.0f;
+   t->timeWarpIndex   = 0;
+   t->lastDeltaSeconds = 0.0f;
 
     s_currentDarkness = 0.0f;
+    s_currentDayIndex     = t->currentDay;
+    s_currentTimeOfDay    = t->timeOfDay;
+    s_currentSecondsPerDay = t->secondsPerDay;
+    s_lastStepSeconds     = 0.0f;
     s_countsReady     = false;
     s_avgFertility    = 0.0f;
     s_avgHumidity     = 0.0f;
@@ -314,6 +322,7 @@ void world_time_update(WorldTime* t, float deltaTime)
     float timeScale = world_time_get_timewarp_multiplier(t);
     float scaledDelta  = deltaTime * timeScale;
     t->lastDeltaSeconds = scaledDelta;
+    s_lastStepSeconds   = scaledDelta;
 
     if (t->secondsPerDay <= 0.0f)
         t->secondsPerDay = 600.0f;
@@ -331,7 +340,10 @@ void world_time_update(WorldTime* t, float deltaTime)
     if (t->timeOfDay < 0.0f)
         t->timeOfDay += 1.0f;
 
-    s_currentDarkness = compute_darkness(t);
+    s_currentDarkness    = compute_darkness(t);
+    s_currentDayIndex     = t->currentDay;
+    s_currentTimeOfDay    = t->timeOfDay;
+    s_currentSecondsPerDay = t->secondsPerDay;
 
     for (int i = 0; i < TILE_MAX; ++i)
         tileTypes[i].darkness = s_currentDarkness;
@@ -390,6 +402,26 @@ void world_apply_season_effects(Map* map, const WorldTime* t)
 float world_time_get_darkness(void)
 {
     return s_currentDarkness;
+}
+
+int world_time_get_current_day(void)
+{
+    return s_currentDayIndex;
+}
+
+float world_time_get_time_of_day(void)
+{
+    return s_currentTimeOfDay;
+}
+
+float world_time_get_seconds_per_day(void)
+{
+    return s_currentSecondsPerDay;
+}
+
+float world_time_get_last_step_seconds(void)
+{
+    return s_lastStepSeconds;
 }
 
 void world_time_draw_ui(const WorldTime* t, const Map* map, const Camera2D* camera)

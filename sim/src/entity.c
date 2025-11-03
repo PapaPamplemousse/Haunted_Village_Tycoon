@@ -905,6 +905,9 @@ void entity_system_draw(const EntitySystem* sys)
             };
             DrawLineV(e->position, facing, DARKGREEN);
         }
+
+        if (entity_type_has_trait(type, "cannibal"))
+            cannibal_draw_overlay(e);
     }
 }
 

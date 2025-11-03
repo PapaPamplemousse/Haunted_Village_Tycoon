@@ -59,23 +59,23 @@ bool ui_theme_init(const char* atlasPath)
     SetTextureWrap(G_THEME.atlas, TEXTURE_WRAP_CLAMP);
 
     // --- Panels -----------------------------------------------------------------
-    G_THEME.panelLarge  = make_npatch_custom((Rectangle){193, 196, 92, 117}, 22, 26, 22, 26);
-    G_THEME.panelMedium = make_npatch_custom((Rectangle){836, 9, 88, 80}, 18, 20, 18, 20);
-    G_THEME.panelSmall  = make_npatch_custom((Rectangle){208, 515, 96, 60}, 18, 20, 18, 20);
+    G_THEME.panelLarge  = make_npatch_custom((Rectangle){932, 289, 86, 76}, 22, 26, 22, 26);
+    G_THEME.panelMedium = make_npatch_custom((Rectangle){932, 370, 59, 76}, 18, 20, 18, 20);
+    G_THEME.panelSmall  = make_npatch_custom((Rectangle){897, 241, 44, 92}, 18, 20, 18, 20);
 
     // --- Buttons ----------------------------------------------------------------
-    G_THEME.buttonNormal  = make_npatch_custom((Rectangle){163, 4, 90, 27}, 18, 10, 18, 10);
-    G_THEME.buttonHover   = make_npatch_custom((Rectangle){163, 35, 90, 27}, 18, 10, 18, 10);
-    G_THEME.buttonPressed = make_npatch_custom((Rectangle){162, 67, 90, 27}, 18, 10, 18, 10);
+    G_THEME.buttonNormal  = make_npatch_custom((Rectangle){163, 100, 90, 27}, 18, 10, 18, 10);
+    G_THEME.buttonHover   = make_npatch_custom((Rectangle){163, 100, 90, 27}, 18, 10, 18, 10);
+    G_THEME.buttonPressed = make_npatch_custom((Rectangle){162, 130, 90, 27}, 18, 10, 18, 10);
 
     // --- Tabs -------------------------------------------------------------------
     G_THEME.tabActive   = make_npatch_custom((Rectangle){260, 6, 90, 25}, 16, 8, 16, 8);
     G_THEME.tabInactive = make_npatch_custom((Rectangle){260, 37, 90, 25}, 16, 8, 16, 8);
 
     // --- Frames / Highlights ----------------------------------------------------
-    G_THEME.slotFrame     = (Rectangle){320, 512, 32, 32};
+    G_THEME.slotFrame     = (Rectangle){516, 324, 23, 24};
     G_THEME.tileHighlight = (Rectangle){516, 324, 23, 24};
-    G_THEME.badgeRound    = (Rectangle){615, 8, 48, 16};
+    G_THEME.badgeRound    = (Rectangle){615, 39, 48, 16};
 
     // --- Palette ----------------------------------------------------------------
     G_THEME.textPrimary   = (Color){235, 214, 214, 255};

@@ -13,10 +13,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SLOT_SIZE         40.0f
-#define SLOT_MARGIN        8.0f
+#define SLOT_SIZE 40.0f
+#define SLOT_MARGIN 8.0f
 #define MAX_SLOTS_PER_ROW 10
-#define INVENTORY_TABS     3
+#define INVENTORY_TABS 3
 #define SETTINGS_SECTION_COUNT 2
 
 enum
@@ -32,9 +32,9 @@ enum
     SETTINGS_SECTION_KEYS  = 1
 };
 
-static const char* TAB_NAMES[INVENTORY_TABS] = {"Tuiles", "Objets", "Entités"};
+static const char* TAB_NAMES[INVENTORY_TABS]              = {"Tuiles", "Objets", "Entités"};
 static const char* SETTINGS_NAMES[SETTINGS_SECTION_COUNT] = {"Audio", "Commandes"};
-static const char* PAUSE_BUTTONS[] = {"Continuer", "Réglages", "Quitter"};
+static const char* PAUSE_BUTTONS[]                        = {"Continuer", "Réglages", "Quitter"};
 
 typedef struct UiState
 {
@@ -125,29 +125,29 @@ static bool is_modal_open(void)
 
 static Rectangle pause_panel_rect(void)
 {
-    const int screenW = GetScreenWidth();
-    const int screenH = GetScreenHeight();
-    const float width  = fminf(420.0f, screenW - 140.0f);
-    const float height = 280.0f;
-    Rectangle rect = {(screenW - width) * 0.5f, (screenH - height) * 0.5f, width, height};
+    const int   screenW = GetScreenWidth();
+    const int   screenH = GetScreenHeight();
+    const float width   = fminf(420.0f, screenW - 140.0f);
+    const float height  = 280.0f;
+    Rectangle   rect    = {(screenW - width) * 0.5f, (screenH - height) * 0.5f, width, height};
     return rect;
 }
 
 static Rectangle settings_panel_rect(void)
 {
-    const int screenW = GetScreenWidth();
-    const int screenH = GetScreenHeight();
-    const float width  = fminf(560.0f, screenW - 160.0f);
-    const float height = fminf(500.0f, screenH - 160.0f);
-    Rectangle rect = {(screenW - width) * 0.5f, (screenH - height) * 0.5f, width, height};
+    const int   screenW = GetScreenWidth();
+    const int   screenH = GetScreenHeight();
+    const float width   = fminf(560.0f, screenW - 160.0f);
+    const float height  = fminf(500.0f, screenH - 160.0f);
+    Rectangle   rect    = {(screenW - width) * 0.5f, (screenH - height) * 0.5f, width, height};
     return rect;
 }
 
 static void draw_text_centered(const char* text, Rectangle area, int fontSize, Color color)
 {
-    int textWidth = MeasureText(text, fontSize);
-    float x = area.x + (area.width - (float)textWidth) * 0.5f;
-    float y = area.y + (area.height - (float)fontSize) * 0.5f;
+    int   textWidth = MeasureText(text, fontSize);
+    float x         = area.x + (area.width - (float)textWidth) * 0.5f;
+    float y         = area.y + (area.height - (float)fontSize) * 0.5f;
     DrawText(text, (int)x, (int)y, fontSize, color);
 }
 
@@ -157,15 +157,15 @@ static bool draw_button(Rectangle bounds, const char* label, bool enabled)
     if (!ui || !ui_theme_is_ready())
         return false;
 
-    Vector2 mouse    = GetMousePosition();
-    bool    hovered  = CheckCollisionPointRec(mouse, bounds);
-    bool    pressed  = hovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
-    bool    clicked  = hovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
-    Color   tint     = WHITE;
-    const NPatchInfo* source = &ui->buttonNormal;
+    Vector2           mouse   = GetMousePosition();
+    bool              hovered = CheckCollisionPointRec(mouse, bounds);
+    bool              pressed = hovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+    bool              clicked = hovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
+    Color             tint    = WHITE;
+    const NPatchInfo* source  = &ui->buttonNormal;
     if (!enabled)
     {
-        tint   = ColorAlpha(ui->textSecondary, 0.5f);
+        tint    = ColorAlpha(ui->textSecondary, 0.5f);
         hovered = false;
         pressed = false;
         clicked = false;
@@ -177,10 +177,10 @@ static bool draw_button(Rectangle bounds, const char* label, bool enabled)
 
     DrawTextureNPatch(ui->atlas, *source, bounds, (Vector2){0.0f, 0.0f}, 0.0f, tint);
 
-    int fontSize  = 22;
-    int textWidth = MeasureText(label, fontSize);
-    float textX   = bounds.x + (bounds.width - textWidth) * 0.5f;
-    float textY   = bounds.y + (bounds.height - fontSize) * 0.5f;
+    int   fontSize  = 22;
+    int   textWidth = MeasureText(label, fontSize);
+    float textX     = bounds.x + (bounds.width - textWidth) * 0.5f;
+    float textY     = bounds.y + (bounds.height - fontSize) * 0.5f;
     Color textColor = enabled ? ui->textPrimary : ColorAlpha(ui->textSecondary, 0.7f);
     DrawText(label, (int)textX, (int)textY, fontSize, textColor);
     return enabled && clicked;
@@ -193,13 +193,13 @@ static bool draw_tab(Rectangle bounds, const char* label, bool active)
         return false;
 
     const NPatchInfo* patch = active ? &ui->tabActive : &ui->tabInactive;
-    Color tint = active ? WHITE : ColorAlpha(WHITE, 0.85f);
+    Color             tint  = active ? WHITE : ColorAlpha(WHITE, 0.85f);
     DrawTextureNPatch(ui->atlas, *patch, bounds, (Vector2){0.0f, 0.0f}, 0.0f, tint);
 
-    int fontSize  = 20;
-    int textWidth = MeasureText(label, fontSize);
-    float textX   = bounds.x + (bounds.width - textWidth) * 0.5f;
-    float textY   = bounds.y + (bounds.height - fontSize) * 0.5f;
+    int   fontSize  = 20;
+    int   textWidth = MeasureText(label, fontSize);
+    float textX     = bounds.x + (bounds.width - textWidth) * 0.5f;
+    float textY     = bounds.y + (bounds.height - fontSize) * 0.5f;
     Color textColor = active ? theme()->accentBright : ColorAlpha(theme()->textPrimary, 0.8f);
     DrawText(label, (int)textX, (int)textY, fontSize, textColor);
 
@@ -209,8 +209,8 @@ static bool draw_tab(Rectangle bounds, const char* label, bool active)
 
 static float slot_texture_scale(float srcWidth, float srcHeight)
 {
-    float w = (srcWidth <= 0.0f) ? 1.0f : srcWidth;
-    float h = (srcHeight <= 0.0f) ? 1.0f : srcHeight;
+    float w          = (srcWidth <= 0.0f) ? 1.0f : srcWidth;
+    float h          = (srcHeight <= 0.0f) ? 1.0f : srcHeight;
     float availableW = SLOT_SIZE - 12.0f;
     float availableH = SLOT_SIZE - 12.0f;
     float scale      = fminf(availableW / w, availableH / h);
@@ -243,8 +243,8 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
     const int screenW = GetScreenWidth();
     const int screenH = GetScreenHeight();
 
-    const int totalSlots = inventory_slot_count(entities);
-    const int rows       = (totalSlots > 0) ? (totalSlots + MAX_SLOTS_PER_ROW - 1) / MAX_SLOTS_PER_ROW : 1;
+    const int   totalSlots   = inventory_slot_count(entities);
+    const int   rows         = (totalSlots > 0) ? (totalSlots + MAX_SLOTS_PER_ROW - 1) / MAX_SLOTS_PER_ROW : 1;
     const float headerHeight = 88.0f;
 
     float panelW = SLOT_MARGIN + (SLOT_SIZE + SLOT_MARGIN) * MAX_SLOTS_PER_ROW;
@@ -277,16 +277,16 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
         return;
     }
 
-    Vector2 mouse = GetMousePosition();
-    float gridTop = panel.y + headerHeight;
+    Vector2 mouse   = GetMousePosition();
+    float   gridTop = panel.y + headerHeight;
 
     for (int index = 0; index < totalSlots; ++index)
     {
         int row = index / MAX_SLOTS_PER_ROW;
         int col = index % MAX_SLOTS_PER_ROW;
 
-        float posX = panel.x + SLOT_MARGIN + col * (SLOT_SIZE + SLOT_MARGIN);
-        float posY = gridTop + row * (SLOT_SIZE + SLOT_MARGIN);
+        float     posX = panel.x + SLOT_MARGIN + col * (SLOT_SIZE + SLOT_MARGIN);
+        float     posY = gridTop + row * (SLOT_SIZE + SLOT_MARGIN);
         Rectangle slot = {posX, posY, SLOT_SIZE, SLOT_SIZE};
 
         DrawRectangleRounded(slot, 0.2f, 4, ColorAlpha(ui->textSecondary, 0.15f));
@@ -294,13 +294,13 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
         Rectangle frameDest = {slot.x + 4.0f, slot.y + 4.0f, slot.width - 8.0f, slot.height - 8.0f};
         DrawTexturePro(ui->atlas, ui->slotFrame, frameDest, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 
-        bool hovered = CheckCollisionPointRec(mouse, slot);
+        bool hovered  = CheckCollisionPointRec(mouse, slot);
         bool selected = false;
 
-        Texture2D         texture = {0};
+        Texture2D         texture    = {0};
         bool              hasTexture = false;
-        Rectangle         src = {0};
-        Rectangle         dst = {0};
+        Rectangle         src        = {0};
+        Rectangle         dst        = {0};
         const EntityType* entityType = NULL;
 
         if (g_ui.inventoryTab == TAB_TILES)
@@ -308,14 +308,11 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
             const TileType* tile = get_tile_type((TileTypeID)index);
             if (tile && tile->texture.id != 0)
             {
-                texture    = tile->texture;
-                src        = (Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height};
+                texture     = tile->texture;
+                src         = (Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height};
                 float scale = slot_texture_scale(src.width, src.height);
-                dst = (Rectangle){slot.x + (slot.width - src.width * scale) * 0.5f,
-                                  slot.y + (slot.height - src.height * scale) * 0.5f,
-                                  src.width * scale,
-                                  src.height * scale};
-                hasTexture = true;
+                dst         = (Rectangle){slot.x + (slot.width - src.width * scale) * 0.5f, slot.y + (slot.height - src.height * scale) * 0.5f, src.width * scale, src.height * scale};
+                hasTexture  = true;
             }
             selected = (input->selectedTile == index);
         }
@@ -324,16 +321,13 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
             const ObjectType* obj = get_object_type((ObjectTypeID)index);
             if (obj && obj->texture.id != 0)
             {
-                texture = obj->texture;
-                int frameW = obj->spriteFrameWidth > 0 ? obj->spriteFrameWidth : texture.width;
-                int frameH = obj->spriteFrameHeight > 0 ? obj->spriteFrameHeight : texture.height;
-                src        = (Rectangle){0.0f, 0.0f, (float)frameW, (float)frameH};
+                texture     = obj->texture;
+                int frameW  = obj->spriteFrameWidth > 0 ? obj->spriteFrameWidth : texture.width;
+                int frameH  = obj->spriteFrameHeight > 0 ? obj->spriteFrameHeight : texture.height;
+                src         = (Rectangle){0.0f, 0.0f, (float)frameW, (float)frameH};
                 float scale = slot_texture_scale(src.width, src.height);
-                dst = (Rectangle){slot.x + (slot.width - src.width * scale) * 0.5f,
-                                  slot.y + (slot.height - src.height * scale) * 0.5f,
-                                  src.width * scale,
-                                  src.height * scale};
-                hasTexture = true;
+                dst         = (Rectangle){slot.x + (slot.width - src.width * scale) * 0.5f, slot.y + (slot.height - src.height * scale) * 0.5f, src.width * scale, src.height * scale};
+                hasTexture  = true;
             }
             selected = (input->selectedObject == index);
         }
@@ -345,23 +339,17 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
                 const EntitySprite* sprite = &entityType->sprite;
                 if (sprite->texture.id != 0)
                 {
-                    texture = sprite->texture;
-                    int frameW = sprite->frameWidth > 0 ? sprite->frameWidth : texture.width;
-                    int frameH = sprite->frameHeight > 0 ? sprite->frameHeight : texture.height;
-                    src        = (Rectangle){0.0f, 0.0f, (float)frameW, (float)frameH};
+                    texture     = sprite->texture;
+                    int frameW  = sprite->frameWidth > 0 ? sprite->frameWidth : texture.width;
+                    int frameH  = sprite->frameHeight > 0 ? sprite->frameHeight : texture.height;
+                    src         = (Rectangle){0.0f, 0.0f, (float)frameW, (float)frameH};
                     float scale = slot_texture_scale(src.width, src.height);
-                    dst = (Rectangle){slot.x + (slot.width - src.width * scale) * 0.5f,
-                                      slot.y + (slot.height - src.height * scale) * 0.5f,
-                                      src.width * scale,
-                                      src.height * scale};
-                    hasTexture = true;
+                    dst         = (Rectangle){slot.x + (slot.width - src.width * scale) * 0.5f, slot.y + (slot.height - src.height * scale) * 0.5f, src.width * scale, src.height * scale};
+                    hasTexture  = true;
                 }
                 else
                 {
-                    DrawCircle((int)(slot.x + slot.width * 0.5f),
-                               (int)(slot.y + slot.height * 0.5f),
-                               slot.width * 0.35f,
-                               entityType->tint);
+                    DrawCircle((int)(slot.x + slot.width * 0.5f), (int)(slot.y + slot.height * 0.5f), slot.width * 0.35f, entityType->tint);
                 }
                 selected = (input->selectedEntity == entityType->id);
             }
@@ -411,8 +399,8 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
 
 static void draw_audio_settings(Rectangle content)
 {
-    const UiTheme* ui = theme();
-    const float padding = 6.0f;
+    const UiTheme* ui      = theme();
+    const float    padding = 6.0f;
 
     int groupCount = music_system_get_group_count();
     if (groupCount <= 0)
@@ -422,8 +410,8 @@ static void draw_audio_settings(Rectangle content)
     if (g_ui.selectedGroupIndex < 0)
         g_ui.selectedGroupIndex = 0;
 
-    const float lineHeight = 56.0f;
-    Rectangle volumeLabel  = {content.x, content.y, content.width, 24.0f};
+    const float lineHeight  = 56.0f;
+    Rectangle   volumeLabel = {content.x, content.y, content.width, 24.0f};
     DrawText("Volume maître", (int)volumeLabel.x, (int)volumeLabel.y, 20, ui->textPrimary);
 
     Rectangle slider = {content.x, content.y + 28.0f, content.width - 2 * padding, 10.0f};
@@ -432,22 +420,22 @@ static void draw_audio_settings(Rectangle content)
 
     DrawRectangleRounded(slider, 0.5f, 6, ColorAlpha(ui->textSecondary, 0.25f));
     Rectangle fill = slider;
-    fill.width = fmaxf(0.0f, fminf(slider.width, slider.width * g_ui.masterVolume));
+    fill.width     = fmaxf(0.0f, fminf(slider.width, slider.width * g_ui.masterVolume));
     DrawRectangleRounded(fill, 0.5f, 6, ColorAlpha(ui->accent, 0.7f));
 
-    float knobX = slider.x + slider.width * g_ui.masterVolume;
-    Rectangle knob = {knobX - 6.0f, slider.y - 6.0f, 12.0f, slider.height + 12.0f};
+    float     knobX = slider.x + slider.width * g_ui.masterVolume;
+    Rectangle knob  = {knobX - 6.0f, slider.y - 6.0f, 12.0f, slider.height + 12.0f};
     DrawRectangleRounded(knob, 0.5f, 6, ColorAlpha(ui->accentBright, 0.9f));
 
-    Vector2 mouse = GetMousePosition();
-    bool sliderHover = CheckCollisionPointRec(mouse, sliderHitbox);
+    Vector2 mouse       = GetMousePosition();
+    bool    sliderHover = CheckCollisionPointRec(mouse, sliderHitbox);
     if (!g_ui.volumeDragging && sliderHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         g_ui.volumeDragging = true;
     if (g_ui.volumeDragging)
     {
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {
-            float t = (mouse.x - slider.x) / slider.width;
+            float t           = (mouse.x - slider.x) / slider.width;
             g_ui.masterVolume = fminf(1.0f, fmaxf(0.0f, t));
             music_system_set_master_volume(g_ui.masterVolume);
         }
@@ -461,32 +449,32 @@ static void draw_audio_settings(Rectangle content)
     snprintf(volumeValue, sizeof(volumeValue), "%d %%", (int)roundf(g_ui.masterVolume * 100.0f));
     DrawText(volumeValue, (int)(sliderHitbox.x + sliderHitbox.width + 8.0f), (int)(sliderHitbox.y + 6.0f), 20, ui->textPrimary);
 
-    float controlsTop = content.y + lineHeight + 32.0f;
-    Rectangle labelRect = {content.x, controlsTop, content.width, 24.0f};
+    float     controlsTop = content.y + lineHeight + 32.0f;
+    Rectangle labelRect   = {content.x, controlsTop, content.width, 24.0f};
     DrawText("Boucle de jeu", (int)labelRect.x, (int)labelRect.y, 20, ui->textPrimary);
 
-    Rectangle groupArea = {content.x, controlsTop + 28.0f, content.width, 48.0f};
-    Rectangle prevBtn   = {groupArea.x, groupArea.y, 60.0f, groupArea.height};
-    Rectangle nextBtn   = {groupArea.x + groupArea.width - 60.0f, groupArea.y, 60.0f, groupArea.height};
+    Rectangle groupArea  = {content.x, controlsTop + 28.0f, content.width, 48.0f};
+    Rectangle prevBtn    = {groupArea.x, groupArea.y, 60.0f, groupArea.height};
+    Rectangle nextBtn    = {groupArea.x + groupArea.width - 60.0f, groupArea.y, 60.0f, groupArea.height};
     Rectangle groupLabel = {prevBtn.x + prevBtn.width + 12.0f, groupArea.y, groupArea.width - (prevBtn.width + nextBtn.width + 24.0f), groupArea.height};
 
     if (draw_button(prevBtn, "<", groupCount > 0))
     {
-        int previous = g_ui.selectedGroupIndex;
+        int previous            = g_ui.selectedGroupIndex;
         g_ui.selectedGroupIndex = (g_ui.selectedGroupIndex + groupCount - 1) % groupCount;
         if (!music_system_set_gameplay_group_index(g_ui.selectedGroupIndex, true))
             g_ui.selectedGroupIndex = previous;
     }
     if (draw_button(nextBtn, ">", groupCount > 0))
     {
-        int previous = g_ui.selectedGroupIndex;
+        int previous            = g_ui.selectedGroupIndex;
         g_ui.selectedGroupIndex = (g_ui.selectedGroupIndex + 1) % groupCount;
         if (!music_system_set_gameplay_group_index(g_ui.selectedGroupIndex, true))
             g_ui.selectedGroupIndex = previous;
     }
 
     const char* groupName = music_system_get_group_name(g_ui.selectedGroupIndex);
-    Rectangle labelBg = groupLabel;
+    Rectangle   labelBg   = groupLabel;
     DrawRectangleRounded(labelBg, 0.2f, 4, ColorAlpha(ui->textSecondary, 0.1f));
     draw_text_centered(display_group_name(groupName), labelBg, 22, ui->textPrimary);
 
@@ -497,32 +485,28 @@ static void draw_audio_settings(Rectangle content)
     const char* currentTrack = music_system_get_current_track_name();
     if (!currentTrack)
         currentTrack = "Aucune piste active";
-    DrawText(TextFormat("Actuellement: %s", currentTrack),
-             (int)(content.x),
-             (int)(nextTrackBtn.y + nextTrackBtn.height + 12.0f),
-             18,
-             ui->textSecondary);
+    DrawText(TextFormat("Actuellement: %s", currentTrack), (int)(content.x), (int)(nextTrackBtn.y + nextTrackBtn.height + 12.0f), 18, ui->textSecondary);
 }
 
 static void draw_key_settings(Rectangle content, InputState* input)
 {
-    const UiTheme* ui = theme();
-    const float rowHeight = 54.0f;
+    const UiTheme* ui        = theme();
+    const float    rowHeight = 54.0f;
 
     for (int action = 0; action < INPUT_ACTION_COUNT; ++action)
     {
-        float rowTop = content.y + action * (rowHeight + 6.0f);
-        Rectangle row = {content.x, rowTop, content.width, rowHeight};
+        float     rowTop = content.y + action * (rowHeight + 6.0f);
+        Rectangle row    = {content.x, rowTop, content.width, rowHeight};
         DrawRectangleRounded(row, 0.2f, 4, ColorAlpha(ui->textSecondary, 0.08f));
 
         const char* actionName = input_action_display_name((InputAction)action);
         DrawText(actionName, (int)(row.x + 12.0f), (int)(row.y + 14.0f), 20, ui->textPrimary);
 
-        Rectangle buttonRect = {row.x + row.width - 160.0f, row.y + 6.0f, 150.0f, row.height - 12.0f};
-        KeyboardKey boundKey = input_get_binding(&input->bindings, (InputAction)action);
-        bool capturingThis = g_ui.capturingBinding && g_ui.bindingAction == action;
-        const char* label = capturingThis ? "..." : key_to_text(boundKey);
-        bool clicked = draw_button(buttonRect, label, !g_ui.capturingBinding || capturingThis);
+        Rectangle   buttonRect    = {row.x + row.width - 160.0f, row.y + 6.0f, 150.0f, row.height - 12.0f};
+        KeyboardKey boundKey      = input_get_binding(&input->bindings, (InputAction)action);
+        bool        capturingThis = g_ui.capturingBinding && g_ui.bindingAction == action;
+        const char* label         = capturingThis ? "..." : key_to_text(boundKey);
+        bool        clicked       = draw_button(buttonRect, label, !g_ui.capturingBinding || capturingThis);
 
         if (clicked)
         {
@@ -540,17 +524,17 @@ static void draw_key_settings(Rectangle content, InputState* input)
 
 static void draw_settings(InputState* input)
 {
-    const UiTheme* ui = theme();
-    Rectangle panel = settings_panel_rect();
+    const UiTheme* ui    = theme();
+    Rectangle      panel = settings_panel_rect();
     DrawTextureNPatch(ui->atlas, ui->panelLarge, panel, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 
     Rectangle title = {panel.x, panel.y + 16.0f, panel.width, 32.0f};
     draw_text_centered("Réglages", title, 26, ui->textPrimary);
 
-    float tabWidth = (panel.width - 64.0f) / SETTINGS_SECTION_COUNT;
+    float tabWidth  = (panel.width - 64.0f) / SETTINGS_SECTION_COUNT;
     float tabHeight = 36.0f;
-    float tabX = panel.x + 32.0f;
-    float tabY = panel.y + 62.0f;
+    float tabX      = panel.x + 32.0f;
+    float tabY      = panel.y + 62.0f;
     for (int section = 0; section < SETTINGS_SECTION_COUNT; ++section)
     {
         Rectangle tabRect = {tabX + section * (tabWidth + 12.0f), tabY, tabWidth, tabHeight};
@@ -583,8 +567,8 @@ static void draw_pause_menu(InputState* input)
         return;
     }
 
-    const UiTheme* ui = theme();
-    Rectangle panel = pause_panel_rect();
+    const UiTheme* ui    = theme();
+    Rectangle      panel = pause_panel_rect();
     DrawTextureNPatch(ui->atlas, ui->panelMedium, panel, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 
     Rectangle title = {panel.x, panel.y + 20.0f, panel.width, 40.0f};
@@ -596,17 +580,14 @@ static void draw_pause_menu(InputState* input)
 
     for (int i = 0; i < (int)(sizeof(PAUSE_BUTTONS) / sizeof(PAUSE_BUTTONS[0])); ++i)
     {
-        Rectangle btn = {panel.x + (panel.width - buttonWidth) * 0.5f,
-                         startY + i * (buttonHeight + 16.0f),
-                         buttonWidth,
-                         buttonHeight};
+        Rectangle btn = {panel.x + (panel.width - buttonWidth) * 0.5f, startY + i * (buttonHeight + 16.0f), buttonWidth, buttonHeight};
         if (draw_button(btn, PAUSE_BUTTONS[i], true))
         {
             switch (i)
             {
                 case 0: // Continuer
-                    g_ui.pauseOpen     = false;
-                    g_ui.settingsOpen  = false;
+                    g_ui.pauseOpen      = false;
+                    g_ui.settingsOpen   = false;
                     g_ui.volumeDragging = false;
                     break;
                 case 1: // Réglages
@@ -636,11 +617,7 @@ static void draw_building_hint(const InputState* input)
     const char* keyName   = key_to_text(toggleKey);
 
     char text[128];
-    snprintf(text,
-             sizeof(text),
-             "Noms (%s): %s",
-             keyName,
-             input->showBuildingNames ? "activés" : "désactivés");
+    snprintf(text, sizeof(text), "Noms (%s): %s", keyName, input->showBuildingNames ? "activés" : "désactivés");
 
     Color color = input->showBuildingNames ? ui->accentBright : ui->textSecondary;
     DrawText(text, (int)(badge.x + 12.0f), (int)(badge.y + 12.0f), 20, color);
@@ -651,15 +628,12 @@ static void draw_capture_prompt(void)
     if (!g_ui.capturingBinding)
         return;
 
-    const UiTheme* ui = theme();
-    Rectangle bar = {0.0f, (float)GetScreenHeight() - 70.0f, (float)GetScreenWidth(), 50.0f};
+    const UiTheme* ui  = theme();
+    Rectangle      bar = {0.0f, (float)GetScreenHeight() - 70.0f, (float)GetScreenWidth(), 50.0f};
     DrawRectangleRec(bar, ColorAlpha(BLACK, 0.65f));
 
     char buffer[160];
-    snprintf(buffer,
-             sizeof(buffer),
-             "Appuyez sur une touche pour \"%s\" (clic droit pour annuler)",
-             input_action_display_name(g_ui.bindingAction));
+    snprintf(buffer, sizeof(buffer), "Appuyez sur une touche pour \"%s\" (clic droit pour annuler)", input_action_display_name(g_ui.bindingAction));
 
     draw_text_centered(buffer, bar, 22, ui->textPrimary);
 }
@@ -670,9 +644,9 @@ bool ui_init(const char* atlasPath)
         return false;
 
     memset(&g_ui, 0, sizeof(g_ui));
-    g_ui.inventoryTab        = TAB_TILES;
-    g_ui.masterVolume        = music_system_get_master_volume();
-    g_ui.selectedGroupIndex  = music_system_get_selected_group_index();
+    g_ui.inventoryTab       = TAB_TILES;
+    g_ui.masterVolume       = music_system_get_master_volume();
+    g_ui.selectedGroupIndex = music_system_get_selected_group_index();
     return true;
 }
 

@@ -401,6 +401,11 @@ typedef struct
     int   activationFrameInactive; /**< Frame index (0-based) representing the inactive state. */
     int   activationFrameActive;   /**< Frame index (0-based) representing the active state. */
     float activationFrameTime;     /**< Time per animation frame when toggling states (seconds). */
+
+    const char* activationSoundOnPath;  /**< Optional sound played when the object activates. */
+    const char* activationSoundOffPath; /**< Optional sound played when the object deactivates. */
+    Sound       activationSoundOn;      /**< Loaded activation sound asset (shared per type). */
+    Sound       activationSoundOff;     /**< Loaded deactivation sound asset (shared per type). */
 } ObjectType;
 
 /**

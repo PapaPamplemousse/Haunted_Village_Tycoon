@@ -41,6 +41,37 @@ static char* str_dup(const char* s)
     return copy;
 }
 
+/**
+ * @brief Replaces the contents of a string pointer with a duplicated value.
+ */
+static void assign_string(const char** dst, const char* value)
+{
+    if (!dst)
+        return;
+    if (*dst)
+    {
+        free((void*)(*dst));
+        *dst = NULL;
+    }
+    *dst = str_dup(value);
+}
+
+/**
+ * @brief Normalizes string values that may be wrapped in quotes.
+ */
+static void normalize_path_value(char* value)
+{
+    if (!value)
+        return;
+    trim(value);
+    size_t len = strlen(value);
+    if (len >= 2 && value[0] == '"' && value[len - 1] == '"')
+    {
+        value[len - 1] = '\0';
+        memmove(value, value + 1, len - 1);
+    }
+}
+
 static void finalize_object_definition(ObjectType* obj,
                                        int          walkableOnRaw,
                                        int          walkableOffRaw,
@@ -253,15 +284,24 @@ int load_objects_from_stv(const char* path, ObjectType* outArray, int maxObjects
                 parse_color(value, &current.color);
             else if (strcmp(key, "texture") == 0)
             {
-                trim(value);
-
-                if (value[0] == '"' && value[strlen(value) - 1] == '"')
-                {
-                    value[strlen(value) - 1] = '\0';
-                    memmove(value, value + 1, strlen(value));
-                }
-
-                current.texturePath = str_dup(value);
+                normalize_path_value(value);
+                assign_string(&current.texturePath, value);
+            }
+            else if (strcmp(key, "activation_sound") == 0 || strcmp(key, "activation_sound_both") == 0)
+            {
+                normalize_path_value(value);
+                assign_string(&current.activationSoundOnPath, value);
+                assign_string(&current.activationSoundOffPath, value);
+            }
+            else if (strcmp(key, "activation_sound_on") == 0 || strcmp(key, "activation_sound_enable") == 0)
+            {
+                normalize_path_value(value);
+                assign_string(&current.activationSoundOnPath, value);
+            }
+            else if (strcmp(key, "activation_sound_off") == 0 || strcmp(key, "activation_sound_disable") == 0)
+            {
+                normalize_path_value(value);
+                assign_string(&current.activationSoundOffPath, value);
             }
         }
     }

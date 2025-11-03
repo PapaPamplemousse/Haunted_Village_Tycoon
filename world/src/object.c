@@ -22,6 +22,15 @@ static ObjectType G_OBJECT_TYPES[OBJ_COUNT] = {0};
 static Object*    G_DYNAMIC_OBJECTS         = NULL;
 static bool       G_ENVIRONMENT_DIRTY       = true;
 
+static void unload_object_sound(Sound* sound);
+
+#ifndef PlaySoundMulti
+static inline void PlaySoundMulti(Sound sound)
+{
+    PlaySound(sound);
+}
+#endif
+
 static bool object_type_is_dynamic(const ObjectType* type)
 {
     if (!type)
@@ -413,6 +422,45 @@ static void finalize_sprite_info(ObjectType* type)
         type->activationFrameTime = 0.12f;
 }
 
+static void load_object_sound(ObjectType* type, const char* path, Sound* out)
+{
+    if (!type || !path || !out)
+        return;
+    if (path[0] == '\0')
+        return;
+
+    if (!IsAudioDeviceReady())
+        InitAudioDevice();
+    if (!IsAudioDeviceReady())
+        return;
+
+    if (!FileExists(path))
+    {
+        TraceLog(LOG_WARNING, "[OBJECT] Missing activation sound '%s' for object '%s'", path, type->name ? type->name : "(unnamed)");
+        return;
+    }
+
+    Sound sound = LoadSound(path);
+    if (!sound.stream.buffer)
+    {
+        TraceLog(LOG_WARNING, "[OBJECT] Failed to load activation sound '%s' for object '%s'", path, type->name ? type->name : "(unnamed)");
+        return;
+    }
+
+    *out = sound;
+}
+
+static void unload_object_sound(Sound* sound)
+{
+    if (!sound)
+        return;
+    if (sound->stream.buffer)
+    {
+        UnloadSound(*sound);
+        *sound = (Sound){0};
+    }
+}
+
 void init_objects(void)
 {
     G_DYNAMIC_OBJECTS = NULL;
@@ -422,6 +470,10 @@ void init_objects(void)
     {
         if (G_OBJECT_TYPES[i].texturePath != NULL)
             G_OBJECT_TYPES[i].texture = LoadTexture(G_OBJECT_TYPES[i].texturePath);
+        if (G_OBJECT_TYPES[i].activationSoundOnPath && !G_OBJECT_TYPES[i].activationSoundOn.stream.buffer)
+            load_object_sound(&G_OBJECT_TYPES[i], G_OBJECT_TYPES[i].activationSoundOnPath, &G_OBJECT_TYPES[i].activationSoundOn);
+        if (G_OBJECT_TYPES[i].activationSoundOffPath && !G_OBJECT_TYPES[i].activationSoundOff.stream.buffer)
+            load_object_sound(&G_OBJECT_TYPES[i], G_OBJECT_TYPES[i].activationSoundOffPath, &G_OBJECT_TYPES[i].activationSoundOff);
         finalize_sprite_info(&G_OBJECT_TYPES[i]);
     }
     debug_print_objects(G_OBJECT_TYPES, OBJ_COUNT);
@@ -433,6 +485,8 @@ void unload_object_textures(void)
     {
         if (G_OBJECT_TYPES[i].texturePath != NULL)
             UnloadTexture(G_OBJECT_TYPES[i].texture);
+        unload_object_sound(&G_OBJECT_TYPES[i].activationSoundOn);
+        unload_object_sound(&G_OBJECT_TYPES[i].activationSoundOff);
     }
     G_DYNAMIC_OBJECTS = NULL;
 }
@@ -569,6 +623,24 @@ bool object_set_active(Object* obj, bool active)
 
     obj->isActive = active;
     object_start_animation(obj);
+    if (obj->type)
+    {
+        const Sound* sound = active ? &obj->type->activationSoundOn : &obj->type->activationSoundOff;
+        if (!sound || !sound->stream.buffer)
+        {
+            if (obj->type->activationSoundOn.stream.buffer)
+                sound = &obj->type->activationSoundOn;
+            else if (obj->type->activationSoundOff.stream.buffer)
+                sound = &obj->type->activationSoundOff;
+        }
+        if (sound && sound->stream.buffer)
+        {
+            if (!IsAudioDeviceReady())
+                InitAudioDevice();
+            if (IsAudioDeviceReady())
+                PlaySoundMulti(*sound);
+        }
+    }
     G_ENVIRONMENT_DIRTY = true;
     return true;
 }
