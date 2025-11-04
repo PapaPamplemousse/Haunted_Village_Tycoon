@@ -8,6 +8,7 @@
 #include "tile.h"
 #include "object.h"
 #include "music.h"
+#include "localization.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -17,7 +18,7 @@
 #define SLOT_MARGIN 8.0f
 #define MAX_SLOTS_PER_ROW 10
 #define INVENTORY_TABS 3
-#define SETTINGS_SECTION_COUNT 2
+#define SETTINGS_SECTION_COUNT 3
 
 enum
 {
@@ -28,13 +29,28 @@ enum
 
 enum
 {
-    SETTINGS_SECTION_AUDIO = 0,
-    SETTINGS_SECTION_KEYS  = 1
+    SETTINGS_SECTION_AUDIO   = 0,
+    SETTINGS_SECTION_KEYS    = 1,
+    SETTINGS_SECTION_GENERAL = 2
 };
 
-static const char* TAB_NAMES[INVENTORY_TABS]              = {"Tuiles", "Objets", "Entités"};
-static const char* SETTINGS_NAMES[SETTINGS_SECTION_COUNT] = {"Audio", "Commandes"};
-static const char* PAUSE_BUTTONS[]                        = {"Continuer", "Réglages", "Quitter"};
+static const char* TAB_KEYS[INVENTORY_TABS] = {
+    "ui.inventory.tab.tiles",
+    "ui.inventory.tab.objects",
+    "ui.inventory.tab.entities",
+};
+
+static const char* SETTINGS_TAB_KEYS[SETTINGS_SECTION_COUNT] = {
+    "ui.settings.tab.audio",
+    "ui.settings.tab.keys",
+    "ui.settings.tab.general",
+};
+
+static const char* PAUSE_BUTTON_KEYS[] = {
+    "ui.pause.resume",
+    "ui.pause.settings",
+    "ui.pause.quit",
+};
 
 typedef struct UiState
 {
@@ -60,7 +76,13 @@ static inline const UiTheme* theme(void)
 
 static const char* display_group_name(const char* name)
 {
-    return (name && name[0] != '\0') ? name : "Tous";
+    if (!name || name[0] == '\0')
+        return localization_get("ui.music.group.all");
+
+    char key[96];
+    snprintf(key, sizeof(key), "ui.music.group.%s", name);
+    const char* translated = localization_try(key);
+    return translated ? translated : name;
 }
 
 static const char* key_to_text(KeyboardKey key)
@@ -68,17 +90,17 @@ static const char* key_to_text(KeyboardKey key)
     switch (key)
     {
         case KEY_NULL:
-            return "Aucun";
+            return localization_get("key.none");
         case KEY_SPACE:
-            return "Espace";
+            return localization_get("key.space");
         case KEY_ENTER:
-            return "Entrée";
+            return localization_get("key.enter");
         case KEY_TAB:
-            return "Tab";
+            return localization_get("key.tab");
         case KEY_BACKSPACE:
-            return "Retour";
+            return localization_get("key.backspace");
         case KEY_ESCAPE:
-            return "Echap";
+            return localization_get("key.escape");
         case KEY_LEFT:
             return "←";
         case KEY_RIGHT:
@@ -89,13 +111,13 @@ static const char* key_to_text(KeyboardKey key)
             return "↓";
         case KEY_LEFT_SHIFT:
         case KEY_RIGHT_SHIFT:
-            return "Shift";
+            return localization_get("key.shift");
         case KEY_LEFT_CONTROL:
         case KEY_RIGHT_CONTROL:
-            return "Ctrl";
+            return localization_get("key.ctrl");
         case KEY_LEFT_ALT:
         case KEY_RIGHT_ALT:
-            return "Alt";
+            return localization_get("key.alt");
         default:
             break;
     }
@@ -261,19 +283,20 @@ static void draw_inventory(InputState* input, const EntitySystem* entities)
     for (int i = 0; i < INVENTORY_TABS; ++i)
     {
         Rectangle tabRect = {tabX + i * (tabWidth + 8.0f), tabY, tabWidth, tabHeight};
-        if (draw_tab(tabRect, TAB_NAMES[i], g_ui.inventoryTab == i))
+        const char* label = localization_get(TAB_KEYS[i]);
+        if (draw_tab(tabRect, label, g_ui.inventoryTab == i))
         {
             g_ui.inventoryTab = i;
         }
     }
 
     Rectangle titleArea = {panel.x, tabY + tabHeight + 4.0f, panel.width, 28.0f};
-    draw_text_centered("Inventaire", titleArea, 24, ui->textPrimary);
+    draw_text_centered(localization_get("ui.inventory.title"), titleArea, 24, ui->textPrimary);
 
     if (totalSlots <= 0)
     {
         Rectangle message = {panel.x, panel.y + headerHeight + 20.0f, panel.width, 40.0f};
-        draw_text_centered("Aucune entrée disponible", message, 20, ui->textSecondary);
+        draw_text_centered(localization_get("ui.inventory.empty"), message, 20, ui->textSecondary);
         return;
     }
 
@@ -412,7 +435,7 @@ static void draw_audio_settings(Rectangle content)
 
     const float lineHeight  = 56.0f;
     Rectangle   volumeLabel = {content.x, content.y, content.width, 24.0f};
-    DrawText("Volume maître", (int)volumeLabel.x, (int)volumeLabel.y, 20, ui->textPrimary);
+    DrawText(localization_get("ui.settings.audio.master_volume"), (int)volumeLabel.x, (int)volumeLabel.y, 20, ui->textPrimary);
 
     Rectangle slider = {content.x, content.y + 28.0f, content.width - 2 * padding, 10.0f};
     slider.x += padding;
@@ -451,7 +474,7 @@ static void draw_audio_settings(Rectangle content)
 
     float     controlsTop = content.y + lineHeight + 32.0f;
     Rectangle labelRect   = {content.x, controlsTop, content.width, 24.0f};
-    DrawText("Boucle de jeu", (int)labelRect.x, (int)labelRect.y, 20, ui->textPrimary);
+    DrawText(localization_get("ui.settings.audio.loop_label"), (int)labelRect.x, (int)labelRect.y, 20, ui->textPrimary);
 
     Rectangle groupArea  = {content.x, controlsTop + 28.0f, content.width, 48.0f};
     Rectangle prevBtn    = {groupArea.x, groupArea.y, 60.0f, groupArea.height};
@@ -479,13 +502,16 @@ static void draw_audio_settings(Rectangle content)
     draw_text_centered(display_group_name(groupName), labelBg, 22, ui->textPrimary);
 
     Rectangle nextTrackBtn = {content.x, groupArea.y + groupArea.height + 16.0f, content.width * 0.45f, 44.0f};
-    if (draw_button(nextTrackBtn, "Piste suivante", true))
+    if (draw_button(nextTrackBtn, localization_get("ui.settings.audio.next_track"), true))
         music_system_force_next(MUSIC_TRANSITION_CROSSFADE, 1.0f);
 
     const char* currentTrack = music_system_get_current_track_name();
     if (!currentTrack)
-        currentTrack = "Aucune piste active";
-    DrawText(TextFormat("Actuellement: %s", currentTrack), (int)(content.x), (int)(nextTrackBtn.y + nextTrackBtn.height + 12.0f), 18, ui->textSecondary);
+        currentTrack = localization_get("ui.settings.audio.no_track");
+
+    char currentLine[256];
+    snprintf(currentLine, sizeof(currentLine), localization_get("ui.settings.audio.current_track"), currentTrack);
+    DrawText(currentLine, (int)(content.x), (int)(nextTrackBtn.y + nextTrackBtn.height + 12.0f), 18, ui->textSecondary);
 }
 
 static void draw_key_settings(Rectangle content, InputState* input)
@@ -516,9 +542,50 @@ static void draw_key_settings(Rectangle content, InputState* input)
     }
 
     Rectangle resetBtn = {content.x, content.y + INPUT_ACTION_COUNT * (rowHeight + 6.0f) + 16.0f, 260.0f, 46.0f};
-    if (draw_button(resetBtn, "Remettre par défaut", !g_ui.capturingBinding))
+    if (draw_button(resetBtn, localization_get("ui.settings.keys.reset"), !g_ui.capturingBinding))
     {
         input_bindings_reset_default(&input->bindings);
+    }
+}
+
+static void draw_general_settings(Rectangle content)
+{
+    const UiTheme* ui = theme();
+
+    int count = 0;
+    const LocalizationLanguage* languages = localization_languages(&count);
+    const char*                 current   = localization_current_language();
+
+    const char* title = localization_get("ui.settings.language.title");
+    DrawText(title, (int)content.x, (int)content.y, 20, ui->textPrimary);
+
+    const char* hint = localization_get("ui.settings.language.hint");
+    if (hint && hint[0] != '\0' && strcmp(hint, "ui.settings.language.hint") != 0)
+    {
+        DrawText(hint, (int)content.x, (int)(content.y + 26.0f), 16, ui->textSecondary);
+    }
+
+    const float buttonHeight = 44.0f;
+    const float spacing      = 12.0f;
+    float       startY       = content.y + 48.0f;
+
+    for (int i = 0; i < count; ++i)
+    {
+        Rectangle btn = {content.x, startY + i * (buttonHeight + spacing), content.width, buttonHeight};
+        const char* code     = languages[i].code;
+        const char* langName = localization_get(languages[i].label_key);
+        char        label[96];
+        bool        active = (strcmp(current, code) == 0);
+        if (active)
+            snprintf(label, sizeof(label), "%s ✓", langName);
+        else
+            snprintf(label, sizeof(label), "%s", langName);
+
+        if (draw_button(btn, label, true) && !active)
+        {
+            if (localization_set_language(code))
+                current = localization_current_language();
+        }
     }
 }
 
@@ -529,7 +596,7 @@ static void draw_settings(InputState* input)
     DrawTextureNPatch(ui->atlas, ui->panelLarge, panel, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 
     Rectangle title = {panel.x, panel.y + 16.0f, panel.width, 32.0f};
-    draw_text_centered("Réglages", title, 26, ui->textPrimary);
+    draw_text_centered(localization_get("ui.settings.title"), title, 26, ui->textPrimary);
 
     float tabWidth  = (panel.width - 64.0f) / SETTINGS_SECTION_COUNT;
     float tabHeight = 36.0f;
@@ -538,7 +605,8 @@ static void draw_settings(InputState* input)
     for (int section = 0; section < SETTINGS_SECTION_COUNT; ++section)
     {
         Rectangle tabRect = {tabX + section * (tabWidth + 12.0f), tabY, tabWidth, tabHeight};
-        if (draw_tab(tabRect, SETTINGS_NAMES[section], g_ui.settingsSection == section))
+        const char* tabLabel = localization_get(SETTINGS_TAB_KEYS[section]);
+        if (draw_tab(tabRect, tabLabel, g_ui.settingsSection == section))
             g_ui.settingsSection = section;
     }
 
@@ -546,11 +614,13 @@ static void draw_settings(InputState* input)
 
     if (g_ui.settingsSection == SETTINGS_SECTION_AUDIO)
         draw_audio_settings(content);
-    else
+    else if (g_ui.settingsSection == SETTINGS_SECTION_KEYS)
         draw_key_settings(content, input);
+    else
+        draw_general_settings(content);
 
     Rectangle backBtn = {panel.x + panel.width - 180.0f, panel.y + panel.height - 64.0f, 160.0f, 46.0f};
-    if (draw_button(backBtn, "Retour", !g_ui.capturingBinding))
+    if (draw_button(backBtn, localization_get("ui.settings.back"), !g_ui.capturingBinding))
     {
         g_ui.settingsOpen   = false;
         g_ui.volumeDragging = false;
@@ -572,16 +642,17 @@ static void draw_pause_menu(InputState* input)
     DrawTextureNPatch(ui->atlas, ui->panelMedium, panel, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 
     Rectangle title = {panel.x, panel.y + 20.0f, panel.width, 40.0f};
-    draw_text_centered("Pause", title, 30, ui->textPrimary);
+    draw_text_centered(localization_get("ui.pause.title"), title, 30, ui->textPrimary);
 
     float buttonWidth  = panel.width - 80.0f;
     float buttonHeight = 52.0f;
     float startY       = panel.y + 80.0f;
 
-    for (int i = 0; i < (int)(sizeof(PAUSE_BUTTONS) / sizeof(PAUSE_BUTTONS[0])); ++i)
+    for (int i = 0; i < (int)(sizeof(PAUSE_BUTTON_KEYS) / sizeof(PAUSE_BUTTON_KEYS[0])); ++i)
     {
         Rectangle btn = {panel.x + (panel.width - buttonWidth) * 0.5f, startY + i * (buttonHeight + 16.0f), buttonWidth, buttonHeight};
-        if (draw_button(btn, PAUSE_BUTTONS[i], true))
+        const char* label = localization_get(PAUSE_BUTTON_KEYS[i]);
+        if (draw_button(btn, label, true))
         {
             switch (i)
             {
@@ -616,8 +687,11 @@ static void draw_building_hint(const InputState* input)
     KeyboardKey toggleKey = input_get_binding(&input->bindings, INPUT_ACTION_TOGGLE_BUILDING_NAMES);
     const char* keyName   = key_to_text(toggleKey);
 
+    const char* stateKey = input->showBuildingNames ? "state.enabled" : "state.disabled";
+    const char* state    = localization_get(stateKey);
+
     char text[128];
-    snprintf(text, sizeof(text), "Noms (%s): %s", keyName, input->showBuildingNames ? "activés" : "désactivés");
+    snprintf(text, sizeof(text), localization_get("ui.hint.building_names"), keyName, state);
 
     Color color = input->showBuildingNames ? ui->accentBright : ui->textSecondary;
     DrawText(text, (int)(badge.x + 12.0f), (int)(badge.y + 12.0f), 20, color);
@@ -633,7 +707,7 @@ static void draw_capture_prompt(void)
     DrawRectangleRec(bar, ColorAlpha(BLACK, 0.65f));
 
     char buffer[160];
-    snprintf(buffer, sizeof(buffer), "Appuyez sur une touche pour \"%s\" (clic droit pour annuler)", input_action_display_name(g_ui.bindingAction));
+    snprintf(buffer, sizeof(buffer), localization_get("ui.bindings.capture_prompt"), input_action_display_name(g_ui.bindingAction));
 
     draw_text_centered(buffer, bar, 22, ui->textPrimary);
 }

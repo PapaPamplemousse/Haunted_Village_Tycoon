@@ -9,6 +9,7 @@
 #include <raylib.h>
 #include <stdio.h>
 #include "ui.h"
+#include "localization.h"
 
 #define MAX_TILES (TILE_MAX)
 #define MAX_OBJECTS (OBJ_COUNT)
@@ -57,21 +58,21 @@ const char* input_action_display_name(InputAction action)
     switch (action)
     {
         case INPUT_ACTION_MOVE_UP:
-            return "Monter";
+            return localization_get("input.action.move_up");
         case INPUT_ACTION_MOVE_DOWN:
-            return "Descendre";
+            return localization_get("input.action.move_down");
         case INPUT_ACTION_MOVE_LEFT:
-            return "Aller à gauche";
+            return localization_get("input.action.move_left");
         case INPUT_ACTION_MOVE_RIGHT:
-            return "Aller à droite";
+            return localization_get("input.action.move_right");
         case INPUT_ACTION_TOGGLE_INVENTORY:
-            return "Inventaire";
+            return localization_get("input.action.toggle_inventory");
         case INPUT_ACTION_TOGGLE_BUILDING_NAMES:
-            return "Noms des bâtiments";
+            return localization_get("input.action.toggle_building_names");
         case INPUT_ACTION_TOGGLE_PAUSE:
-            return "Pause";
+            return localization_get("input.action.toggle_pause");
         default:
-            return "Inconnu";
+            return localization_get("input.action.unknown");
     }
 }
 

@@ -1,0 +1,157 @@
+# UI
+language.fr = Français
+language.en = Anglais
+
+ui.inventory.tab.tiles = Tuiles
+ui.inventory.tab.objects = Objets
+ui.inventory.tab.entities = Entités
+ui.inventory.title = Inventaire
+ui.inventory.empty = Aucune entrée disponible
+
+ui.settings.title = Réglages
+ui.settings.tab.audio = Audio
+ui.settings.tab.keys = Commandes
+ui.settings.tab.general = Général
+ui.settings.back = Retour
+ui.settings.keys.reset = Remettre par défaut
+ui.settings.language.title = Langue
+ui.settings.language.hint = Le changement de langue s'applique immédiatement.
+
+ui.settings.audio.master_volume = Volume maître
+ui.settings.audio.loop_label = Boucle de jeu
+ui.settings.audio.next_track = Piste suivante
+ui.settings.audio.no_track = Aucune piste active
+ui.settings.audio.current_track = Actuellement : %s
+
+ui.pause.title = Pause
+ui.pause.resume = Continuer
+ui.pause.settings = Réglages
+ui.pause.quit = Quitter
+
+ui.music.group.all = Tous
+ui.music.group.gameplay = Boucle de jeu
+
+ui.hint.building_names = Noms (%s) : %s
+ui.bindings.capture_prompt = Appuyez sur une touche pour "%s" (clic droit pour annuler)
+
+# States
+state.enabled = activés
+state.disabled = désactivés
+
+# Input actions
+input.action.move_up = Monter
+input.action.move_down = Descendre
+input.action.move_left = Aller à gauche
+input.action.move_right = Aller à droite
+input.action.toggle_inventory = Inventaire
+input.action.toggle_building_names = Noms des bâtiments
+input.action.toggle_pause = Pause
+input.action.unknown = Inconnu
+
+# Key labels
+key.none = Aucun
+key.space = Espace
+key.enter = Entrée
+key.tab = Tab
+key.backspace = Retour
+key.escape = Échap
+key.shift = Maj
+key.ctrl = Ctrl
+key.alt = Alt
+
+# Buildings overlay
+structure.generic = Structure
+buildings.aura_line = Aura : %s (rayon %.1f, intensité %.1f)
+buildings.residents_line = Habitants : %d/%d (min %d, max %d) %s
+buildings.residents_fallback = habitants
+
+# Structure translations
+structure.HUT_CANNIBAL.name = Hutte cannibale
+structure.HUT_CANNIBAL.aura_name = Odeur de chair
+structure.HUT_CANNIBAL.aura_description = La fumée putride dérange quiconque s'approche.
+structure.HUT_CANNIBAL.occupant_description = Pilleurs cannibales
+structure.HUT_CANNIBAL.trigger_description = Abrite 1 à 3 pilleurs cannibales qui tendent des embuscades.
+
+structure.CANNIBAL_LONGHOUSE.name = Longère cannibale
+structure.CANNIBAL_LONGHOUSE.aura_name = Conseil de guerre
+structure.CANNIBAL_LONGHOUSE.aura_description = Des stratèges y préparent des raids sous des bannières ensanglantées.
+structure.CANNIBAL_LONGHOUSE.occupant_description = Chef cannibale
+structure.CANNIBAL_LONGHOUSE.trigger_description = Ancre un camp de guerre cannibale autour de son chef.
+
+structure.CANNIBAL_COOK_TENT.name = Tente du boucher
+structure.CANNIBAL_COOK_TENT.aura_name = Arôme maladif
+structure.CANNIBAL_COOK_TENT.aura_description = Une fumée coagulée trahit des festins macabres.
+structure.CANNIBAL_COOK_TENT.occupant_description = Boucher cannibale
+structure.CANNIBAL_COOK_TENT.trigger_description = Des cuisiniers y préparent des trophées pour les rituels.
+
+structure.CANNIBAL_SHAMAN_HUT.name = Hutte du chamane
+structure.CANNIBAL_SHAMAN_HUT.aura_name = Rituel sanguin
+structure.CANNIBAL_SHAMAN_HUT.aura_description = Chants et maléfices troublent l'esprit des intrus.
+structure.CANNIBAL_SHAMAN_HUT.occupant_description = Chamane cannibale
+structure.CANNIBAL_SHAMAN_HUT.trigger_description = Les chamanes y tissent des hexes pour renforcer leurs clans.
+
+structure.CANNIBAL_BONE_PIT.name = Fosse d'ossements
+structure.CANNIBAL_BONE_PIT.aura_name = Champ de trophées
+structure.CANNIBAL_BONE_PIT.aura_description = Des montagnes d'ossements vibrent d'une énergie frénétique.
+structure.CANNIBAL_BONE_PIT.occupant_description = Gardiens berserks
+structure.CANNIBAL_BONE_PIT.trigger_description = Des berserks enragés gardent la fosse macabre.
+
+structure.CRYPT.name = Crypte
+structure.CRYPT.aura_name = Froid de la tombe
+structure.CRYPT.aura_description = Des murmures glacés volent courage et chaleur.
+structure.CRYPT.occupant_description = Morts agités
+structure.CRYPT.trigger_description = Libère des sentinelles mortes-vivantes des profondeurs.
+
+structure.RUIN.name = Ruine
+structure.RUIN.aura_name = Échos persistants
+structure.RUIN.aura_description = Des murmures anxieux hantent la pierre brisée.
+structure.RUIN.occupant_description = Abandonné
+structure.RUIN.trigger_description = Offre une ambiance inquiétante sans défenseurs.
+
+structure.VILLAGE_HOUSE.name = Maison de village
+structure.VILLAGE_HOUSE.aura_name = Âtre fané
+structure.VILLAGE_HOUSE.aura_description = Une vieille chaleur subsiste sans réel réconfort.
+structure.VILLAGE_HOUSE.occupant_description = Abri vacant
+structure.VILLAGE_HOUSE.trigger_description = Fournit un refuge sûr sans habitants.
+
+structure.TEMPLE.name = Temple
+structure.TEMPLE.aura_name = Chant zélé
+structure.TEMPLE.aura_description = Les chants résonnent et exaltent le fanatisme.
+structure.TEMPLE.occupant_description = Gardiens fanatiques
+structure.TEMPLE.trigger_description = Appelle des zélotes pour défendre le sanctuaire.
+
+structure.WITCH_HOVEL.name = Taudis de sorcière
+structure.WITCH_HOVEL.aura_name = Vapeurs ensorcelées
+structure.WITCH_HOVEL.aura_description = Des fumées toxiques rongent volonté et raison.
+structure.WITCH_HOVEL.occupant_description = Dévots occultistes
+structure.WITCH_HOVEL.trigger_description = Rassemble des occultistes qui concoctent des maléfices.
+
+structure.GALLOWS.name = Gibet
+structure.GALLOWS.aura_name = Terreur persistante
+structure.GALLOWS.aura_description = Le souvenir des exécutions glace les survivants.
+structure.GALLOWS.occupant_description = Échafaud désolé
+structure.GALLOWS.trigger_description = Répand la crainte qui mine le moral près des exécutions.
+
+structure.BLOOD_GARDEN.name = Jardin de sang
+structure.BLOOD_GARDEN.aura_name = Floraison sanglante
+structure.BLOOD_GARDEN.aura_description = Des spores cramoisies galvanisent les morts-vivants.
+structure.BLOOD_GARDEN.occupant_description = Marcheurs ivres de sang
+structure.BLOOD_GARDEN.trigger_description = Fait éclore des gardiens morts-vivants nourris par le jardin.
+
+structure.FLESH_PIT.name = Fosse de chair
+structure.FLESH_PIT.aura_name = Fièvre sanguine
+structure.FLESH_PIT.aura_description = Une mare stagnante engendre une fièvre malsaine.
+structure.FLESH_PIT.occupant_description = Bouchers et serviteurs
+structure.FLESH_PIT.trigger_description = Fait surgir des bouchers cannibales qui gardent la fosse.
+
+structure.VOID_OBELISK.name = Obélisque du vide
+structure.VOID_OBELISK.aura_name = Résonance du vide
+structure.VOID_OBELISK.aura_description = Un bourdonnement sourd sape le courage et attire les ténèbres.
+structure.VOID_OBELISK.occupant_description = Monolithe dormant
+structure.VOID_OBELISK.trigger_description = Émet des pulsations du vide qui renforcent les occultistes.
+
+structure.PLAGUE_NURSERY.name = Nurserie de peste
+structure.PLAGUE_NURSERY.aura_name = Spores pestilentielles
+structure.PLAGUE_NURSERY.aura_description = Un miasme infecte les poumons et fortifie les maudits.
+structure.PLAGUE_NURSERY.occupant_description = Loques pestiférées
+structure.PLAGUE_NURSERY.trigger_description = Fait éclore des carcasses infectées issues de cocons.

@@ -23,6 +23,8 @@
 #include "entity.h"
 #include "world_time.h"
 #include "music.h"
+#include "world_structures.h"
+#include "localization.h"
 // -----------------------------------------------------------------------------
 // Global world data
 // -----------------------------------------------------------------------------
@@ -73,6 +75,54 @@ static Rectangle rect_union(Rectangle a, Rectangle b)
     return result;
 }
 
+static const char* fallback_text(const char* text)
+{
+    return (text && text[0] != '\0') ? text : NULL;
+}
+
+static StructureKind resolve_structure_kind(const Building* building)
+{
+    if (!building)
+        return STRUCT_COUNT;
+    if (building->structureDef)
+        return building->structureDef->kind;
+    return building->structureKind;
+}
+
+static const char* localized_structure_field(StructureKind kind, const char* field, const char* fallback)
+{
+    if (kind >= 0 && kind < STRUCT_COUNT)
+    {
+        const char* token = structure_kind_to_string(kind);
+        if (token && token[0] != '\0')
+        {
+            char key[128];
+            snprintf(key, sizeof(key), "structure.%s.%s", token, field);
+            const char* value = localization_try(key);
+            if (value)
+                return value;
+        }
+    }
+    return fallback;
+}
+
+static const char* building_display_name(const Building* building)
+{
+    const char* fallback = NULL;
+    if (building)
+    {
+        if (building->name[0] != '\0')
+            fallback = building->name;
+        else if (building->structureDef && building->structureDef->name[0] != '\0')
+            fallback = building->structureDef->name;
+    }
+
+    const char* text = localized_structure_field(resolve_structure_kind(building), "name", fallback);
+    if (text && text[0] != '\0')
+        return text;
+    return localization_get("structure.generic");
+}
+
 /**
  * @brief Initializes the rendering context and all gameplay systems.
  */
@@ -81,6 +131,9 @@ static void app_init(void)
     const int      screenWidth  = 1280;
     const int      screenHeight = 720;
     const uint64_t seed         = 0x12042023; // 0xA1B2C3D4u;
+
+    if (!localization_init(NULL))
+        TraceLog(LOG_WARNING, "Localization system failed to initialize, falling back to keys.");
 
     // Prepare the rendering window and the frame pacing.
     // SetConfigFlags(FLAG_FULLSCREEN_MODE);
@@ -263,13 +316,13 @@ static void app_draw_world(void)
 
         if (G_INPUT.showBuildingNames)
         {
-            const char* displayName = (b->name[0] != '\0') ? b->name : "Structure";
-            const UiTheme* ui = ui_theme_get();
-            int labelWidth = MeasureText(displayName, 12);
-            if (ui && ui_theme_is_ready())
+            const UiTheme* uiTheme    = ui_theme_get();
+            const char*    displayName = building_display_name(b);
+            int            labelWidth  = MeasureText(displayName, 12);
+            if (uiTheme && ui_theme_is_ready())
             {
                 Rectangle labelRect = {(float)textX - 6.0f, (float)textY - 4.0f, (float)labelWidth + 12.0f, 18.0f};
-                DrawRectangleRounded(labelRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.75f));
+                DrawRectangleRounded(labelRect, 0.2f, 4, ColorAlpha(uiTheme->overlayDim, 0.75f));
             }
             else
             {
@@ -278,61 +331,74 @@ static void app_draw_world(void)
             }
             DrawText(displayName, textX, textY, 12, WHITE);
 
-            int infoY = textY + 18;
-            if (b->structureDef)
+            int            infoY = textY + 18;
+            StructureKind  kind  = resolve_structure_kind(b);
+            const UiTheme* uiPtr  = uiTheme;
+
+            const char* auraName = localized_structure_field(kind, "aura_name", fallback_text(b->auraName));
+            if (auraName && auraName[0])
             {
-                if (b->auraName[0])
-                {
-                    char auraLine[160];
-                    snprintf(auraLine, sizeof(auraLine), "Aura: %s (r=%.1f, pwr=%.1f)", b->auraName, b->auraRadius, b->auraIntensity);
-                    int auraWidth = MeasureText(auraLine, 10);
-                    Rectangle auraRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)auraWidth + 12.0f, 16.0f};
-                    if (ui && ui_theme_is_ready())
-                        DrawRectangleRounded(auraRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.6f));
-                    else
-                        DrawRectangleRounded(auraRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
-                    DrawText(auraLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
-                    infoY += 16;
+                char auraLine[160];
+                snprintf(auraLine, sizeof(auraLine), localization_get("buildings.aura_line"), auraName, b->auraRadius, b->auraIntensity);
+                int auraWidth = MeasureText(auraLine, 10);
+                Rectangle auraRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)auraWidth + 12.0f, 16.0f};
+                if (uiPtr && ui_theme_is_ready())
+                    DrawRectangleRounded(auraRect, 0.2f, 4, ColorAlpha(uiPtr->overlayDim, 0.6f));
+                else
+                    DrawRectangleRounded(auraRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
+                DrawText(auraLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
+                infoY += 16;
 
-                    if (b->auraDescription[0])
-                    {
-                        int auraDescWidth = MeasureText(b->auraDescription, 9);
-                        Rectangle descRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)auraDescWidth + 12.0f, 14.0f};
-                        if (ui && ui_theme_is_ready())
-                            DrawRectangleRounded(descRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.55f));
-                        else
-                            DrawRectangleRounded(descRect, 0.2f, 4, ColorAlpha(BLACK, 0.45f));
-                        DrawText(b->auraDescription, textX, infoY, 9, ColorAlpha(WHITE, 0.75f));
-                        infoY += 14;
-                    }
-                }
-
-                if (b->occupantType > ENTITY_TYPE_INVALID && b->occupantMax > 0)
+                const char* auraDesc = localized_structure_field(kind, "aura_description", fallback_text(b->auraDescription));
+                if (auraDesc && auraDesc[0])
                 {
-                    char occLine[160];
-                    snprintf(occLine, sizeof(occLine), "Residents: %d/%d (min %d, max %d) %s", b->occupantActive, b->occupantCurrent, b->occupantMin, b->occupantMax,
-                             b->occupantDescription[0] ? b->occupantDescription : "residents");
-                    int occWidth = MeasureText(occLine, 10);
-                    Rectangle occRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)occWidth + 12.0f, 16.0f};
-                    if (ui && ui_theme_is_ready())
-                        DrawRectangleRounded(occRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.6f));
+                    int auraDescWidth = MeasureText(auraDesc, 9);
+                    Rectangle descRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)auraDescWidth + 12.0f, 14.0f};
+                    if (uiPtr && ui_theme_is_ready())
+                        DrawRectangleRounded(descRect, 0.2f, 4, ColorAlpha(uiPtr->overlayDim, 0.55f));
                     else
-                        DrawRectangleRounded(occRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
-                    DrawText(occLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
-                    infoY += 16;
+                        DrawRectangleRounded(descRect, 0.2f, 4, ColorAlpha(BLACK, 0.45f));
+                    DrawText(auraDesc, textX, infoY, 9, ColorAlpha(WHITE, 0.75f));
+                    infoY += 14;
                 }
+            }
 
-                if (b->triggerDescription[0])
-                {
-                    int triggerWidth = MeasureText(b->triggerDescription, 10);
-                    Rectangle triggerRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)triggerWidth + 12.0f, 16.0f};
-                    if (ui && ui_theme_is_ready())
-                        DrawRectangleRounded(triggerRect, 0.2f, 4, ColorAlpha(ui->overlayDim, 0.6f));
-                    else
-                        DrawRectangleRounded(triggerRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
-                    DrawText(b->triggerDescription, textX, infoY, 10, ColorAlpha(WHITE, 0.85f));
-                    infoY += 16;
-                }
+            if (b->occupantType > ENTITY_TYPE_INVALID && b->occupantMax > 0)
+            {
+                const char* occLabel = localized_structure_field(kind, "occupant_description", fallback_text(b->occupantDescription));
+                if (!occLabel || occLabel[0] == '\0')
+                    occLabel = localization_get("buildings.residents_fallback");
+
+                char occLine[160];
+                snprintf(occLine,
+                         sizeof(occLine),
+                         localization_get("buildings.residents_line"),
+                         b->occupantActive,
+                         b->occupantCurrent,
+                         b->occupantMin,
+                         b->occupantMax,
+                         occLabel);
+                int occWidth = MeasureText(occLine, 10);
+                Rectangle occRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)occWidth + 12.0f, 16.0f};
+                if (uiPtr && ui_theme_is_ready())
+                    DrawRectangleRounded(occRect, 0.2f, 4, ColorAlpha(uiPtr->overlayDim, 0.6f));
+                else
+                    DrawRectangleRounded(occRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
+                DrawText(occLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
+                infoY += 16;
+            }
+
+            const char* triggerText = localized_structure_field(kind, "trigger_description", fallback_text(b->triggerDescription));
+            if (triggerText && triggerText[0])
+            {
+                int triggerWidth = MeasureText(triggerText, 10);
+                Rectangle triggerRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)triggerWidth + 12.0f, 16.0f};
+                if (uiPtr && ui_theme_is_ready())
+                    DrawRectangleRounded(triggerRect, 0.2f, 4, ColorAlpha(uiPtr->overlayDim, 0.6f));
+                else
+                    DrawRectangleRounded(triggerRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
+                DrawText(triggerText, textX, infoY, 10, ColorAlpha(WHITE, 0.85f));
+                infoY += 16;
             }
         }
     }
@@ -386,6 +452,8 @@ static void app_cleanup(void)
 
     music_system_shutdown();
     ui_shutdown();
+
+    localization_shutdown();
 
     CloseWindow();
 }
