@@ -8,10 +8,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "building.h"
+#include "entity.h"
+#include "pantry.h"
 #include "tile.h"
 #include "object.h"
 #include "world_structures.h"
-#include "entity.h"
 
 /* ===========================================
  * Structures
@@ -34,8 +35,11 @@ static int      gNextBuildingId = 1;
 
 static unsigned int gVisitedStamp[MAP_HEIGHT][MAP_WIDTH];
 static unsigned int gVisitedGeneration = 1;
+static int          gStructureVillageIds[MAP_HEIGHT][MAP_WIDTH];
+static int          gStructureSpeciesIds[MAP_HEIGHT][MAP_WIDTH];
 
-int building_generated_count(void)
+static bool building_residents_reserve(Building* b, int minCapacity);
+int         building_generated_count(void)
 {
     return gGeneratedCount;
 }
@@ -106,6 +110,154 @@ void building_on_reservation_hibernate(int buildingId)
         b->occupantActive = 0;
 }
 
+void building_add_resident(Building* b, Entity* e)
+{
+    if (!b || !e)
+        return;
+
+    for (int i = 0; i < b->residentCount; ++i)
+    {
+        if (b->residents[i] == e->id)
+            return;
+    }
+
+    if (!building_residents_reserve(b, b->residentCount + 1))
+        return;
+
+    b->residents[b->residentCount++] = e->id;
+
+    e->homeBuildingId = b->id;
+    e->home           = (Vector2){b->center.x * TILE_SIZE, b->center.y * TILE_SIZE};
+    e->villageId      = b->villageId;
+}
+
+void building_remove_resident(Building* b, uint16_t entityId)
+{
+    if (!b || b->residentCount <= 0)
+        return;
+
+    for (int i = 0; i < b->residentCount; ++i)
+    {
+        if (b->residents[i] != entityId)
+            continue;
+        if (i < b->residentCount - 1)
+            memmove(&b->residents[i], &b->residents[i + 1], (size_t)(b->residentCount - i - 1) * sizeof(uint16_t));
+        b->residentCount--;
+        if (b->occupantActive > 0)
+            b->occupantActive--;
+        break;
+    }
+}
+
+int building_active_residents(const Building* b, const EntitySystem* sys)
+{
+    if (!b || !sys)
+        return 0;
+    int count = 0;
+    for (int i = 0; i < b->residentCount; ++i)
+    {
+        uint16_t id          = b->residents[i];
+        const Entity* entity = entity_get(sys, id);
+        if (entity && entity->active)
+            count++;
+    }
+    return count;
+}
+
+Building* building_get_at_tile(int tileX, int tileY)
+{
+    int total = building_total_count();
+    for (int i = 0; i < total; ++i)
+    {
+        Building* b = building_get_mutable(i);
+        if (!b)
+            continue;
+
+        int startX = (int)floorf(b->bounds.x);
+        int startY = (int)floorf(b->bounds.y);
+        int endX   = (int)ceilf(b->bounds.x + b->bounds.width);
+        int endY   = (int)ceilf(b->bounds.y + b->bounds.height);
+
+        if (tileX >= startX && tileX < endX && tileY >= startY && tileY < endY)
+            return b;
+    }
+    return NULL;
+}
+
+void building_debug_print(const Building* b, const EntitySystem* sys)
+{
+    if (!b)
+    {
+        printf("[BUILDING] No building at this location.\n");
+        return;
+    }
+
+    int active = building_active_residents(b, sys);
+
+    printf("=========== BUILDING DEBUG ===========\n");
+    printf("ID: %d  Kind: %d  Name: %s\n", b->id, b->structureKind, b->name[0] ? b->name : "(unnamed)");
+    printf("Bounds: (%.1f, %.1f, %.1f, %.1f)\n", b->bounds.x, b->bounds.y, b->bounds.width, b->bounds.height);
+    printf("Residents: active=%d stored=%d min=%d max=%d target=%d\n", active, b->residentCount, b->occupantMin, b->occupantMax, b->occupantCurrent);
+    printf("OccupantType: %d SpeciesId: %d VillageId: %d Pantry: %s\n", b->occupantType, b->speciesId, b->villageId, b->hasPantry ? "yes" : "no");
+
+    if (sys)
+    {
+        for (int i = 0; i < b->residentCount; ++i)
+        {
+            uint16_t     id  = b->residents[i];
+            const Entity* ent = entity_get(sys, id);
+            if (!ent)
+            {
+                printf("  - Slot %d -> entity %u (missing)\n", i, id);
+                continue;
+            }
+
+            const EntityType* type = ent->type;
+            printf("  - Slot %d -> entity %u (%s) active=%d hunger=%.1f home=%d\n", i, ent->id, type ? type->identifier : "(unknown)", ent->active, ent->hunger, ent->homeBuildingId);
+        }
+    }
+
+    if (b->hasPantry)
+    {
+        Pantry* pantry = pantry_get_for_building(b->id);
+        if (pantry)
+        {
+            printf("  Pantry contents: meat=%d plant=%d capacity=%d\n", pantry->counts[PANTRY_ITEM_MEAT], pantry->counts[PANTRY_ITEM_PLANT], pantry->capacity);
+        }
+        else
+        {
+            printf("  Pantry contents: <none>\n");
+        }
+    }
+
+    printf("======================================\n");
+}
+
+Building* entity_get_home(const Entity* e)
+{
+    if (!e || e->homeBuildingId < 0)
+        return NULL;
+    return building_get_mutable(e->homeBuildingId);
+}
+
+Building* building_get_for_species(const char* species, int villageId)
+{
+    int speciesId = entity_species_id_from_label(species);
+    int total     = building_total_count();
+    for (int i = 0; i < total; ++i)
+    {
+        Building* b = building_get_mutable(i);
+        if (!b)
+            continue;
+        if (speciesId > 0 && b->speciesId != speciesId)
+            continue;
+        if (villageId >= 0 && b->villageId != villageId)
+            continue;
+        return b;
+    }
+    return NULL;
+}
+
 static inline bool rectangles_overlap(Rectangle a, Rectangle b)
 {
     if (a.width <= 0.0f || a.height <= 0.0f || b.width <= 0.0f || b.height <= 0.0f)
@@ -128,12 +280,23 @@ static void release_building(Building* b)
     if (!b)
         return;
 
+    if (b->hasPantry || b->pantryId >= 0)
+        pantry_remove(b->id);
+
     if (b->objects)
     {
         free(b->objects);
         b->objects = NULL;
     }
     b->objectCount = 0;
+
+    if (b->residents)
+    {
+        free(b->residents);
+        b->residents = NULL;
+    }
+    b->residentCount    = 0;
+    b->residentCapacity = 0;
 }
 
 static void reset_building_list(Building* list, int* count, int maxEntries)
@@ -148,6 +311,26 @@ static void reset_building_list(Building* list, int* count, int maxEntries)
 
     memset(list, 0, sizeof(Building) * (size_t)maxEntries);
     *count = 0;
+}
+
+static bool building_residents_reserve(Building* b, int minCapacity)
+{
+    if (!b)
+        return false;
+    if (b->residentCapacity >= minCapacity)
+        return true;
+
+    int newCap = (b->residentCapacity > 0) ? b->residentCapacity * 2 : 4;
+    if (newCap < minCapacity)
+        newCap = minCapacity;
+
+    uint16_t* data = (uint16_t*)realloc(b->residents, (size_t)newCap * sizeof(uint16_t));
+    if (!data)
+        return false;
+
+    b->residents        = data;
+    b->residentCapacity = newCap;
+    return true;
 }
 
 static void remove_buildings_in_region(Building* list, int* count, Rectangle tileRegion)
@@ -241,15 +424,17 @@ static StructureKind gStructureMarkers[MAP_HEIGHT][MAP_WIDTH];
 void building_clear_structure_markers(void)
 {
     for (int y = 0; y < MAP_HEIGHT; ++y)
+    {
         for (int x = 0; x < MAP_WIDTH; ++x)
-            gStructureMarkers[y][x] = STRUCT_COUNT;
+        {
+            gStructureMarkers[y][x]    = STRUCT_COUNT;
+            gStructureVillageIds[y][x] = -1;
+            gStructureSpeciesIds[y][x] = 0;
+        }
+    }
 }
 
-static FloodResult perform_flood_fill(Map* map,
-                                      int  sx,
-                                      int  sy,
-                                      unsigned int stamp,
-                                      unsigned int visited[MAP_HEIGHT][MAP_WIDTH])
+static FloodResult perform_flood_fill(Map* map, int sx, int sy, unsigned int stamp, unsigned int visited[MAP_HEIGHT][MAP_WIDTH])
 {
     FloodResult res = {0};
 
@@ -386,6 +571,106 @@ static bool is_valid_building_area(const FloodResult* r)
 /* ===========================================
  * 4. Initialization and collection
  * =========================================== */
+static void infer_structure_metadata_from_markers(const FloodResult* res, int* outSpeciesId, int* outVillageId)
+{
+    if (outSpeciesId)
+        *outSpeciesId = 0;
+    if (outVillageId)
+        *outVillageId = -1;
+    if (!res)
+        return;
+
+    int speciesIds[STRUCTURE_MAX_RESIDENT_ROLES]   = {0};
+    int speciesVotes[STRUCTURE_MAX_RESIDENT_ROLES] = {0};
+    int speciesCount                               = 0;
+    int villageIds[STRUCTURE_MAX_RESIDENT_ROLES]   = {0};
+    int villageVotes[STRUCTURE_MAX_RESIDENT_ROLES] = {0};
+    int villageCount                               = 0;
+
+    for (int ty = (int)res->bounds.y; ty < res->bounds.y + res->bounds.height; ++ty)
+    {
+        if (ty < 0 || ty >= MAP_HEIGHT)
+            continue;
+        for (int tx = (int)res->bounds.x; tx < res->bounds.x + res->bounds.width; ++tx)
+        {
+            if (tx < 0 || tx >= MAP_WIDTH)
+                continue;
+
+            int sid = gStructureSpeciesIds[ty][tx];
+            if (sid > 0)
+            {
+                bool found = false;
+                for (int i = 0; i < speciesCount; ++i)
+                {
+                    if (speciesIds[i] == sid)
+                    {
+                        speciesVotes[i]++;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found && speciesCount < STRUCTURE_MAX_RESIDENT_ROLES)
+                {
+                    speciesIds[speciesCount]   = sid;
+                    speciesVotes[speciesCount] = 1;
+                    speciesCount++;
+                }
+            }
+
+            int vid = gStructureVillageIds[ty][tx];
+            if (vid >= 0)
+            {
+                bool found = false;
+                for (int i = 0; i < villageCount; ++i)
+                {
+                    if (villageIds[i] == vid)
+                    {
+                        villageVotes[i]++;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found && villageCount < STRUCTURE_MAX_RESIDENT_ROLES)
+                {
+                    villageIds[villageCount]   = vid;
+                    villageVotes[villageCount] = 1;
+                    villageCount++;
+                }
+            }
+        }
+    }
+
+    if (outSpeciesId && speciesCount > 0)
+    {
+        int bestVote = 0;
+        int bestId   = 0;
+        for (int i = 0; i < speciesCount; ++i)
+        {
+            if (speciesVotes[i] > bestVote)
+            {
+                bestVote = speciesVotes[i];
+                bestId   = speciesIds[i];
+            }
+        }
+        *outSpeciesId = bestId;
+    }
+
+    if (outVillageId && villageCount > 0)
+    {
+        int bestVote = 0;
+        int bestId   = -1;
+        for (int i = 0; i < villageCount; ++i)
+        {
+            if (villageVotes[i] > bestVote)
+            {
+                bestVote = villageVotes[i];
+                bestId   = villageIds[i];
+            }
+        }
+        *outVillageId = bestId;
+    }
+}
+
 static int compute_structure_resident_count(const StructureDef* def, int id, const FloodResult* res)
 {
     if (!def || def->occupantType <= ENTITY_TYPE_INVALID)
@@ -397,8 +682,7 @@ static int compute_structure_resident_count(const StructureDef* def, int id, con
     if (span <= 0)
         return def->occupantMin;
 
-    unsigned int seed = (unsigned int)(id * 73856093u) ^ (unsigned int)(res->bounds.x * 19349663u) ^
-                        (unsigned int)(res->bounds.y * 83492791u);
+    unsigned int seed = (unsigned int)(id * 73856093u) ^ (unsigned int)(res->bounds.x * 19349663u) ^ (unsigned int)(res->bounds.y * 83492791u);
     return def->occupantMin + (int)(seed % (unsigned int)(span + 1));
 }
 
@@ -408,10 +692,10 @@ static StructureKind infer_marker_kind(const FloodResult* res)
         return STRUCT_COUNT;
 
     int counts[STRUCT_COUNT] = {0};
-    int startX              = (int)res->bounds.x + 1;
-    int endX                = (int)(res->bounds.x + res->bounds.width) - 1;
-    int startY              = (int)res->bounds.y + 1;
-    int endY                = (int)(res->bounds.y + res->bounds.height) - 1;
+    int startX               = (int)res->bounds.x + 1;
+    int endX                 = (int)(res->bounds.x + res->bounds.width) - 1;
+    int startY               = (int)res->bounds.y + 1;
+    int endY                 = (int)(res->bounds.y + res->bounds.height) - 1;
 
     if (startX < 0)
         startX = 0;
@@ -448,16 +732,31 @@ static StructureKind infer_marker_kind(const FloodResult* res)
 
 static void init_building_structure(Building* b, int id, const FloodResult* res, StructureKind kind)
 {
-    b->id            = id;
-    b->bounds        = res->bounds;
-    b->area          = res->area;
-    b->center        = (Vector2){res->bounds.x + res->bounds.width / 2.0f, res->bounds.y + res->bounds.height / 2.0f};
-    b->objectCount   = 0;
-    b->objects       = NULL;
-    b->roomTypeId    = ROOM_NONE;
-    b->structureKind = kind;
+    b->id                   = id;
+    b->bounds               = res->bounds;
+    b->area                 = res->area;
+    b->center               = (Vector2){res->bounds.x + res->bounds.width / 2.0f, res->bounds.y + res->bounds.height / 2.0f};
+    b->objectCount          = 0;
+    b->objects              = NULL;
+    b->roomTypeId           = ROOM_NONE;
+    b->structureKind        = kind;
+    b->speciesId            = 0;
+    b->species[0]           = '\0';
+    b->villageId            = -1;
+    b->hasPantry            = false;
+    b->pantryCapacity       = 0;
+    b->pantryId             = -1;
+    b->roleCount            = 0;
+    b->residents            = NULL;
+    b->residentCount        = 0;
+    b->residentCapacity     = 0;
     const StructureDef* def = (kind >= 0 && kind < STRUCT_COUNT) ? get_structure_def(kind) : NULL;
     b->structureDef         = def;
+
+    int inferredSpecies = 0;
+    int inferredVillage = -1;
+    infer_structure_metadata_from_markers(res, &inferredSpecies, &inferredVillage);
+
     if (def)
     {
         const char* displayName = (def->name[0] != '\0') ? def->name : structure_kind_to_string(def->kind);
@@ -474,31 +773,62 @@ static void init_building_structure(Building* b, int id, const FloodResult* res,
         b->occupantCurrent = compute_structure_resident_count(def, id, res);
         b->occupantActive  = 0;
         b->isGenerated     = true;
+        if (def->speciesId > 0)
+            b->speciesId = def->speciesId;
+        else if (def->species[0] != '\0')
+            b->speciesId = entity_species_id_from_label(def->species);
+        else if (inferredSpecies > 0)
+            b->speciesId = inferredSpecies;
+        if (def->species[0] != '\0')
+            snprintf(b->species, sizeof(b->species), "%s", def->species);
+        b->villageId      = inferredVillage;
+        b->hasPantry      = def->hasPantry;
+        b->pantryCapacity = def->pantryCapacity;
+        b->roleCount      = (def->roleCount > STRUCTURE_MAX_RESIDENT_ROLES) ? STRUCTURE_MAX_RESIDENT_ROLES : def->roleCount;
+        for (int i = 0; i < b->roleCount; ++i)
+            snprintf(b->roles[i], sizeof(b->roles[i]), "%s", def->roles[i]);
+
+        if (b->structureKind == STRUCT_HUT_CANNIBAL)
+        {
+            b->occupantMin      = 2;
+            b->occupantMax      = 2;
+            b->occupantCurrent  = 2;
+            b->occupantActive   = 0;
+        }
     }
     else
     {
-        b->structureDef = NULL;
-        b->name[0]      = '\0';
-        b->auraName[0]  = '\0';
-        b->auraDescription[0] = '\0';
-        b->auraRadius       = 0.0f;
-        b->auraIntensity    = 0.0f;
-        b->occupantType     = ENTITY_TYPE_INVALID;
-        b->occupantMin      = 0;
-        b->occupantMax      = 0;
-        b->occupantCurrent  = 0;
-        b->occupantActive   = 0;
+        b->structureDef           = NULL;
+        b->name[0]                = '\0';
+        b->auraName[0]            = '\0';
+        b->auraDescription[0]     = '\0';
+        b->auraRadius             = 0.0f;
+        b->auraIntensity          = 0.0f;
+        b->occupantType           = ENTITY_TYPE_INVALID;
+        b->occupantMin            = 0;
+        b->occupantMax            = 0;
+        b->occupantCurrent        = 0;
+        b->occupantActive         = 0;
         b->occupantDescription[0] = '\0';
         b->triggerDescription[0]  = '\0';
-        b->isGenerated             = false;
+        b->isGenerated            = false;
+    }
+
+    if (b->speciesId == 0 && inferredSpecies > 0)
+        b->speciesId = inferredSpecies;
+    if (b->speciesId == 0 && b->species[0] != '\0')
+        b->speciesId = entity_species_id_from_label(b->species);
+    if (b->villageId < 0)
+        b->villageId = inferredVillage;
+    if (b->hasPantry)
+    {
+        Pantry* pantry = pantry_create_or_get(b->id, b->pantryCapacity);
+        if (pantry)
+            b->pantryId = pantry->id;
     }
 }
 
-static void collect_building_objects(Map* map,
-                                     Building* b,
-                                     const FloodResult* res,
-                                     unsigned int stamp,
-                                     unsigned int visited[MAP_HEIGHT][MAP_WIDTH])
+static void collect_building_objects(Map* map, Building* b, const FloodResult* res, unsigned int stamp, unsigned int visited[MAP_HEIGHT][MAP_WIDTH])
 {
     Object** temp_objects    = (Object**)malloc(res->area * sizeof(Object*));
     int      collected_count = 0;
@@ -601,6 +931,8 @@ void update_building_detection(Map* map, Rectangle worldRegion)
         reset_building_list(gGeneratedBuildings, &gGeneratedCount, MAX_GENERATED_BUILDINGS);
         reset_building_list(gPlayerBuildings, &gPlayerCount, MAX_PLAYER_BUILDINGS);
         gNextBuildingId = 1;
+        pantry_system_reset();
+        building_clear_structure_markers();
     }
     else
     {
@@ -635,7 +967,7 @@ void update_building_detection(Map* map, Rectangle worldRegion)
             if (!is_valid_building_area(&res))
                 continue;
 
-            StructureKind kind       = infer_marker_kind(&res);
+            StructureKind kind        = infer_marker_kind(&res);
             bool          isGenerated = (kind >= 0 && kind < STRUCT_COUNT);
 
             Building* b = NULL;
@@ -661,23 +993,48 @@ void update_building_detection(Map* map, Rectangle worldRegion)
             const StructureDef* detected = analyze_building_type(b);
             if (detected)
             {
-                b->roomTypeId = detected->roomId;
-                if (!b->structureDef)
+                b->structureDef   = detected;
+                b->structureKind  = detected->kind;
+                b->roomTypeId     = detected->roomId;
+                b->auraRadius     = detected->auraRadius;
+                b->auraIntensity  = detected->auraIntensity;
+                snprintf(b->auraName, sizeof(b->auraName), "%s", detected->auraName);
+                snprintf(b->auraDescription, sizeof(b->auraDescription), "%s", detected->auraDescription);
+                b->occupantType = detected->occupantType;
+                b->occupantMin  = detected->occupantMin;
+                b->occupantMax  = detected->occupantMax;
+                snprintf(b->occupantDescription, sizeof(b->occupantDescription), "%s", detected->occupantDescription);
+                snprintf(b->triggerDescription, sizeof(b->triggerDescription), "%s", detected->triggerDescription);
+                b->occupantCurrent = compute_structure_resident_count(detected, buildingId, &res);
+                b->occupantActive  = 0;
+
+                int inferredSpecies = 0;
+                int inferredVillage = -1;
+                infer_structure_metadata_from_markers(&res, &inferredSpecies, &inferredVillage);
+
+                if (detected->species[0] != '\0')
                 {
-                    b->structureDef = detected;
-                    b->structureKind = detected->kind;
-                    snprintf(b->auraName, sizeof(b->auraName), "%s", detected->auraName);
-                    snprintf(b->auraDescription, sizeof(b->auraDescription), "%s", detected->auraDescription);
-                    b->auraRadius    = detected->auraRadius;
-                    b->auraIntensity = detected->auraIntensity;
-                    b->occupantType  = detected->occupantType;
-                    b->occupantMin   = detected->occupantMin;
-                    b->occupantMax   = detected->occupantMax;
-                    snprintf(b->occupantDescription, sizeof(b->occupantDescription), "%s", detected->occupantDescription);
-                    snprintf(b->triggerDescription, sizeof(b->triggerDescription), "%s", detected->triggerDescription);
+                    snprintf(b->species, sizeof(b->species), "%s", detected->species);
+                    b->speciesId = detected->speciesId > 0 ? detected->speciesId : entity_species_id_from_label(detected->species);
                 }
-                if (b->name[0] == '\0' && detected->name[0] != '\0')
+                else if (detected->speciesId > 0)
+                {
+                    b->speciesId = detected->speciesId;
+                }
+                else if (inferredSpecies > 0 && b->speciesId <= 0)
+                {
+                    b->speciesId = inferredSpecies;
+                }
+
+                if (inferredVillage >= 0)
+                    b->villageId = inferredVillage;
+
+                if (detected->name[0] != '\0')
                     snprintf(b->name, sizeof(b->name), "%s", detected->name);
+                else if (b->name[0] == '\0')
+                    snprintf(b->name, sizeof(b->name), "%s", structure_kind_to_string(detected->kind));
+
+                register_building_with_metadata(map, b->bounds, detected->kind, b->speciesId, b->villageId);
             }
             else
             {
@@ -696,6 +1053,11 @@ void update_building_detection(Map* map, Rectangle worldRegion)
 
 void register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind)
 {
+    register_building_with_metadata(map, bounds, kind, 0, -1);
+}
+
+void register_building_with_metadata(Map* map, Rectangle bounds, StructureKind kind, int speciesId, int villageId)
+{
     (void)map;
 
     int ix = (int)bounds.x + 1;
@@ -713,7 +1075,9 @@ void register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kin
         {
             if (x < 0 || x >= MAP_WIDTH)
                 continue;
-            gStructureMarkers[y][x] = kind;
+            gStructureMarkers[y][x]    = kind;
+            gStructureVillageIds[y][x] = villageId;
+            gStructureSpeciesIds[y][x] = speciesId;
         }
     }
 }

@@ -47,6 +47,12 @@ spawn.group = 2-3
 spawn.tile = TILE_SAVANNA
 spawn.biome = SAVANNA
 referred.structure = hut_cannibal
+species = cannibal
+sex = man
+offspring = 3
+can_reproduce = true
+age_elder_after_days = 30
+age_die_after_days = 40
 
 [CANNIBAL_WOMAN]
 id = 2
@@ -64,6 +70,12 @@ sprite.size = 18, 25
 sprite.frames = 3, 0.16
 competences = open_doors|seek_shelter_at_night|light_at_night
 referred.structure = hut_cannibal
+species = cannibal
+sex = woman
+offspring = 3
+can_reproduce = true
+age_elder_after_days = 30
+age_die_after_days = 40
 
 [CANNIBAL_CHILD]
 id = 3
@@ -81,6 +93,8 @@ sprite.size = 20, 15
 sprite.frames = 3, 0.16
 competences = open_doors|seek_shelter_at_night|light_at_night
 referred.structure = hut_cannibal
+species = cannibal
+sex = undefined
 
 [CANNIBAL_SCOUT]
 id = 4
@@ -98,6 +112,11 @@ sprite.size = 32, 32
 sprite.frames = 3, 0.16
 competences = open_doors|seek_shelter_at_night|light_at_night
 referred.structure = cannibal_longhouse
+species = cannibal
+can_hunt = true
+can_gather = true
+hunt_targets = living
+gather_targets = bush,plant
 
 [CANNIBAL_COOK]
 id = 5
@@ -115,6 +134,7 @@ sprite.size = 32, 32
 sprite.frames = 3, 0.16
 competences = open_doors|seek_shelter_at_night|light_at_night
 referred.structure = cannibal_cook_tent
+species = cannibal
 
 [CANNIBAL_SHAMAN]
 id = 6
@@ -132,6 +152,7 @@ sprite.size = 19, 25
 sprite.frames = 3, 0.16
 competences = open_doors|seek_shelter_at_night|light_at_night
 referred.structure = cannibal_shaman_hut
+species = cannibal
 
 [CANNIBAL_CHIEFTAIN]
 id = 7
@@ -149,6 +170,7 @@ sprite.size = 32, 32
 sprite.frames = 3, 0.16
 competences = open_doors|seek_shelter_at_night|light_at_night
 referred.structure = cannibal_longhouse
+species = cannibal
 
 [CANNIBAL_ZEALOT]
 id = 8

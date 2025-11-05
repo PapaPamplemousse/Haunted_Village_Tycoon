@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include "world.h"
@@ -16,6 +17,8 @@
 #include "zombie.h"
 #include "cannibal.h"
 #include "tile.h"
+#include "behavior.h"
+#include "world_time.h"
 
 #ifndef PI
 #define PI 3.14159265358979323846f
@@ -55,6 +58,17 @@ int entity_randomi(EntitySystem* sys, int min, int max)
     return min + (int)(entity_random(sys) % (span ? span : 1));
 }
 
+static float entity_sim_days_step(void)
+{
+    float secondsPerDay = world_time_get_seconds_per_day();
+    if (secondsPerDay <= 0.0f)
+        return 0.0f;
+    float stepSeconds = world_time_get_last_step_seconds();
+    if (stepSeconds <= 0.0f)
+        stepSeconds = 1.0f / 60.0f;
+    return stepSeconds / secondsPerDay;
+}
+
 static void entity_reservation_reset(EntityReservation* res)
 {
     if (!res)
@@ -65,6 +79,8 @@ static void entity_reservation_reset(EntityReservation* res)
     res->homeStructure   = STRUCT_COUNT;
     res->activationRadius   = 0.0f;
     res->deactivationRadius = 0.0f;
+    res->villageId       = -1;
+    res->speciesId       = 0;
     res->used            = false;
     res->active          = false;
 }
@@ -108,6 +124,9 @@ static void entity_reservation_capture(EntityReservation* res, const Entity* ent
     res->hp             = ent->hp;
     res->home           = ent->home;
     res->homeStructure  = ent->homeStructure;
+    res->buildingId     = ent->homeBuildingId;
+    res->villageId      = ent->villageId;
+    res->speciesId      = ent->speciesId;
 }
 
 static void entity_reservation_apply(EntityReservation* res, Entity* ent)
@@ -121,6 +140,10 @@ static void entity_reservation_apply(EntityReservation* res, Entity* ent)
         ent->hp = res->hp;
     ent->home          = res->home;
     ent->homeStructure = res->homeStructure;
+    ent->homeBuildingId = res->buildingId;
+    ent->villageId      = res->villageId;
+    if (res->speciesId != 0)
+        ent->speciesId = res->speciesId;
 }
 
 static bool entity_reservation_schedule(EntitySystem* sys,
@@ -129,6 +152,8 @@ static bool entity_reservation_schedule(EntitySystem* sys,
                                         Vector2 home,
                                         StructureKind structure,
                                         int buildingId,
+                                        int villageId,
+                                        int speciesId,
                                         float activationRadius,
                                         float deactivationRadius)
 {
@@ -144,6 +169,8 @@ static bool entity_reservation_schedule(EntitySystem* sys,
     res->home               = home;
     res->homeStructure      = structure;
     res->buildingId         = buildingId;
+    res->villageId          = villageId;
+    res->speciesId          = speciesId;
     res->activationRadius   = activationRadius;
     res->deactivationRadius = deactivationRadius;
     res->velocity           = (Vector2){0.0f, 0.0f};
@@ -160,6 +187,8 @@ static void entity_system_reset(EntitySystem* sys)
     sys->highestIndex = -1;
     sys->streamActivationPadding   = TILE_SIZE * 8.0f;
     sys->streamDeactivationPadding = TILE_SIZE * 12.0f;
+    sys->speciesCount              = 0;
+    sys->residentRefreshTimer      = 0.0f;
     entity_reservations_reset(sys);
 }
 
@@ -169,6 +198,26 @@ static void entity_clear_slot(EntitySystem* sys, int index)
     memset(e, 0, sizeof(*e));
     e->id = (uint16_t)index;
     e->reservationIndex = -1;
+    e->system                 = sys;
+    e->sex                    = ENTITY_SEX_UNDEFINED;
+    e->hunger                 = 0.0f;
+    e->maxHunger              = 100.0f;
+    e->isUndead               = false;
+    e->isHungry               = false;
+    e->enraged                = false;
+    e->reproductionCooldown   = 0.0f;
+    e->affectionTimer         = 0.0f;
+    e->affectionPhase         = 0.0f;
+    e->reproductionPartnerId  = ENTITY_ID_INVALID;
+    e->behaviorTargetId       = ENTITY_ID_INVALID;
+    e->behaviorTimer          = 0.0f;
+    e->gatherTarget           = (Vector2){0.0f, 0.0f};
+    e->gatherActive           = 0;
+    e->homeBuildingId         = -1;
+    e->villageId              = -1;
+    e->speciesId              = 0;
+    e->ageDays                = 0.0f;
+    e->isElder                = false;
 }
 
 static void entity_unload_sprite(EntitySprite* sprite)
@@ -255,6 +304,83 @@ static void normalize_label(const char* src, char* dst, size_t cap)
         dst[len++] = (char)tolower(c);
     }
     dst[len] = '\0';
+}
+
+static uint32_t entity_hash_string(const char* text)
+{
+    const uint32_t FNV_OFFSET = 2166136261u;
+    const uint32_t FNV_PRIME  = 16777619u;
+
+    uint32_t hash = FNV_OFFSET;
+    if (!text)
+        return hash;
+
+    while (*text)
+    {
+        hash ^= (uint32_t)(unsigned char)(*text++);
+        hash *= FNV_PRIME;
+    }
+    if (hash == 0u)
+        hash = FNV_OFFSET;
+    return hash;
+}
+
+int entity_species_id_from_label(const char* label)
+{
+    char normalised[ENTITY_SPECIES_NAME_MAX];
+    normalize_label(label, normalised, sizeof(normalised));
+    if (normalised[0] == '\0')
+        return 0;
+    uint32_t hash = entity_hash_string(normalised);
+    return (int)(hash & 0x7FFFFFFFu);
+}
+
+static int entity_system_find_species(const EntitySystem* sys, const char* normalised)
+{
+    if (!sys || !normalised)
+        return -1;
+    for (int i = 0; i < sys->speciesCount; ++i)
+    {
+        if (strcmp(sys->speciesLabels[i], normalised) == 0)
+            return i;
+    }
+    return -1;
+}
+
+int entity_system_register_species(EntitySystem* sys, const char* label)
+{
+    if (!sys)
+        return 0;
+
+    char normalised[ENTITY_SPECIES_NAME_MAX];
+    normalize_label(label, normalised, sizeof(normalised));
+    if (normalised[0] == '\0')
+        return 0;
+
+    int index = entity_system_find_species(sys, normalised);
+    if (index >= 0)
+        return entity_species_id_from_label(normalised);
+
+    if (sys->speciesCount < ENTITY_MAX_SPECIES)
+    {
+        snprintf(sys->speciesLabels[sys->speciesCount], ENTITY_SPECIES_NAME_MAX, "%s", normalised);
+        sys->speciesCount++;
+    }
+
+    return entity_species_id_from_label(normalised);
+}
+
+const char* entity_system_species_label(const EntitySystem* sys, int speciesId)
+{
+    if (!sys || speciesId <= 0)
+        return NULL;
+
+    for (int i = 0; i < sys->speciesCount; ++i)
+    {
+        if (entity_species_id_from_label(sys->speciesLabels[i]) == speciesId)
+            return sys->speciesLabels[i];
+    }
+    return NULL;
 }
 
 bool entity_position_is_walkable(const Map* map, Vector2 position, float radius)
@@ -512,6 +638,9 @@ static bool entity_schedule_near_structures(EntitySystem* sys, const EntitySpawn
             continue;
 
         Vector2 home  = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
+        int     speciesId = building->speciesId;
+        if (rule->type && speciesId == 0 && rule->type->speciesId > 0)
+            speciesId = rule->type->speciesId;
         int group = entity_randomi(sys, rule->groupMin, rule->groupMax);
         if (group <= 0)
             group = 1;
@@ -538,7 +667,9 @@ static bool entity_schedule_near_structures(EntitySystem* sys, const EntitySpawn
                                                      spawnPos,
                                                      home,
                                                      rule->type->referredStructure,
-                                                     -1,
+                                                     building->id,
+                                                     building->villageId,
+                                                     speciesId,
                                                      0.0f,
                                                      0.0f);
                 spawnedAny |= placed;
@@ -551,7 +682,9 @@ static bool entity_schedule_near_structures(EntitySystem* sys, const EntitySpawn
                                                 home,
                                                 home,
                                                 rule->type->referredStructure,
-                                                -1,
+                                                building->id,
+                                                building->villageId,
+                                                speciesId,
                                                 0.0f,
                                                 0.0f))
                     spawnedAny = true;
@@ -562,7 +695,301 @@ static bool entity_schedule_near_structures(EntitySystem* sys, const EntitySpawn
     return spawnedAny;
 }
 
-static void entity_schedule_structure_residents(EntitySystem* sys, const Map* map)
+typedef struct ResidentDemand
+{
+    EntitiesTypeID typeId;
+    int            desired;
+} ResidentDemand;
+
+static int entity_count_residents_of_type(const Building* building, EntitySystem* sys, EntitiesTypeID typeId)
+{
+    if (!building || typeId <= ENTITY_TYPE_INVALID)
+        return 0;
+
+    int count = 0;
+    for (int i = 0; i < building->residentCount; ++i)
+    {
+        uint16_t id = building->residents[i];
+        Entity*  ent = entity_acquire(sys, id);
+        if (!ent || !ent->active || !ent->type)
+            continue;
+        if (ent->type->id == typeId)
+            count++;
+    }
+    return count;
+}
+
+static int entity_count_pending_reservations(const EntitySystem* sys, int buildingId, EntitiesTypeID typeId)
+{
+    if (!sys)
+        return 0;
+    int count = 0;
+    for (int i = 0; i < sys->reservationCount; ++i)
+    {
+        const EntityReservation* res = &sys->reservations[i];
+        if (!res->used || res->buildingId != buildingId)
+            continue;
+        if (typeId > ENTITY_TYPE_INVALID && res->typeId != typeId)
+            continue;
+        if (!res->active)
+            count++;
+    }
+    return count;
+}
+
+static Entity* entity_find_homeless_near(EntitySystem* sys, const Building* building, EntitiesTypeID typeId, float radius)
+{
+    if (!sys || !building || typeId <= ENTITY_TYPE_INVALID)
+        return NULL;
+
+    float radiusSq = radius * radius;
+    Vector2 center = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
+
+    for (int i = 0; i <= sys->highestIndex; ++i)
+    {
+        Entity* ent = &sys->entities[i];
+        if (!ent->active || !ent->type)
+            continue;
+        if (ent->homeBuildingId >= 0)
+            continue;
+        if (ent->type->id != typeId)
+            continue;
+
+        float dx = ent->position.x - center.x;
+        float dy = ent->position.y - center.y;
+        if ((dx * dx + dy * dy) > radiusSq)
+            continue;
+
+        return ent;
+    }
+
+    return NULL;
+}
+
+static int entity_collect_resident_demands(const Building* building, ResidentDemand* demands, int maxDemands)
+{
+    if (!building || !building->structureDef || building->occupantCurrent <= 0)
+        return 0;
+
+    EntitiesTypeID blueprint[STRUCTURE_MAX_RESIDENT_ROLES];
+    int            blueprintCount = 0;
+
+    const StructureDef* def = building->structureDef;
+
+    if (building->structureKind == STRUCT_HUT_CANNIBAL)
+    {
+        if (blueprintCount < STRUCTURE_MAX_RESIDENT_ROLES && blueprintCount < building->occupantCurrent)
+            blueprint[blueprintCount++] = ENTITY_TYPE_CANNIBAL;
+        if (blueprintCount < STRUCTURE_MAX_RESIDENT_ROLES && blueprintCount < building->occupantCurrent)
+            blueprint[blueprintCount++] = ENTITY_TYPE_CANNIBAL_WOMAN;
+        if (blueprintCount < STRUCTURE_MAX_RESIDENT_ROLES && blueprintCount < building->occupantCurrent)
+            blueprint[blueprintCount++] = ENTITY_TYPE_CANNIBAL_CHILD;
+        while (blueprintCount < building->occupantCurrent && blueprintCount < STRUCTURE_MAX_RESIDENT_ROLES)
+            blueprint[blueprintCount++] = ENTITY_TYPE_CANNIBAL;
+    }
+    else
+    {
+        EntitiesTypeID baseType = def->occupantType;
+        if (baseType <= ENTITY_TYPE_INVALID)
+            return 0;
+        for (int i = 0; i < building->occupantCurrent && i < STRUCTURE_MAX_RESIDENT_ROLES; ++i)
+            blueprint[blueprintCount++] = baseType;
+    }
+
+    int demandCount = 0;
+    for (int i = 0; i < blueprintCount; ++i)
+    {
+        EntitiesTypeID typeId = blueprint[i];
+        if (typeId <= ENTITY_TYPE_INVALID)
+            continue;
+
+        bool found = false;
+        for (int j = 0; j < demandCount; ++j)
+        {
+            if (demands[j].typeId == typeId)
+            {
+                demands[j].desired++;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found && demandCount < maxDemands)
+        {
+            demands[demandCount].typeId = typeId;
+            demands[demandCount].desired = 1;
+            demandCount++;
+        }
+    }
+
+    return demandCount;
+}
+
+static void entity_rebuild_building_occupancy(EntitySystem* sys)
+{
+    if (!sys)
+        return;
+
+    int totalBuildings = building_total_count();
+    if (totalBuildings <= 0)
+        return;
+
+    int maxId = 0;
+    for (int b = 0; b < totalBuildings; ++b)
+    {
+        Building* building = building_get_mutable(b);
+        if (!building)
+            continue;
+
+        building->residentCount  = 0;
+        building->occupantActive = 0;
+
+        if (building->id > maxId)
+            maxId = building->id;
+    }
+
+    if (maxId < 0)
+        return;
+
+    Building** lookup = (Building**)calloc((size_t)(maxId + 1), sizeof(Building*));
+    if (!lookup)
+        return;
+
+    for (int b = 0; b < totalBuildings; ++b)
+    {
+        Building* building = building_get_mutable(b);
+        if (!building)
+            continue;
+        if (building->id < 0 || building->id > maxId)
+            continue;
+        lookup[building->id] = building;
+    }
+
+    for (int i = 0; i <= sys->highestIndex; ++i)
+    {
+        Entity* ent = &sys->entities[i];
+        if (!ent->active)
+            continue;
+        if (ent->homeBuildingId < 0)
+            continue;
+        if (ent->homeBuildingId > maxId)
+        {
+            ent->homeBuildingId = -1;
+            ent->villageId      = -1;
+            continue;
+        }
+
+        Building* target = lookup[ent->homeBuildingId];
+        if (!target)
+        {
+            ent->homeBuildingId = -1;
+            ent->villageId      = -1;
+            continue;
+        }
+
+        int before = target->residentCount;
+        building_add_resident(target, ent);
+        if (target->residentCount > before)
+            target->occupantActive++;
+    }
+
+    free(lookup);
+}
+
+static bool entity_schedule_resident(EntitySystem* sys, const Map* map, Building* building, const EntityType* type)
+{
+    if (!sys || !map || !building || !type)
+        return false;
+
+    int speciesId = type->speciesId > 0 ? type->speciesId : entity_species_id_from_label(type->species[0] ? type->species : type->identifier);
+    Vector2 home = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
+
+    bool   placed   = false;
+    Vector2 spawnPos = home;
+
+    for (int attempt = 0; attempt < 8 && !placed; ++attempt)
+    {
+        unsigned int seed = entity_random(sys);
+        float angle       = ((float)(seed & 0xFFFFu) / 65535.0f) * 2.0f * PI;
+        float dist        = 0.35f + ((float)((seed >> 16) & 0xFFFFu) / 65535.0f) * 1.8f;
+        spawnPos          = (Vector2){home.x + cosf(angle) * dist * TILE_SIZE, home.y + sinf(angle) * dist * TILE_SIZE};
+
+        if (!entity_position_is_walkable(map, spawnPos, type->radius))
+            continue;
+
+        placed = entity_reservation_schedule(sys,
+                                             type->id,
+                                             spawnPos,
+                                             home,
+                                             building->structureKind,
+                                             building->id,
+                                             building->villageId,
+                                             speciesId,
+                                             0.0f,
+                                             0.0f);
+    }
+
+    if (!placed)
+    {
+        int minTileX = (int)floorf(building->bounds.x) - 1;
+        int maxTileX = (int)ceilf(building->bounds.x + building->bounds.width) + 1;
+        int minTileY = (int)floorf(building->bounds.y) - 1;
+        int maxTileY = (int)ceilf(building->bounds.y + building->bounds.height) + 1;
+
+        if (minTileX < 0)
+            minTileX = 0;
+        if (minTileY < 0)
+            minTileY = 0;
+        if (maxTileX >= map->width)
+            maxTileX = map->width - 1;
+        if (maxTileY >= map->height)
+            maxTileY = map->height - 1;
+
+        for (int ty = minTileY; ty <= maxTileY && !placed; ++ty)
+        {
+            for (int tx = minTileX; tx <= maxTileX && !placed; ++tx)
+            {
+                bool onPerimeter = (tx == minTileX || tx == maxTileX || ty == minTileY || ty == maxTileY);
+                if (!onPerimeter)
+                    continue;
+
+                Vector2 perimeterPos = {((float)tx + 0.5f) * TILE_SIZE, ((float)ty + 0.5f) * TILE_SIZE};
+
+                if (!entity_position_is_walkable(map, perimeterPos, type->radius))
+                    continue;
+
+                placed = entity_reservation_schedule(sys,
+                                                     type->id,
+                                                     perimeterPos,
+                                                     home,
+                                                     building->structureKind,
+                                                     building->id,
+                                                     building->villageId,
+                                                     speciesId,
+                                                     0.0f,
+                                                     0.0f);
+            }
+        }
+    }
+
+    if (!placed)
+    {
+        placed = entity_reservation_schedule(sys,
+                                             type->id,
+                                             home,
+                                             home,
+                                             building->structureKind,
+                                             building->id,
+                                             building->villageId,
+                                             speciesId,
+                                             0.0f,
+                                             0.0f);
+    }
+
+    return placed;
+}
+
+static void entity_schedule_structure_residents(EntitySystem* sys, const Map* map, bool refreshing)
 {
     if (!sys || !map)
         return;
@@ -573,56 +1000,46 @@ static void entity_schedule_structure_residents(EntitySystem* sys, const Map* ma
         Building* building = building_get_mutable(b);
         if (!building || !building->structureDef)
             continue;
-        building->occupantActive = 0;
+        if (!refreshing)
+            building->occupantActive = 0;
 
-        if (building->occupantType <= ENTITY_TYPE_INVALID || building->occupantCurrent <= 0)
+        if (building->occupantCurrent <= 0)
             continue;
 
-        const EntityType* type = entity_find_type(sys, building->occupantType);
-        if (!type)
+        ResidentDemand demands[STRUCTURE_MAX_RESIDENT_ROLES];
+        int            demandCount = entity_collect_resident_demands(building, demands, STRUCTURE_MAX_RESIDENT_ROLES);
+        if (demandCount <= 0)
             continue;
-
-        Vector2 home = {building->center.x * TILE_SIZE, building->center.y * TILE_SIZE};
-
-        for (int i = 0; i < building->occupantCurrent; ++i)
+        for (int d = 0; d < demandCount; ++d)
         {
-            bool   placed   = false;
-            Vector2 spawnPos = home;
+            EntitiesTypeID typeId = demands[d].typeId;
+            const EntityType* type = entity_find_type(sys, typeId);
+            if (!type)
+                continue;
 
-            for (int attempt = 0; attempt < 8 && !placed; ++attempt)
+            int have    = entity_count_residents_of_type(building, sys, typeId);
+            int pending = entity_count_pending_reservations(sys, building->id, typeId);
+            int needed  = demands[d].desired - (have + pending);
+            if (needed <= 0)
+                continue;
+
+            const float recruitRadius = TILE_SIZE * 6.0f;
+
+            while (needed > 0)
             {
-                unsigned int seed = (unsigned int)(building->id * 73856093u) ^ (unsigned int)(i * 19349663u + attempt * 83492791u);
-                float angle = ((float)(seed & 0xFFFFu) / 65535.0f) * 2.0f * PI;
-                seed         = seed * 1664525u + 1013904223u;
-                float dist   = 0.35f + ((float)((seed >> 16) & 0xFFFFu) / 65535.0f) * 1.8f;
-                spawnPos     = (Vector2){
-                    home.x + cosf(angle) * dist * TILE_SIZE,
-                    home.y + sinf(angle) * dist * TILE_SIZE,
-                };
-
-                if (!entity_position_is_walkable(map, spawnPos, type->radius))
-                    continue;
-
-                placed = entity_reservation_schedule(sys,
-                                                     type->id,
-                                                     spawnPos,
-                                                     home,
-                                                     building->structureKind,
-                                                     building->id,
-                                                     0.0f,
-                                                     0.0f);
+                Entity* candidate = entity_find_homeless_near(sys, building, typeId, recruitRadius);
+                if (!candidate)
+                    break;
+                building_add_resident(building, candidate);
+                building_on_reservation_spawn(building->id);
+                needed--;
             }
 
-            if (!placed && entity_position_is_walkable(map, home, type->radius))
+            while (needed > 0)
             {
-                entity_reservation_schedule(sys,
-                                            type->id,
-                                            home,
-                                            home,
-                                            building->structureKind,
-                                            building->id,
-                                            0.0f,
-                                            0.0f);
+                if (!entity_schedule_resident(sys, map, building, type))
+                    break;
+                needed--;
             }
         }
     }
@@ -644,10 +1061,8 @@ static void entity_stream_reservations(EntitySystem* sys, const Map* map, const 
     float halfW             = viewWidth * 0.5f;
     float halfH             = viewHeight * 0.5f;
     float baseRadius        = sqrtf(halfW * halfW + halfH * halfH);
-    float defaultActivation = baseRadius + sys->streamActivationPadding;
+    float defaultActivation   = baseRadius + sys->streamActivationPadding;
     float defaultDeactivation = baseRadius + sys->streamDeactivationPadding;
-    float defaultActivationSq  = defaultActivation * defaultActivation;
-    float defaultDeactivationSq = defaultDeactivation * defaultDeactivation;
 
     for (int i = 0; i < sys->reservationCount; ++i)
     {
@@ -690,7 +1105,12 @@ static void entity_stream_reservations(EntitySystem* sys, const Map* map, const 
             entity_reservation_apply(res, ent);
             ent->hp = (res->hp > 0) ? res->hp : ent->hp;
             if (res->buildingId >= 0)
+            {
+                Building* home = building_get_mutable(res->buildingId);
+                if (home)
+                    building_add_resident(home, ent);
                 building_on_reservation_spawn(res->buildingId);
+            }
         }
         else if (res->active && distSq >= deactivationSq)
         {
@@ -792,6 +1212,8 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
                                                          spawnPos,
                                                          STRUCT_COUNT,
                                                          -1,
+                                                         -1,
+                                                         rule->type->speciesId,
                                                          0.0f,
                                                          0.0f))
                             break;
@@ -800,7 +1222,7 @@ bool entity_system_init(EntitySystem* sys, const Map* map, unsigned int seed, co
             }
         }
 
-        entity_schedule_structure_residents(sys, map);
+        entity_schedule_structure_residents(sys, map, false);
     }
 
     return loaded;
@@ -843,12 +1265,101 @@ static void entity_update_animation(Entity* e, float dt)
     }
 }
 
+static void entity_update_behavior_timers(Entity* e, float dt)
+{
+    if (!e)
+        return;
+
+    if (e->reproductionCooldown > 0.0f)
+    {
+        e->reproductionCooldown -= dt;
+        if (e->reproductionCooldown < 0.0f)
+            e->reproductionCooldown = 0.0f;
+    }
+
+    if (e->behaviorTimer > 0.0f)
+    {
+        e->behaviorTimer -= dt;
+        if (e->behaviorTimer < 0.0f)
+            e->behaviorTimer = 0.0f;
+    }
+
+    if (e->affectionTimer > 0.0f)
+    {
+        e->affectionTimer -= dt;
+        if (e->affectionTimer < 0.0f)
+            e->affectionTimer = 0.0f;
+
+        const float twoPi = 6.28318530718f;
+        e->affectionPhase += dt * 4.0f;
+        if (e->affectionPhase > twoPi)
+            e->affectionPhase = fmodf(e->affectionPhase, twoPi);
+
+        if (e->system && e->reproductionPartnerId != ENTITY_ID_INVALID)
+        {
+            Entity* partner = entity_acquire(e->system, e->reproductionPartnerId);
+            if (partner && partner->active)
+            {
+                float angle = atan2f(partner->position.y - e->position.y, partner->position.x - e->position.x);
+                e->orientation = angle;
+            }
+            else
+            {
+                e->reproductionPartnerId = ENTITY_ID_INVALID;
+            }
+        }
+
+        if (e->affectionTimer <= 0.0f)
+        {
+            e->reproductionPartnerId = ENTITY_ID_INVALID;
+            e->affectionPhase        = 0.0f;
+        }
+    }
+}
+
+static void entity_draw_affection(const Entity* e)
+{
+    if (!e || !e->type)
+        return;
+
+    if (e->affectionTimer <= 0.0f)
+        return;
+
+    float radius = (e->type->radius > 0.0f) ? e->type->radius : 12.0f;
+    float bob    = sinf(e->affectionPhase) * 3.5f;
+    float baseY  = e->position.y - radius - 14.0f + bob;
+    float centerX = e->position.x;
+
+    unsigned char alpha = (unsigned char)fminf(255.0f, 170.0f + fabsf(sinf(e->affectionPhase * 0.5f)) * 70.0f);
+    Color heartColor    = (Color){220, 50, 90, alpha};
+
+    Vector2 left    = {centerX - 5.5f, baseY};
+    Vector2 right   = {centerX + 5.5f, baseY};
+    Vector2 bottomA = {centerX - 9.0f, baseY + 7.0f};
+    Vector2 bottomB = {centerX, baseY + 15.0f};
+    Vector2 bottomC = {centerX + 9.0f, baseY + 7.0f};
+
+    DrawCircleV(left, 3.8f, heartColor);
+    DrawCircleV(right, 3.8f, heartColor);
+    DrawTriangle(bottomA, bottomB, bottomC, heartColor);
+}
+
 void entity_system_update(EntitySystem* sys, const Map* map, const Camera2D* camera, float dt)
 {
     if (!sys)
         return;
 
     entity_stream_reservations(sys, map, camera);
+    entity_rebuild_building_occupancy(sys);
+
+    sys->residentRefreshTimer += dt;
+    if (sys->residentRefreshTimer >= 5.0f)
+    {
+        entity_schedule_structure_residents(sys, map, true);
+        sys->residentRefreshTimer = 0.0f;
+    }
+
+    float dtDays = entity_sim_days_step();
 
     for (int i = 0; i <= sys->highestIndex; ++i)
     {
@@ -856,9 +1367,25 @@ void entity_system_update(EntitySystem* sys, const Map* map, const Camera2D* cam
         if (!e->active)
             continue;
 
+        behavior_hunger_update(sys, e, (Map*)map);
+        if (!e->active)
+            continue;
+
+        behavior_eat_if_hungry(e);
+        if (!e->active)
+            continue;
+
+        if (dtDays > 0.0f)
+        {
+            age_update(e, dtDays);
+            if (!e->active)
+                continue;
+        }
+
         if (e->behavior && e->behavior->onUpdate)
             e->behavior->onUpdate(sys, e, map, dt);
 
+        entity_update_behavior_timers(e, dt);
         entity_update_animation(e, dt);
 
         if (e->reservationIndex >= 0 && e->reservationIndex < sys->reservationCount)
@@ -906,8 +1433,7 @@ void entity_system_draw(const EntitySystem* sys)
             DrawLineV(e->position, facing, DARKGREEN);
         }
 
-        if (entity_type_has_trait(type, "cannibal"))
-            cannibal_draw_overlay(e);
+        entity_draw_affection(e);
     }
 }
 
@@ -939,6 +1465,33 @@ uint16_t entity_spawn(EntitySystem* sys, EntitiesTypeID typeId, Vector2 position
         e->home          = position;
         e->homeStructure = type->referredStructure;
         memset(e->brain, 0, sizeof(e->brain));
+        e->system                = sys;
+        int speciesId            = 0;
+        if (type->species[0] != '\0')
+            speciesId = entity_system_register_species(sys, type->species);
+        else if (type->identifier[0] != '\0')
+            speciesId = entity_system_register_species(sys, type->identifier);
+        if (type->speciesId > 0)
+            speciesId = type->speciesId;
+        e->speciesId             = speciesId;
+        e->sex                   = (type->sex != ENTITY_SEX_UNDEFINED) ? type->sex : ENTITY_SEX_UNDEFINED;
+        e->maxHunger             = 100.0f;
+        e->hunger                = e->maxHunger;
+        e->isUndead              = (type->flags & ENTITY_FLAG_UNDEAD) != 0;
+        e->isHungry              = false;
+        e->enraged               = false;
+        e->reproductionCooldown  = 0.0f;
+        e->affectionTimer        = 0.0f;
+        e->affectionPhase        = 0.0f;
+        e->reproductionPartnerId = ENTITY_ID_INVALID;
+        e->behaviorTargetId      = ENTITY_ID_INVALID;
+        e->behaviorTimer         = 0.0f;
+        e->gatherTarget          = (Vector2){0.0f, 0.0f};
+        e->gatherActive          = 0;
+        e->homeBuildingId        = -1;
+        e->villageId             = -1;
+        e->ageDays               = 0.0f;
+        e->isElder               = false;
 
         if (e->behavior && e->behavior->brainSize > ENTITY_BRAIN_BYTES)
         {
@@ -969,6 +1522,15 @@ void entity_despawn(EntitySystem* sys, uint16_t id)
 
     if (e->behavior && e->behavior->onDespawn)
         e->behavior->onDespawn(sys, e);
+
+    if (e->homeBuildingId >= 0)
+    {
+        Building* home = building_get_mutable(e->homeBuildingId);
+        if (home)
+            building_remove_resident(home, e->id);
+        e->homeBuildingId = -1;
+        e->villageId      = -1;
+    }
 
     e->active = false;
     e->reservationIndex = -1;
@@ -1069,4 +1631,86 @@ bool entity_has_trait(const Entity* entity, const char* trait)
 bool entity_is_category(const Entity* entity, const char* category)
 {
     return entity && entity->type ? entity_type_is_category(entity->type, category) : false;
+}
+
+static bool entity_type_is_elder_variant(const EntityType* type)
+{
+    if (!type)
+        return false;
+    if (entity_type_has_trait(type, "elder"))
+        return true;
+    if (type->identifier[0] != '\0' && strstr(type->identifier, "elder"))
+        return true;
+    if (type->displayName[0] != '\0' && strstr(type->displayName, "Elder"))
+        return true;
+    return false;
+}
+
+static const EntityType* entity_find_elder_variant(const Entity* entity)
+{
+    if (!entity || !entity->system || !entity->type)
+        return NULL;
+
+    const EntitySystem* sys       = entity->system;
+    const EntityType*   baseType  = entity->type;
+    int                  speciesId = baseType->speciesId;
+    const EntityType*   fallback  = NULL;
+
+    for (int i = 0; i < sys->typeCount; ++i)
+    {
+        const EntityType* candidate = &sys->types[i];
+        if (candidate == baseType)
+            continue;
+        if (speciesId > 0 && candidate->speciesId != speciesId)
+            continue;
+        if (!entity_type_is_elder_variant(candidate))
+            continue;
+        if (!fallback)
+            fallback = candidate;
+        if (baseType->speciesId > 0 && candidate->speciesId == baseType->speciesId)
+            return candidate;
+    }
+
+    return fallback;
+}
+
+void entity_promote_to_elder(Entity* entity)
+{
+    if (!entity || entity->isElder)
+        return;
+
+    const EntityType* elderType = entity_find_elder_variant(entity);
+    if (!elderType)
+        return;
+
+    entity->type      = elderType;
+    entity->behavior  = elderType->behavior;
+    entity->hp        = (elderType->maxHP > 0) ? elderType->maxHP : entity->hp;
+    entity->sex       = (elderType->sex != ENTITY_SEX_UNDEFINED) ? elderType->sex : entity->sex;
+    entity->speciesId = (elderType->speciesId > 0) ? elderType->speciesId : entity->speciesId;
+    entity->isElder   = true;
+
+    if (entity->behavior && entity->behavior->onSpawn)
+        entity->behavior->onSpawn(entity->system, entity);
+}
+
+void age_update(Entity* entity, float dtDays)
+{
+    if (!entity || !entity->active || dtDays <= 0.0f)
+        return;
+
+    entity->ageDays += dtDays;
+    const EntityType* type = entity->type;
+    if (!type)
+        return;
+
+    if (!entity->isElder && type->ageElderAfterDays > 0.0f && entity->ageDays >= type->ageElderAfterDays)
+        entity_promote_to_elder(entity);
+
+    type = entity->type; /* May have changed after promotion. */
+    if (type && type->ageDieAfterDays > 0.0f && entity->ageDays >= type->ageDieAfterDays)
+    {
+        if (entity->system)
+            entity_despawn(entity->system, entity->id);
+    }
 }

@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "behavior.h"
 #include "tile.h"
 
 #ifndef PI
@@ -93,8 +94,8 @@ static void zombie_on_update(EntitySystem* sys, Entity* e, const Map* map, float
 {
     if (!sys || !e || !map || !e->type)
         return;
-
-    ZombieBrain* brain = (ZombieBrain*)e->brain;
+    Map*         mutableMap = (Map*)map;
+    ZombieBrain* brain      = (ZombieBrain*)e->brain;
     if (sizeof(ZombieBrain) > ENTITY_BRAIN_BYTES)
         return;
 
@@ -156,10 +157,25 @@ static void zombie_on_update(EntitySystem* sys, Entity* e, const Map* map, float
 
     if (!entity_position_is_walkable(map, next, e->type->radius))
     {
-        e->velocity.x      = -e->velocity.x * 0.3f;
-        e->velocity.y      = -e->velocity.y * 0.3f;
-        brain->wanderTimer = 0.0f;
-        return;
+        bool openedDoor = behavior_try_open_doors(e, mutableMap, next);
+        if ((!openedDoor || !entity_position_is_walkable(map, next, e->type->radius)) && e->behaviorTargetId != ENTITY_ID_INVALID)
+        {
+            float doorRadius = e->type ? fmaxf(e->type->radius, TILE_SIZE * 0.6f) : TILE_SIZE * 0.6f;
+            if (!behavior_force_open_doors(e, mutableMap, next, doorRadius) || !entity_position_is_walkable(map, next, e->type->radius))
+            {
+                e->velocity.x      = -e->velocity.x * 0.3f;
+                e->velocity.y      = -e->velocity.y * 0.3f;
+                brain->wanderTimer = 0.0f;
+                return;
+            }
+        }
+        else if (!openedDoor || !entity_position_is_walkable(map, next, e->type->radius))
+        {
+            e->velocity.x      = -e->velocity.x * 0.3f;
+            e->velocity.y      = -e->velocity.y * 0.3f;
+            brain->wanderTimer = 0.0f;
+            return;
+        }
     }
 
     e->position = next;
@@ -175,7 +191,12 @@ static void zombie_on_update(EntitySystem* sys, Entity* e, const Map* map, float
         {
             target->hp -= 12;
             if (target->hp <= 0)
-                entity_despawn(sys, target->id);
+            {
+                behavior_handle_entity_death(sys, mutableMap, target, e);
+                e->behaviorTargetId = ENTITY_ID_INVALID;
+                e->behaviorTimer    = 1.2f;
+                // zombie_reward_bloodrage(e);
+            }
             brain->attackCooldown = 1.2f;
         }
     }

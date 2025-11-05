@@ -18,6 +18,9 @@
 
 #include "world.h"
 
+struct Entity;
+struct EntitySystem;
+
 // -----------------------------------------------------------------------------
 // CONSTANTS
 // -----------------------------------------------------------------------------
@@ -81,6 +84,16 @@ void update_building_detection(Map* map, Rectangle worldRegion);
  * @param bounds Axis-aligned rectangle delimiting the building interior in tiles.
  */
 void register_building_from_bounds(Map* map, Rectangle bounds, StructureKind kind);
+
+void register_building_with_metadata(Map* map, Rectangle bounds, StructureKind kind, int speciesId, int villageId);
+
+void building_add_resident(Building* b, struct Entity* e);
+void building_remove_resident(Building* b, uint16_t entityId);
+Building* entity_get_home(const struct Entity* e);
+Building* building_get_for_species(const char* species, int villageId);
+int building_active_residents(const Building* b, const struct EntitySystem* sys);
+Building* building_get_at_tile(int tileX, int tileY);
+void building_debug_print(const Building* b, const struct EntitySystem* sys);
 
 /**
  * @brief Clears structure kind markers stored on the map grid.

@@ -87,6 +87,39 @@ static void parse_traits_line(EntityType* type, const char* value)
     }
 }
 
+static bool parse_bool(const char* value)
+{
+    if (!value)
+        return false;
+    if (strcasecmp(value, "true") == 0 || strcasecmp(value, "yes") == 0)
+        return true;
+    if (strcasecmp(value, "false") == 0 || strcasecmp(value, "no") == 0)
+        return false;
+    return atoi(value) != 0;
+}
+
+static void parse_target_list(char dest[ENTITY_MAX_TARGET_TAGS][ENTITY_TARGET_TAG_MAX], int* outCount, const char* value)
+{
+    if (!outCount)
+        return;
+    *outCount = 0;
+    if (!value)
+        return;
+
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "%s", value);
+
+    char* token = strtok(buffer, "|,");
+    while (token && *outCount < ENTITY_MAX_TARGET_TAGS)
+    {
+        trim_inplace(token);
+        normalize_label(token, dest[*outCount], ENTITY_TARGET_TAG_MAX);
+        if (dest[*outCount][0] != '\0')
+            (*outCount)++;
+        token = strtok(NULL, "|,");
+    }
+}
+
 static void strip_inline_comment(char* line)
 {
     if (!line)
@@ -252,6 +285,17 @@ static EntitiesTypeID parse_entity_id(const char* value)
     return (EntitiesTypeID)id;
 }
 
+static EntitySex parse_entity_sex(const char* value)
+{
+    if (!value)
+        return ENTITY_SEX_UNDEFINED;
+    if (strcasecmp(value, "man") == 0 || strcasecmp(value, "male") == 0)
+        return ENTITY_SEX_MAN;
+    if (strcasecmp(value, "woman") == 0 || strcasecmp(value, "female") == 0)
+        return ENTITY_SEX_WOMAN;
+    return ENTITY_SEX_UNDEFINED;
+}
+
 bool entities_loader_load(EntitySystem* sys, const char* path)
 {
     if (!sys || !path)
@@ -269,6 +313,17 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
     memset(&currentType, 0, sizeof(currentType));
     currentType.id                = ENTITY_TYPE_INVALID;
     currentType.referredStructure = STRUCT_COUNT;
+    currentType.sex               = ENTITY_SEX_UNDEFINED;
+    currentType.offspringTypeId   = ENTITY_TYPE_INVALID;
+    currentType.canReproduce      = false;
+    currentType.canHunt           = false;
+    currentType.canGather         = false;
+    currentType.huntTargetCount   = 0;
+    currentType.gatherTargetCount = 0;
+    currentType.ageElderAfterDays = 0.0f;
+    currentType.ageDieAfterDays   = 0.0f;
+    currentType.species[0]        = '\0';
+    currentType.speciesId         = 0;
     entity_spawn_rule_init(&currentSpawn);
 
     bool inSection                         = false;
@@ -292,6 +347,10 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
                     snprintf(currentType.identifier, sizeof(currentType.identifier), "%s", sectionName);
                 if (!currentType.displayName[0])
                     snprintf(currentType.displayName, sizeof(currentType.displayName), "%s", currentType.identifier);
+                if (!currentType.species[0] && sectionName[0])
+                    normalize_label(sectionName, currentType.species, sizeof(currentType.species));
+                if (currentType.species[0])
+                    currentType.speciesId = entity_system_register_species(sys, currentType.species);
                 if (currentSpawn.id == ENTITY_TYPE_INVALID)
                     currentSpawn.id = currentType.id;
                 entity_system_register_type(sys, &currentType, &currentSpawn);
@@ -301,6 +360,17 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
             memset(&currentType, 0, sizeof(currentType));
             currentType.id                = ENTITY_TYPE_INVALID;
             currentType.referredStructure = STRUCT_COUNT;
+            currentType.sex               = ENTITY_SEX_UNDEFINED;
+            currentType.offspringTypeId   = ENTITY_TYPE_INVALID;
+            currentType.canReproduce      = false;
+            currentType.canHunt           = false;
+            currentType.canGather         = false;
+            currentType.huntTargetCount   = 0;
+            currentType.gatherTargetCount = 0;
+            currentType.ageElderAfterDays = 0.0f;
+            currentType.ageDieAfterDays   = 0.0f;
+            currentType.species[0]        = '\0';
+            currentType.speciesId         = 0;
             entity_spawn_rule_init(&currentSpawn);
 
             if (sscanf(line, "[%31[^]]", sectionName) == 1)
@@ -346,6 +416,17 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
         {
             parse_traits_line(&currentType, value);
         }
+        else if (strcasecmp(key, "species") == 0)
+        {
+            normalize_label(value, currentType.species, sizeof(currentType.species));
+            currentType.speciesId = entity_species_id_from_label(currentType.species);
+            if (currentType.species[0])
+                entity_system_register_species(sys, currentType.species);
+        }
+        else if (strcasecmp(key, "sex") == 0)
+        {
+            currentType.sex = parse_entity_sex(value);
+        }
         else if (strcasecmp(key, "max_hp") == 0)
         {
             currentType.maxHP = atoi(value);
@@ -357,6 +438,34 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
         else if (strcasecmp(key, "radius") == 0)
         {
             currentType.radius = (float)atof(value);
+        }
+        else if (strcasecmp(key, "can_reproduce") == 0)
+        {
+            currentType.canReproduce = parse_bool(value);
+        }
+        else if (strcasecmp(key, "can_hunt") == 0)
+        {
+            currentType.canHunt = parse_bool(value);
+        }
+        else if (strcasecmp(key, "can_gather") == 0)
+        {
+            currentType.canGather = parse_bool(value);
+        }
+        else if (strcasecmp(key, "hunt_targets") == 0)
+        {
+            parse_target_list(currentType.huntTargets, &currentType.huntTargetCount, value);
+        }
+        else if (strcasecmp(key, "gather_targets") == 0)
+        {
+            parse_target_list(currentType.gatherTargets, &currentType.gatherTargetCount, value);
+        }
+        else if (strcasecmp(key, "age_elder_after_days") == 0)
+        {
+            currentType.ageElderAfterDays = (float)atof(value);
+        }
+        else if (strcasecmp(key, "age_die_after_days") == 0)
+        {
+            currentType.ageDieAfterDays = (float)atof(value);
         }
         else if (strcasecmp(key, "color") == 0)
         {
@@ -401,6 +510,10 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
         {
             currentType.competences = parse_competences(value);
         }
+        else if (strcasecmp(key, "offspring") == 0 || strcasecmp(key, "offspring_type") == 0)
+        {
+            currentType.offspringTypeId = parse_entity_id(value);
+        }
         else if (strcasecmp(key, "referred.structure") == 0 || strcasecmp(key, "referred_structure") == 0)
         {
             StructureKind kind            = structure_kind_from_string(value);
@@ -438,6 +551,10 @@ bool entities_loader_load(EntitySystem* sys, const char* path)
             snprintf(currentType.identifier, sizeof(currentType.identifier), "%s", sectionName);
         if (!currentType.displayName[0])
             snprintf(currentType.displayName, sizeof(currentType.displayName), "%s", currentType.identifier);
+        if (!currentType.species[0] && sectionName[0])
+            normalize_label(sectionName, currentType.species, sizeof(currentType.species));
+        if (currentType.species[0])
+            currentType.speciesId = entity_system_register_species(sys, currentType.species);
         if (currentSpawn.id == ENTITY_TYPE_INVALID)
             currentSpawn.id = currentType.id;
         entity_system_register_type(sys, &currentType, &currentSpawn);

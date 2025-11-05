@@ -11,7 +11,8 @@
 #include "world_structures.h"
 #include "biome_loader.h"
 #include "road_planner.h"
-
+#include "entity.h"
+#include "building.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,31 @@ static float random01(uint64_t* rng)
         return rng01(rng);
     return (float)rand() / ((float)RAND_MAX + 1.0f);
 }
+
+// Pointers exposed to custom structure routines (e.g., cannibal villages).
+static PlacedStructure* g_worldgenPlaced          = NULL;
+static int*             g_worldgenPlacedCount     = NULL;
+static int              g_worldgenPlacedCap       = 0;
+static int*             g_worldgenStructureCounts = NULL;
+static uint64_t*        g_worldgenRng             = NULL;
+static int              g_nextVillageId           = 1;
+
+static const VillageBuildingSlot CANNIBAL_VILLAGE_SLOTS[] = {
+    {STRUCT_CANNIBAL_LONGHOUSE, 1, 1, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f},      {STRUCT_HUT_CANNIBAL, 3, 6, 9.0f, 13.0f, 0.0f, 360.0f, 18.0f},         {STRUCT_CANNIBAL_COOK_TENT, 1, 3, 6.0f, 8.0f, 15.0f, 360.0f, 22.0f},
+    {STRUCT_CANNIBAL_SHAMAN_HUT, 1, 1, 7.5f, 9.5f, 45.0f, 360.0f, 30.0f}, {STRUCT_CANNIBAL_BONE_PIT, 0, 1, 10.0f, 12.5f, -25.0f, 120.0f, 18.0f},
+};
+
+static const VillageTemplate CANNIBAL_VILLAGE_TEMPLATE = {
+    .requiredTile      = TILE_SAVANNA,
+    .coverageThreshold = 0.7f,
+    .surveyRadius      = 12,
+    .minSpacing        = 18.0f,
+    .minVillages       = 1,
+    .maxVillages       = 4,
+    .connectRoads      = true,
+    .slots             = CANNIBAL_VILLAGE_SLOTS,
+    .slotCount         = (int)(sizeof(CANNIBAL_VILLAGE_SLOTS) / sizeof(CANNIBAL_VILLAGE_SLOTS[0])),
+};
 
 static int random_offset(uint64_t* rng, int radius)
 {
@@ -735,19 +761,6 @@ static void generate_lakes(Map* map, const Climate* C, uint64_t* rng)
     }
 }
 
-typedef struct
-{
-    int           x;
-    int           y;
-    StructureKind kind;
-    int           doorX;
-    int           doorY;
-    int           boundsX;
-    int           boundsY;
-    int           boundsW;
-    int           boundsH;
-} PlacedStructure;
-
 static bool structure_allowed_in_biome(BiomeKind biome, StructureKind kind);
 static bool attempt_spawn_structure(Map* map, const StructureDef* def, int anchorX, int anchorY, uint64_t* rng, PlacedStructure* placed, int* placedCount, int placedCap, int* structureCounts, bool fromCluster);
 static bool place_cluster_member_instance(Map* map, const StructureDef* def, float anchorCenterX, float anchorCenterY, float halfWidth, float halfHeight, uint64_t* rng, PlacedStructure* placed, int* placedCount,
@@ -763,8 +776,6 @@ static const PlacedStructure* structure_at_point(const PlacedStructure* placed, 
 static void                   apply_road_step(Map* map, int x, int y, const PlacedStructure* placed, int placedCount);
 static bool                   find_road_path(Map* map, int startX, int startY, int goalX, int goalY, const PlacedStructure* placed, int placedCount, RoadPoint** outPath, int* outCount);
 static void                   carve_road_between(Map* map, int x0, int y0, int x1, int y1, const PlacedStructure* placed, int placedCount);
-static bool                   is_cannibal_structure(StructureKind kind);
-static void                   connect_cannibal_structures(Map* map, const PlacedStructure* placed, int placedCount);
 
 static void spawn_cluster_members(Map* map, const StructureDef* anchor, int baseX, int baseY, uint64_t* rng, PlacedStructure* placed, int* placedCount, int placedCap, int* structureCounts)
 {
@@ -1581,101 +1592,767 @@ static void carve_road_between(Map* map, int x0, int y0, int x1, int y1, const P
         apply_road_step(map, x1, y1, placed, placedCount);
 }
 
-static bool is_cannibal_structure(StructureKind kind)
+static const VillageBuildingSlot* village_find_slot(const VillageTemplate* tpl, StructureKind kind)
 {
-    switch (kind)
+    if (!tpl || !tpl->slots)
+        return NULL;
+
+    for (int i = 0; i < tpl->slotCount; ++i)
     {
-        case STRUCT_HUT_CANNIBAL:
-        case STRUCT_CANNIBAL_LONGHOUSE:
-        case STRUCT_CANNIBAL_COOK_TENT:
-        case STRUCT_CANNIBAL_SHAMAN_HUT:
-        case STRUCT_CANNIBAL_BONE_PIT:
-            return true;
+        if (tpl->slots[i].kind == kind)
+            return &tpl->slots[i];
+    }
+    return NULL;
+}
+
+static bool village_structure_reserved(const VillageTemplate* tpl, StructureKind kind)
+{
+    return village_find_slot(tpl, kind) != NULL;
+}
+
+static bool structure_reserved_for_villages(StructureKind kind)
+{
+    return village_structure_reserved(&CANNIBAL_VILLAGE_TEMPLATE, kind);
+}
+
+#define VILLAGE_MAX_PLANNED 48
+
+#ifndef VILLAGE_DEBUG_LOG
+#define VILLAGE_DEBUG_LOG 1
+#endif
+
+#if VILLAGE_DEBUG_LOG
+#define VILLAGE_LOG(fmt, ...) printf("[VILLAGE] " fmt "\n", ##__VA_ARGS__)
+#else
+#define VILLAGE_LOG(...) \
+    do                   \
+    {                    \
+    } while (0)
+#endif
+
+static BiomeKind village_tile_to_biome(TileTypeID tile)
+{
+    switch (tile)
+    {
+        case TILE_FOREST:
+            return BIO_FOREST;
+        case TILE_GRASS:
+        case TILE_PLAIN:
+        case TILE_WOOD_FLOOR:
+        case TILE_STRAW_FLOOR:
+        case TILE_STONE_FLOOR:
+        case TILE_MUD_ROAD:
+            return BIO_PLAIN;
+        case TILE_SAVANNA:
+            return BIO_SAVANNA;
+        case TILE_TUNDRA:
+        case TILE_TUNDRA_2:
+            return BIO_TUNDRA;
+        case TILE_DESERT:
+            return BIO_DESERT;
+        case TILE_SWAMP:
+            return BIO_SWAMP;
+        case TILE_MOUNTAIN:
+            return BIO_MOUNTAIN;
+        case TILE_CURSED_FOREST:
+        case TILE_POISON:
+            return BIO_CURSED;
+        case TILE_HELL:
+        case TILE_LAVA:
+            return BIO_HELL;
+        case TILE_WATER:
+            return BIO_PLAIN;
+        default:
+            return BIO_PLAIN;
+    }
+}
+
+static bool village_biome_matches(BiomeKind candidate, BiomeKind desired)
+{
+    if (candidate == desired)
+        return true;
+
+    switch (desired)
+    {
+        case BIO_PLAIN:
+        case BIO_SAVANNA:
+            return candidate == BIO_PLAIN || candidate == BIO_SAVANNA;
         default:
             return false;
     }
 }
 
-static void connect_cannibal_structures(Map* map, const PlacedStructure* placed, int placedCount)
+static float village_tile_coverage(const Map* map, int centerX, int centerY, int radius, TileTypeID requiredTile, bool* outValid)
 {
-    if (!map || !placed || placedCount <= 1)
+    if (outValid)
+        *outValid = false;
+
+    if (!map || radius <= 0)
+        return 0.0f;
+
+    if (requiredTile <= TILE_GRASS || requiredTile >= TILE_MAX)
+        requiredTile = TILE_SAVANNA;
+
+    BiomeKind desiredBiome = village_tile_to_biome(requiredTile);
+
+    int requiredSamples = 0;
+    int matchingSamples = 0;
+    int radiusSq        = radius * radius;
+
+    for (int dy = -radius; dy <= radius; ++dy)
+    {
+        int y = centerY + dy;
+        if (y < 1 || y >= map->height - 1)
+            return 0.0f;
+        for (int dx = -radius; dx <= radius; ++dx)
+        {
+            int x = centerX + dx;
+            if (x < 1 || x >= map->width - 1)
+                return 0.0f;
+
+            int distSq = dx * dx + dy * dy;
+            if (distSq > radiusSq)
+                continue;
+
+            requiredSamples++;
+
+            TileTypeID tile = map->tiles[y][x];
+            if (tile == requiredTile)
+            {
+                matchingSamples++;
+                continue;
+            }
+
+            BiomeKind tileBiome = village_tile_to_biome(tile);
+            if (village_biome_matches(tileBiome, desiredBiome))
+                matchingSamples++;
+        }
+    }
+
+    if (requiredSamples == 0)
+        return 0.0f;
+
+    if (outValid)
+        *outValid = true;
+
+    return (float)matchingSamples / (float)requiredSamples;
+}
+
+static float village_max_extent(const VillageTemplate* tpl)
+{
+    if (!tpl)
+        return 0.0f;
+
+    float maxRadius = 0.0f;
+    for (int i = 0; i < tpl->slotCount; ++i)
+    {
+        const VillageBuildingSlot* slot = &tpl->slots[i];
+        const StructureDef*        def  = get_structure_def(slot->kind);
+        if (!def)
+            continue;
+
+        float slotRadius = fmaxf(slot->radiusMin, slot->radiusMax);
+        int   width      = (def->maxWidth > 0) ? def->maxWidth : def->minWidth;
+        int   height     = (def->maxHeight > 0) ? def->maxHeight : def->minHeight;
+        float halfDiag   = 0.5f * sqrtf((float)(width * width + height * height));
+        maxRadius        = fmaxf(maxRadius, slotRadius + halfDiag);
+    }
+    return maxRadius;
+}
+
+static void connect_village_structures(const VillageTemplate* tpl, int speciesId, Map* map, const PlacedStructure* placed, int placedCount)
+{
+    if (!tpl || !tpl->connectRoads || !map || !placed || placedCount <= 1)
         return;
 
     enum
     {
-        MAX_CANNIBAL_ROAD_NODES = 32
+        MAX_VILLAGE_ROAD_NODES = 32,
+        MAX_VILLAGE_IDS        = 32
     };
+
+    int villageIds[MAX_VILLAGE_IDS];
+    int villageCount = 0;
+
+    for (int i = 0; i < placedCount && villageCount < MAX_VILLAGE_IDS; ++i)
+    {
+        const PlacedStructure* ps = &placed[i];
+        if (ps->speciesId != speciesId || ps->villageId < 0)
+            continue;
+        if (!village_structure_reserved(tpl, ps->kind))
+            continue;
+
+        bool known = false;
+        for (int v = 0; v < villageCount; ++v)
+        {
+            if (villageIds[v] == ps->villageId)
+            {
+                known = true;
+                break;
+            }
+        }
+        if (!known)
+            villageIds[villageCount++] = ps->villageId;
+    }
+
     typedef struct
     {
         RoadPoint     door;
         RoadPoint     anchor;
         StructureKind kind;
-    } CannibalRoadNode;
+    } VillageRoadNode;
 
-    CannibalRoadNode nodes[MAX_CANNIBAL_ROAD_NODES];
-    int              nodeCount = 0;
-
-    for (int i = 0; i < placedCount && nodeCount < MAX_CANNIBAL_ROAD_NODES; ++i)
+    for (int v = 0; v < villageCount; ++v)
     {
-        const PlacedStructure* ps = &placed[i];
-        if (!is_cannibal_structure(ps->kind))
-            continue;
-        if (ps->doorX < 0 || ps->doorY < 0)
+        VillageRoadNode nodes[MAX_VILLAGE_ROAD_NODES];
+        int             nodeCount = 0;
+        int             villageId = villageIds[v];
+
+        for (int i = 0; i < placedCount && nodeCount < MAX_VILLAGE_ROAD_NODES; ++i)
+        {
+            const PlacedStructure* ps = &placed[i];
+            if (ps->speciesId != speciesId || ps->villageId != villageId)
+                continue;
+            if (!village_structure_reserved(tpl, ps->kind))
+                continue;
+            if (ps->doorX < 0 || ps->doorY < 0)
+                continue;
+
+            int exitX = ps->doorX;
+            int exitY = ps->doorY;
+            compute_door_exit(map, ps->doorX, ps->doorY, &exitX, &exitY);
+
+            nodes[nodeCount].door.x   = ps->doorX;
+            nodes[nodeCount].door.y   = ps->doorY;
+            nodes[nodeCount].anchor.x = exitX;
+            nodes[nodeCount].anchor.y = exitY;
+            nodes[nodeCount].kind     = ps->kind;
+            nodeCount++;
+        }
+
+        if (nodeCount <= 1)
             continue;
 
-        int exitX = ps->doorX;
-        int exitY = ps->doorY;
-        compute_door_exit(map, ps->doorX, ps->doorY, &exitX, &exitY);
+        int anchorIndex = 0;
+        for (int i = 0; i < nodeCount; ++i)
+        {
+            const VillageBuildingSlot* slot = village_find_slot(tpl, nodes[i].kind);
+            if (slot && slot->radiusMax <= 1.0f)
+            {
+                anchorIndex = i;
+                break;
+            }
+        }
+        if (anchorIndex != 0)
+        {
+            VillageRoadNode tmp = nodes[0];
+            nodes[0]            = nodes[anchorIndex];
+            nodes[anchorIndex]  = tmp;
+        }
 
-        nodes[nodeCount].door.x   = ps->doorX;
-        nodes[nodeCount].door.y   = ps->doorY;
-        nodes[nodeCount].anchor.x = exitX;
-        nodes[nodeCount].anchor.y = exitY;
-        nodes[nodeCount].kind     = ps->kind;
-        nodeCount++;
+        RoadPoint points[MAX_VILLAGE_ROAD_NODES];
+        for (int i = 0; i < nodeCount; ++i)
+            points[i] = nodes[i].anchor;
+
+        int order[MAX_VILLAGE_ROAD_NODES];
+        int result = tsp_plan_route(points, nodeCount, order, MAX_VILLAGE_ROAD_NODES);
+        if (result <= 0)
+            continue;
+
+        VillageRoadNode ordered[MAX_VILLAGE_ROAD_NODES];
+        for (int i = 0; i < nodeCount; ++i)
+            ordered[i] = nodes[order[i]];
+
+        for (int i = 0; i < nodeCount; ++i)
+        {
+            apply_road_step(map, ordered[i].door.x, ordered[i].door.y, placed, placedCount);
+            if (ordered[i].door.x != ordered[i].anchor.x || ordered[i].door.y != ordered[i].anchor.y)
+                carve_road_between(map, ordered[i].door.x, ordered[i].door.y, ordered[i].anchor.x, ordered[i].anchor.y, placed, placedCount);
+        }
+
+        for (int i = 0; i < nodeCount - 1; ++i)
+            carve_road_between(map, ordered[i].anchor.x, ordered[i].anchor.y, ordered[i + 1].anchor.x, ordered[i + 1].anchor.y, placed, placedCount);
+    }
+}
+
+static bool worldgen_place_structure(Map* map, const StructureDef* def, int startX, int startY)
+{
+    if (!map || !def)
+        return false;
+
+    int width  = (def->maxWidth > 0) ? def->maxWidth : def->minWidth;
+    int height = (def->maxHeight > 0) ? def->maxHeight : def->minHeight;
+    if (width <= 0 || height <= 0)
+        return false;
+
+    if (!structure_area_clear(map, startX, startY, width, height))
+        return false;
+
+    structure_clear_objects(map, startX, startY, width, height);
+    def->build(map, startX, startY, g_worldgenRng);
+
+    int doorX = -1;
+    int doorY = -1;
+    find_structure_door(map, startX, startY, width, height, &doorX, &doorY);
+    if (doorX >= 0 && doorY >= 0)
+        compute_door_exit(map, doorX, doorY, &doorX, &doorY);
+
+    if (g_worldgenStructureCounts)
+        g_worldgenStructureCounts[def->kind]++;
+
+    if (g_worldgenPlaced && g_worldgenPlacedCount && *g_worldgenPlacedCount < g_worldgenPlacedCap)
+    {
+        PlacedStructure* ps = &g_worldgenPlaced[*g_worldgenPlacedCount];
+        ps->x               = startX + width / 2;
+        ps->y               = startY + height / 2;
+        ps->kind            = def->kind;
+        ps->doorX           = doorX;
+        ps->doorY           = doorY;
+        ps->boundsX         = startX;
+        ps->boundsY         = startY;
+        ps->boundsW         = width;
+        ps->boundsH         = height;
+        ps->speciesId       = 0;
+        ps->villageId       = -1;
+        (*g_worldgenPlacedCount)++;
     }
 
-    if (nodeCount <= 1)
-        return;
+    return true;
+}
 
-    int anchorIndex = 0;
-    for (int i = 0; i < nodeCount; ++i)
+typedef struct
+{
+    const StructureDef* def;
+    int                 startX;
+    int                 startY;
+    int                 width;
+    int                 height;
+} PlannedStructure;
+
+static bool worldgen_plan_structure(Map* map, const StructureDef* def, int anchorX, int anchorY, PlannedStructure* planned, int* plannedCount, int maxPlanned)
+{
+    if (!map || !def || !planned || !plannedCount)
+        return false;
+    if (*plannedCount >= maxPlanned)
     {
-        if (nodes[i].kind == STRUCT_CANNIBAL_LONGHOUSE)
+        VILLAGE_LOG("    plan_structure: max planned reached (%d)", maxPlanned);
+        return false;
+    }
+
+    int width  = (def->maxWidth > 0) ? def->maxWidth : def->minWidth;
+    int height = (def->maxHeight > 0) ? def->maxHeight : def->minHeight;
+
+    int startX = clampi(anchorX - width / 2, 2, map->width - width - 2);
+    int startY = clampi(anchorY - height / 2, 2, map->height - height - 2);
+
+    if (bounds_overlap_existing(startX, startY, width, height, g_worldgenPlaced, g_worldgenPlacedCount ? *g_worldgenPlacedCount : 0, 2))
+    {
+        VILLAGE_LOG("    plan_structure: overlaps existing at %d,%d kind=%d", startX, startY, def->kind);
+        return false;
+    }
+
+    for (int i = 0; i < *plannedCount; ++i)
+    {
+        if (rectangles_overlap_margin(startX, startY, width, height, planned[i].startX, planned[i].startY, planned[i].width, planned[i].height, 2))
         {
-            anchorIndex = i;
-            break;
+            VILLAGE_LOG("    plan_structure: overlaps planned idx=%d at %d,%d kind=%d", i, planned[i].startX, planned[i].startY, def->kind);
+            return false;
         }
     }
-    if (anchorIndex != 0)
+
+    if (!structure_area_clear(map, startX, startY, width, height))
     {
-        CannibalRoadNode tmp = nodes[0];
-        nodes[0]             = nodes[anchorIndex];
-        nodes[anchorIndex]   = tmp;
+        VILLAGE_LOG("    plan_structure: area not clear at %d,%d (w=%d h=%d) kind=%d", startX, startY, width, height, def->kind);
+        return false;
     }
 
-    RoadPoint points[MAX_CANNIBAL_ROAD_NODES];
-    for (int i = 0; i < nodeCount; ++i)
-        points[i] = nodes[i].anchor;
+    planned[*plannedCount].def    = def;
+    planned[*plannedCount].startX = startX;
+    planned[*plannedCount].startY = startY;
+    planned[*plannedCount].width  = width;
+    planned[*plannedCount].height = height;
+    (*plannedCount)++;
+    return true;
+}
 
-    int order[MAX_CANNIBAL_ROAD_NODES];
-    int result = tsp_plan_route(points, nodeCount, order, MAX_CANNIBAL_ROAD_NODES);
-    if (result <= 0)
+static float structure_half_diag(const StructureDef* def)
+{
+    if (!def)
+        return 0.0f;
+    int width  = (def->maxWidth > 0) ? def->maxWidth : def->minWidth;
+    int height = (def->maxHeight > 0) ? def->maxHeight : def->minHeight;
+    if (width <= 0)
+        width = def->minWidth > 0 ? def->minWidth : 4;
+    if (height <= 0)
+        height = def->minHeight > 0 ? def->minHeight : 4;
+    return 0.5f * sqrtf((float)(width * width + height * height));
+}
+
+static bool village_plan_with_jitter(Map* map,
+                                     const StructureDef* def,
+                                     int                 targetX,
+                                     int                 targetY,
+                                     int                 centerX,
+                                     int                 centerY,
+                                     float               desiredRadius,
+                                     PlannedStructure*   planned,
+                                     int*                plannedCount,
+                                     int                 maxPlanned)
+{
+    if (!def)
+        return false;
+
+    const float TWO_PI = 6.28318530718f;
+
+    float halfDiag = structure_half_diag(def);
+    float dirX     = (float)(targetX - centerX);
+    float dirY     = (float)(targetY - centerY);
+    float dirLen   = sqrtf(dirX * dirX + dirY * dirY);
+
+    if (dirLen < 0.25f)
+    {
+        float angle = random01(g_worldgenRng) * TWO_PI;
+        dirX        = cosf(angle);
+        dirY        = sinf(angle);
+        dirLen      = 1.0f;
+    }
+    else
+    {
+        dirX /= dirLen;
+        dirY /= dirLen;
+    }
+
+    float baseReach = fmaxf(desiredRadius, dirLen);
+    float minReach  = halfDiag + 2.5f;
+    if (baseReach < minReach)
+        baseReach = minReach;
+
+    const int MAX_DIRECT_SWEEP = 24;
+    for (int attempt = 0; attempt < MAX_DIRECT_SWEEP; ++attempt)
+    {
+        float radial   = baseReach + (float)attempt * (halfDiag * 0.8f + 1.2f);
+        int   testX    = centerX + (int)roundf(dirX * radial);
+        int   testY    = centerY + (int)roundf(dirY * radial);
+        int   jitterR  = (attempt > 0) ? (1 + attempt / 2) : 0;
+
+        if (jitterR > 0)
+        {
+            testX += random_offset(g_worldgenRng, jitterR);
+            testY += random_offset(g_worldgenRng, jitterR);
+        }
+
+        if (worldgen_plan_structure(map, def, testX, testY, planned, plannedCount, maxPlanned))
+        {
+            if (attempt > 0)
+                VILLAGE_LOG("    plan_with_jitter succeeded after %d attempts at (%d,%d) kind=%d", attempt + 1, testX, testY, def->kind);
+            return true;
+        }
+    }
+
+    for (int sweep = 0; sweep < 16; ++sweep)
+    {
+        float radial = baseReach + halfDiag + 3.0f + 1.5f * (float)sweep;
+        float angle  = random01(g_worldgenRng) * TWO_PI;
+        int   testX  = centerX + (int)roundf(cosf(angle) * radial);
+        int   testY  = centerY + (int)roundf(sinf(angle) * radial);
+
+        if (worldgen_plan_structure(map, def, testX, testY, planned, plannedCount, maxPlanned))
+        {
+            VILLAGE_LOG("    plan_with_jitter random sweep succeeded at (%d,%d) kind=%d", testX, testY, def->kind);
+            return true;
+        }
+    }
+
+    VILLAGE_LOG("    plan_with_jitter failed around (%d,%d) kind=%d", targetX, targetY, def->kind);
+    return false;
+}
+
+static bool village_plan_and_place(Map* map, const VillageTemplate* templateDef, int speciesId, int centerX, int centerY)
+{
+    if (!map || !templateDef)
+        return false;
+
+    VILLAGE_LOG("  plan_and_place speciesId=%d center=(%d,%d)", speciesId, centerX, centerY);
+
+    if (g_worldgenPlaced && g_worldgenPlacedCount)
+    {
+        if (!structure_spacing_ok((float)centerX, (float)centerY, g_worldgenPlaced, *g_worldgenPlacedCount, templateDef->minSpacing))
+        {
+            VILLAGE_LOG("    spacing check failed at center");
+            return false;
+        }
+    }
+
+    PlannedStructure planned[VILLAGE_MAX_PLANNED];
+    int              plannedCount = 0;
+    bool             planOk       = true;
+
+    for (int slotIndex = 0; slotIndex < templateDef->slotCount && planOk; ++slotIndex)
+    {
+        const VillageBuildingSlot* slot = &templateDef->slots[slotIndex];
+        const StructureDef*        def  = get_structure_def(slot->kind);
+        if (!def)
+        {
+            VILLAGE_LOG("    slot %d missing StructureDef (kind=%d)", slotIndex, slot->kind);
+            planOk = false;
+            break;
+        }
+
+        int minCount = (slot->minCount > 0) ? slot->minCount : 0;
+        int maxCount = (slot->maxCount >= minCount) ? slot->maxCount : minCount;
+        if (maxCount <= 0)
+            continue;
+
+        int count = minCount;
+        if (maxCount > minCount)
+        {
+            float roll = random01(g_worldgenRng);
+            count      = minCount + (int)(roll * (float)(maxCount - minCount + 1));
+        }
+
+        if (count <= 0)
+            continue;
+
+        if (slot->radiusMin <= 0.0f && slot->radiusMax <= 0.0f)
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                if (!village_plan_with_jitter(map, def, centerX, centerY, centerX, centerY, 0.0f, planned, &plannedCount, VILLAGE_MAX_PLANNED))
+                {
+                    VILLAGE_LOG("    plan failed for slot %d at center (kind=%d)", slotIndex, def->kind);
+                    planOk = false;
+                    break;
+                }
+            }
+            continue;
+        }
+
+        float radiusMin = slot->radiusMin;
+        float radiusMax = (slot->radiusMax > slot->radiusMin) ? slot->radiusMax : slot->radiusMin;
+        float spanDeg   = (slot->angleSpanDeg != 0.0f) ? slot->angleSpanDeg : 360.0f;
+        float step      = spanDeg / (float)count;
+        float startDeg  = slot->angleStartDeg;
+
+        for (int i = 0; i < count && planOk; ++i)
+        {
+            float angleDeg;
+            if (slot->angleSpanDeg == 0.0f)
+                angleDeg = startDeg + 360.0f * ((float)i / (float)count);
+            else
+                angleDeg = startDeg + step * ((float)i + 0.5f);
+
+            float jitterDeg = slot->angleJitterDeg > 0.0f ? slot->angleJitterDeg * (random01(g_worldgenRng) * 2.0f - 1.0f) : 0.0f;
+            float angleRad  = (angleDeg + jitterDeg) * (PI / 180.0f);
+
+            float radius = radiusMin;
+            if (radiusMax > radiusMin)
+                radius = radiusMin + random01(g_worldgenRng) * (radiusMax - radiusMin);
+
+            int anchorX = centerX + (int)roundf(cosf(angleRad) * radius);
+            int anchorY = centerY + (int)roundf(sinf(angleRad) * radius);
+
+            if (!village_plan_with_jitter(map, def, anchorX, anchorY, centerX, centerY, radius, planned, &plannedCount, VILLAGE_MAX_PLANNED))
+            {
+                VILLAGE_LOG("    plan failed for slot %d anchor=(%d,%d) kind=%d", slotIndex, anchorX, anchorY, def->kind);
+                planOk = false;
+            }
+        }
+    }
+
+    if (!planOk || plannedCount == 0)
+    {
+        VILLAGE_LOG("    plan_and_place aborted (planOk=%d plannedCount=%d)", planOk, plannedCount);
+        return false;
+    }
+
+    int  villageId   = g_nextVillageId++;
+    bool placementOk = true;
+
+    for (int i = 0; i < plannedCount && placementOk; ++i)
+    {
+        int before = (g_worldgenPlaced && g_worldgenPlacedCount) ? *g_worldgenPlacedCount : 0;
+        if (!worldgen_place_structure(map, planned[i].def, planned[i].startX, planned[i].startY))
+        {
+            int loggedKind = planned[i].def ? (int)planned[i].def->kind : -1;
+            VILLAGE_LOG("    placement failed for kind=%d at %d,%d", loggedKind, planned[i].startX, planned[i].startY);
+            placementOk = false;
+            break;
+        }
+
+        Rectangle bounds = {
+            (float)planned[i].startX,
+            (float)planned[i].startY,
+            (float)planned[i].width,
+            (float)planned[i].height,
+        };
+        register_building_with_metadata(map, bounds, planned[i].def->kind, speciesId, villageId);
+
+        if (g_worldgenPlaced && g_worldgenPlacedCount && before < *g_worldgenPlacedCount)
+        {
+            PlacedStructure* ps = &g_worldgenPlaced[before];
+            ps->speciesId       = speciesId;
+            ps->villageId       = villageId;
+        }
+    }
+
+    if (!placementOk)
+        return false;
+
+    VILLAGE_LOG("    village %d placed with %d structures", villageId, plannedCount);
+    return true;
+}
+
+void world_generate_village(const char* species, const VillageTemplate* templateDef, Map* map)
+{
+    if (!species || !templateDef || !map || templateDef->slotCount <= 0)
         return;
 
-    CannibalRoadNode ordered[MAX_CANNIBAL_ROAD_NODES];
-    for (int i = 0; i < nodeCount; ++i)
-        ordered[i] = nodes[order[i]];
+    int speciesId = entity_species_id_from_label(species);
+    if (speciesId <= 0)
+        speciesId = entity_species_id_from_label(species);
 
-    for (int i = 0; i < nodeCount; ++i)
+    int desired = (map->width * map->height) / 20000;
+    if (desired < templateDef->minVillages)
+        desired = templateDef->minVillages;
+    if (templateDef->maxVillages > 0 && desired > templateDef->maxVillages)
+        desired = templateDef->maxVillages;
+    if (desired <= 0)
+        return;
+
+    float maxExtent = village_max_extent(templateDef);
+    int   margin    = (int)ceilf(maxExtent + 6.0f);
+    if (margin < templateDef->surveyRadius + 2)
+        margin = templateDef->surveyRadius + 2;
+    if (margin < 12)
+        margin = 12;
+
+    VILLAGE_LOG("world_generate_village species=%s desired=%d requiredTile=%d threshold=%.2f margin=%d", species, desired, templateDef->requiredTile, templateDef->coverageThreshold, margin);
+
+    for (int v = 0; v < desired; ++v)
     {
-        apply_road_step(map, ordered[i].door.x, ordered[i].door.y, placed, placedCount);
-        if (ordered[i].door.x != ordered[i].anchor.x || ordered[i].door.y != ordered[i].anchor.y)
-            carve_road_between(map, ordered[i].door.x, ordered[i].door.y, ordered[i].anchor.x, ordered[i].anchor.y, placed, placedCount);
+        bool placedVillage = false;
+
+        float bestCoverage = -1.0f;
+        int   bestCenterX  = -1;
+        int   bestCenterY  = -1;
+
+        for (int attempt = 0; attempt < 80 && !placedVillage; ++attempt)
+        {
+            int centerX = margin + (int)(random01(g_worldgenRng) * (float)(map->width - margin * 2));
+            int centerY = margin + (int)(random01(g_worldgenRng) * (float)(map->height - margin * 2));
+
+            bool  coverageValid = false;
+            float coverage      = village_tile_coverage(map, centerX, centerY, templateDef->surveyRadius, templateDef->requiredTile, &coverageValid);
+            VILLAGE_LOG(" attempt %d center=(%d,%d) coverage=%.3f valid=%d", attempt, centerX, centerY, coverage, coverageValid ? 1 : 0);
+            if (!coverageValid)
+                continue;
+
+            if (g_worldgenPlaced && g_worldgenPlacedCount)
+            {
+                if (!structure_spacing_ok((float)centerX, (float)centerY, g_worldgenPlaced, *g_worldgenPlacedCount, templateDef->minSpacing))
+                {
+                    continue;
+                }
+            }
+
+            if (coverage < templateDef->coverageThreshold)
+            {
+                if (coverage > bestCoverage)
+                {
+                    VILLAGE_LOG("   coverage %.3f below threshold %.3f (tracking best)", coverage, templateDef->coverageThreshold);
+                    bestCoverage = coverage;
+                    bestCenterX  = centerX;
+                    bestCenterY  = centerY;
+                }
+                continue;
+            }
+
+            if (village_plan_and_place(map, templateDef, speciesId, centerX, centerY))
+            {
+                VILLAGE_LOG("   placed village from attempt %d", attempt);
+                placedVillage = true;
+            }
+        }
+
+        if (!placedVillage && bestCoverage >= templateDef->coverageThreshold * 0.6f)
+        {
+            VILLAGE_LOG("   attempting best-centre placement with coverage %.3f", bestCoverage);
+            if (village_plan_and_place(map, templateDef, speciesId, bestCenterX, bestCenterY))
+            {
+                VILLAGE_LOG("   placed village using best coverage %.3f", bestCoverage);
+                placedVillage = true;
+            }
+        }
+
+        if (!placedVillage)
+        {
+            float scanBestCoverage = bestCoverage;
+            int   scanCenterX      = bestCenterX;
+            int   scanCenterY      = bestCenterY;
+
+            int scanStep = templateDef->surveyRadius > 6 ? templateDef->surveyRadius / 2 : 4;
+            if (scanStep < 2)
+                scanStep = 2;
+
+            VILLAGE_LOG("   fallback scan step=%d (starting best %.3f)", scanStep, scanBestCoverage);
+            for (int sy = margin; sy < map->height - margin; sy += scanStep)
+            {
+                for (int sx = margin; sx < map->width - margin; sx += scanStep)
+                {
+                    bool  coverageValid = false;
+                    float coverage      = village_tile_coverage(map, sx, sy, templateDef->surveyRadius, templateDef->requiredTile, &coverageValid);
+                    if (!coverageValid)
+                        continue;
+
+                    if (g_worldgenPlaced && g_worldgenPlacedCount)
+                    {
+                        if (!structure_spacing_ok((float)sx, (float)sy, g_worldgenPlaced, *g_worldgenPlacedCount, templateDef->minSpacing))
+                            continue;
+                    }
+
+                    if (coverage > scanBestCoverage)
+                    {
+                        scanBestCoverage = coverage;
+                        scanCenterX      = sx;
+                        scanCenterY      = sy;
+                    }
+                }
+            }
+
+            float baseThreshold = templateDef->coverageThreshold > 0.0f ? templateDef->coverageThreshold : 0.5f;
+            float relaxedMin    = baseThreshold * 0.5f;
+            if (relaxedMin < 0.3f)
+                relaxedMin = 0.3f;
+
+            VILLAGE_LOG("   fallback best coverage %.3f at (%d,%d) relaxedMin=%.3f", scanBestCoverage, scanCenterX, scanCenterY, relaxedMin);
+            if (scanCenterX >= 0 && scanCenterY >= 0 && scanBestCoverage >= relaxedMin)
+            {
+                if (village_plan_and_place(map, templateDef, speciesId, scanCenterX, scanCenterY))
+                {
+                    VILLAGE_LOG("   village placed via relaxed fallback");
+                    placedVillage = true;
+                }
+            }
+            else if (scanCenterX >= 0 && scanCenterY >= 0 && scanBestCoverage > 0.0f)
+            {
+                if (village_plan_and_place(map, templateDef, speciesId, scanCenterX, scanCenterY))
+                {
+                    VILLAGE_LOG("   village placed via loose fallback");
+                    placedVillage = true;
+                }
+            }
+            else
+            {
+                VILLAGE_LOG("   fallback scan found no viable center");
+            }
+        }
+
+        if (!placedVillage)
+            VILLAGE_LOG(" !! failed to place village #%d", v);
     }
 
-    for (int i = 0; i < nodeCount - 1; ++i)
-        carve_road_between(map, ordered[i].anchor.x, ordered[i].anchor.y, ordered[i + 1].anchor.x, ordered[i + 1].anchor.y, placed, placedCount);
+    if (templateDef->connectRoads && g_worldgenPlaced && g_worldgenPlacedCount)
+        connect_village_structures(templateDef, speciesId, map, g_worldgenPlaced, *g_worldgenPlacedCount);
 }
 
 static bool place_cluster_member_instance(Map* map, const StructureDef* def, float anchorCenterX, float anchorCenterY, float halfWidth, float halfHeight, uint64_t* rng, PlacedStructure* placed, int* placedCount,
@@ -1777,15 +2454,17 @@ static bool attempt_spawn_structure(Map* map, const StructureDef* def, int ancho
 
         if (placed && placedCount && *placedCount < placedCap)
         {
-            placed[*placedCount].x       = (int)roundf(centerXf);
-            placed[*placedCount].y       = (int)roundf(centerYf);
-            placed[*placedCount].kind    = def->kind;
-            placed[*placedCount].doorX   = doorX;
-            placed[*placedCount].doorY   = doorY;
-            placed[*placedCount].boundsX = startX;
-            placed[*placedCount].boundsY = startY;
-            placed[*placedCount].boundsW = widthMax;
-            placed[*placedCount].boundsH = heightMax;
+            placed[*placedCount].x         = (int)roundf(centerXf);
+            placed[*placedCount].y         = (int)roundf(centerYf);
+            placed[*placedCount].kind      = def->kind;
+            placed[*placedCount].doorX     = doorX;
+            placed[*placedCount].doorY     = doorY;
+            placed[*placedCount].boundsX   = startX;
+            placed[*placedCount].boundsY   = startY;
+            placed[*placedCount].boundsW   = widthMax;
+            placed[*placedCount].boundsH   = heightMax;
+            placed[*placedCount].speciesId = 0;
+            placed[*placedCount].villageId = -1;
             (*placedCount)++;
         }
 
@@ -2209,6 +2888,8 @@ void generate_world(Map* map)
                 const StructureDef* def = pick_structure_for_biome(kind, &rs, structureCounts);
                 if (def)
                 {
+                    if (structure_reserved_for_villages(def->kind))
+                        continue;
                     if (def->maxInstances > 0 && structureCounts[def->kind] >= def->maxInstances)
                         continue;
                     attempt_spawn_structure(map, def, x, y, &rs, placed, &placedCount, placedCap, structureCounts, false);
@@ -2221,6 +2902,8 @@ void generate_world(Map* map)
     {
         const StructureDef* def = get_structure_def((StructureKind)k);
         if (!def || def->minInstances <= 0)
+            continue;
+        if (structure_reserved_for_villages(def->kind))
             continue;
 
         int required = def->minInstances;
@@ -2285,7 +2968,19 @@ void generate_world(Map* map)
         }
     }
 
-    connect_cannibal_structures(map, placed, placedCount);
+    g_worldgenPlaced          = placed;
+    g_worldgenPlacedCount     = &placedCount;
+    g_worldgenPlacedCap       = placedCap;
+    g_worldgenStructureCounts = structureCounts;
+    g_worldgenRng             = &rs;
+
+    world_generate_village("cannibal", &CANNIBAL_VILLAGE_TEMPLATE, map);
+
+    g_worldgenPlaced          = NULL;
+    g_worldgenPlacedCount     = NULL;
+    g_worldgenPlacedCap       = 0;
+    g_worldgenStructureCounts = NULL;
+    g_worldgenRng             = NULL;
 
     // Cleanup
     free(cellCenterIdx);

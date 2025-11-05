@@ -6,6 +6,8 @@
 
 #include "entity.h"
 
+typedef struct EntitySystem EntityList;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,6 +63,37 @@ bool behavior_try_open_doors(Entity* entity, Map* map, Vector2 desiredPosition);
  * @return true if at least one light source changed state.
  */
 bool behavior_sync_nearby_lights(Entity* entity, Map* map, bool shouldBeActive, int radiusTiles);
+
+/**
+ * @brief Updates the hunger meter of a living entity and applies starvation effects.
+ */
+void behavior_hunger_update(EntitySystem* sys, Entity* entity, Map* map);
+
+/**
+ * @brief Handles the death of an entity, spawning remains and rewarding the killer.
+ */
+void behavior_handle_entity_death(EntitySystem* sys, Map* map, Entity* victim, Entity* killer);
+
+/**
+ * @brief Attempts to trigger a reproduction interaction with a compatible partner.
+ */
+void behavior_try_reproduce(Entity* entity, EntityList* entities);
+
+/**
+ * @brief Daytime hunting routine used by carnivorous entities.
+ */
+void behavior_hunt(Entity* entity, EntityList* entities, Map* map);
+bool behavior_force_open_doors(Entity* entity, Map* map, Vector2 desiredPosition, float radiusOverride);
+
+/**
+ * @brief Daytime gathering routine used by herbivorous or civilised entities.
+ */
+void behavior_gather(Entity* entity, Map* map);
+
+/**
+ * @brief Attempts to consume rations from the entity's pantry when hungry.
+ */
+void behavior_eat_if_hungry(Entity* entity);
 
 #ifdef __cplusplus
 }

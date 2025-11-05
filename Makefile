@@ -6,7 +6,7 @@ SRC=$(wildcard core/src/*.c world/src/*.c sim/src/*.c ui/src/*.c loader/src/*.c)
 # Définition des chemins
 BUILD_DIR=build
 # Liste des répertoires d'objets nécessaires (ex: build/core/src/)
-OBJ_DIRS=$(patsubst %/,$(BUILD_DIR)/%,$(dir $(SRC)))
+OBJ_DIRS:=$(sort $(patsubst %/,$(BUILD_DIR)/%,$(dir $(SRC))))
 # Liste des fichiers objets (ex: build/core/src/app.o)
 OBJ=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC))
 BIN=bin/containment_tycoon

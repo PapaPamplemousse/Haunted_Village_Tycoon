@@ -14,25 +14,19 @@
 #define PI 3.14159265358979323846f
 #endif
 
+#define CANNIBAL_FEAST_AMOUNT 38.0f
+
 typedef struct CannibalBrain
 {
     float   wanderTimer;
     float   attackCooldown;
     float   repathTimer;
-    float   romanceTimer;
-    float   romanceCooldownDays;
     float   juvenileAgeDays;
-    float   heartPhase;
     int     lastHP;
     int     targetId;
-    int     romancePartnerId;
-    int     romanceBuildingId;
     Vector2 pathGoal;
     Vector2 waypoint;
     uint8_t waypointValid;
-    uint8_t romanceActive;
-    uint8_t pendingBaby;
-    uint8_t padding;
 } CannibalBrain;
 
 static void cannibal_on_spawn(EntitySystem* sys, Entity* e);
@@ -68,129 +62,6 @@ static float cannibal_sim_days_step(void)
     return world_time_get_last_step_seconds() / secondsPerDay;
 }
 
-static bool cannibal_is_idle_candidate(const Entity* e, const CannibalBrain* brain)
-{
-    if (!e || !brain)
-        return false;
-    if (brain->targetId != ENTITY_ID_INVALID)
-        return false;
-    if (brain->romanceActive)
-        return false;
-    if (brain->wanderTimer > 0.0f)
-        return false;
-    float speedSq = e->velocity.x * e->velocity.x + e->velocity.y * e->velocity.y;
-    return speedSq < (TILE_SIZE * 0.5f) * (TILE_SIZE * 0.5f);
-}
-
-static int cannibal_current_building(const EntitySystem* sys, const Entity* e)
-{
-    if (!sys || !e)
-        return -1;
-    int idx = e->reservationIndex;
-    if (idx < 0 || idx >= sys->reservationCount)
-        return -1;
-    const EntityReservation* res = &sys->reservations[idx];
-    if (!res->used)
-        return res->buildingId;
-    return res->buildingId;
-}
-
-static void cannibal_spawn_baby(EntitySystem* sys, Entity* parent, int partnerId, int buildingId)
-{
-    if (!sys || !parent)
-        return;
-
-    Vector2 spawnPos = parent->position;
-    if (buildingId >= 0)
-    {
-        const Building* building = building_get(buildingId);
-        if (building)
-        {
-            spawnPos.x = building->center.x * (float)TILE_SIZE;
-            spawnPos.y = building->center.y * (float)TILE_SIZE;
-        }
-    }
-
-    float jitter = TILE_SIZE * 0.35f;
-    spawnPos.x += entity_randomf(sys, -jitter, jitter);
-    spawnPos.y += entity_randomf(sys, -jitter, jitter);
-
-    uint16_t childId = entity_spawn(sys, ENTITY_TYPE_CANNIBAL_CHILD, spawnPos);
-    if (childId == ENTITY_ID_INVALID)
-        return;
-
-    Entity* child = entity_acquire(sys, childId);
-    if (!child)
-        return;
-
-    child->home = parent->home;
-    child->orientation = parent->orientation;
-}
-
-static void cannibal_end_romance(EntitySystem* sys, Entity* e, CannibalBrain* brain)
-{
-    if (!sys || !e || !brain)
-        return;
-
-    int partnerId  = brain->romancePartnerId;
-    int buildingId = brain->romanceBuildingId;
-    bool spawnBaby = brain->pendingBaby && cannibal_is_male(e) && !cannibal_is_child(e);
-
-    brain->romanceActive      = 0;
-    brain->romanceTimer       = 0.0f;
-    brain->heartPhase         = 0.0f;
-    brain->romancePartnerId   = ENTITY_ID_INVALID;
-    brain->romanceBuildingId  = -1;
-    brain->pendingBaby        = 0;
-
-    if (partnerId != ENTITY_ID_INVALID)
-    {
-        Entity* partner = entity_acquire(sys, (uint16_t)partnerId);
-        if (partner)
-        {
-            CannibalBrain* other = (CannibalBrain*)partner->brain;
-            if (other)
-            {
-                other->romanceActive     = 0;
-                other->romanceTimer      = 0.0f;
-                other->heartPhase        = 0.0f;
-                if (other->romancePartnerId == e->id)
-                    other->romancePartnerId = ENTITY_ID_INVALID;
-                other->romanceBuildingId = -1;
-                other->pendingBaby       = 0;
-            }
-        }
-    }
-
-    if (spawnBaby)
-        cannibal_spawn_baby(sys, e, partnerId, buildingId);
-}
-
-static void cannibal_update_romance_animation(EntitySystem* sys, Entity* e, CannibalBrain* brain, float dt)
-{
-    if (!sys || !e || !brain)
-        return;
-
-    e->velocity = (Vector2){0.0f, 0.0f};
-    if (brain->romancePartnerId != ENTITY_ID_INVALID)
-    {
-        Entity* partner = entity_acquire(sys, (uint16_t)brain->romancePartnerId);
-        if (partner)
-        {
-            float angle = atan2f(partner->position.y - e->position.y, partner->position.x - e->position.x);
-            e->orientation = angle;
-        }
-    }
-
-    brain->heartPhase += dt * 4.0f;
-    if (brain->heartPhase > (float)(2.0f * PI))
-        brain->heartPhase -= (float)(2.0f * PI);
-
-    brain->romanceTimer -= dt;
-    if (brain->romanceTimer <= 0.0f)
-        cannibal_end_romance(sys, e, brain);
-}
-
 static void cannibal_promote_child(EntitySystem* sys, Entity* e)
 {
     if (!sys || !e || !cannibal_is_child(e))
@@ -210,100 +81,7 @@ static void cannibal_promote_child(EntitySystem* sys, Entity* e)
 
     CannibalBrain* brain = (CannibalBrain*)e->brain;
     if (brain)
-    {
-        brain->romanceCooldownDays = 1.0f;
-        brain->juvenileAgeDays     = 0.0f;
-    }
-}
-
-static Entity* cannibal_find_partner(EntitySystem* sys, Entity* self, int buildingId)
-{
-    if (!sys || !self)
-        return NULL;
-
-    float maxDistance = TILE_SIZE * 1.6f;
-    float maxDistanceSq = maxDistance * maxDistance;
-
-    for (int i = 0; i <= sys->highestIndex; ++i)
-    {
-        Entity* candidate = &sys->entities[i];
-        if (!candidate->active || candidate == self)
-            continue;
-        if (!cannibal_is_female(candidate) || !cannibal_is_adult(candidate) || cannibal_is_child(candidate))
-            continue;
-
-        CannibalBrain* otherBrain = (CannibalBrain*)candidate->brain;
-        if (!otherBrain || otherBrain->romanceActive)
-            continue;
-
-        if (cannibal_current_building(sys, candidate) != buildingId)
-            continue;
-
-        if (!cannibal_is_idle_candidate(candidate, otherBrain))
-            continue;
-
-        float dx = candidate->position.x - self->position.x;
-        float dy = candidate->position.y - self->position.y;
-        float distSq = dx * dx + dy * dy;
-        if (distSq > maxDistanceSq)
-            continue;
-
-        return candidate;
-    }
-
-    return NULL;
-}
-
-static bool cannibal_try_begin_romance(EntitySystem* sys,
-                                        Entity*        male,
-                                        CannibalBrain* maleBrain,
-                                        bool           isNight,
-                                        bool           maleIdle)
-{
-    if (!sys || !male || !maleBrain)
-        return false;
-    if (!isNight || !maleIdle)
-        return false;
-    if (!cannibal_is_male(male) || !cannibal_is_adult(male))
-        return false;
-    if (maleBrain->romanceActive || maleBrain->romanceCooldownDays > 0.0f)
-        return false;
-
-    int buildingId = cannibal_current_building(sys, male);
-    if (buildingId < 0)
-        return false;
-
-    Entity* partner = cannibal_find_partner(sys, male, buildingId);
-    if (!partner)
-        return false;
-
-    CannibalBrain* partnerBrain = (CannibalBrain*)partner->brain;
-    if (!partnerBrain || partnerBrain->romanceCooldownDays > 0.0f)
-        return false;
-
-    float chance = entity_randomf(sys, 0.0f, 1.0f);
-    if (chance > 0.20f)
-    {
-        maleBrain->romanceCooldownDays = fmaxf(maleBrain->romanceCooldownDays, 0.15f);
-        return false;
-    }
-
-    maleBrain->romanceActive      = 1;
-    partnerBrain->romanceActive   = 1;
-    maleBrain->romancePartnerId   = partner->id;
-    partnerBrain->romancePartnerId = male->id;
-    maleBrain->romanceBuildingId  = buildingId;
-    partnerBrain->romanceBuildingId = buildingId;
-    maleBrain->romanceTimer       = partnerBrain->romanceTimer = 3.2f;
-    maleBrain->heartPhase         = 0.0f;
-    partnerBrain->heartPhase      = 0.0f;
-    maleBrain->pendingBaby        = 1;
-    partnerBrain->pendingBaby     = 0;
-    maleBrain->wanderTimer        = 0.0f;
-    partnerBrain->wanderTimer     = 0.0f;
-    maleBrain->romanceCooldownDays = fmaxf(maleBrain->romanceCooldownDays, 1.0f);
-    partnerBrain->romanceCooldownDays = fmaxf(partnerBrain->romanceCooldownDays, 1.0f);
-    return true;
+        brain->juvenileAgeDays = 0.0f;
 }
 
 static bool cannibal_is_friendly(const Entity* other)
@@ -386,15 +164,7 @@ static void cannibal_on_spawn(EntitySystem* sys, Entity* e)
         brain->pathGoal       = e->home;
         brain->waypointValid  = 0;
         brain->targetId            = ENTITY_ID_INVALID;
-        brain->romancePartnerId    = ENTITY_ID_INVALID;
-        brain->romanceBuildingId   = -1;
-        brain->romanceTimer        = 0.0f;
-        brain->romanceCooldownDays = 0.0f;
         brain->juvenileAgeDays     = 0.0f;
-        brain->heartPhase          = 0.0f;
-        brain->romanceActive       = 0;
-        brain->pendingBaby         = 0;
-        brain->padding             = 0;
     }
 }
 
@@ -408,13 +178,15 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
     if (sizeof(CannibalBrain) > ENTITY_BRAIN_BYTES)
         return;
 
-    float simDayStep = cannibal_sim_days_step();
-    if (brain->romanceCooldownDays > 0.0f)
+    behavior_try_reproduce(e, (EntityList*)sys);
+    if (e->affectionTimer > 0.0f)
     {
-        brain->romanceCooldownDays -= simDayStep;
-        if (brain->romanceCooldownDays < 0.0f)
-            brain->romanceCooldownDays = 0.0f;
+        e->velocity = (Vector2){0.0f, 0.0f};
+        brain->lastHP = e->hp;
+        return;
     }
+
+    float simDayStep = cannibal_sim_days_step();
 
     if (cannibal_is_child(e))
     {
@@ -424,13 +196,6 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
             cannibal_promote_child(sys, e);
             brain = (CannibalBrain*)e->brain;
         }
-    }
-
-    if (brain->romanceActive)
-    {
-        cannibal_update_romance_animation(sys, e, brain, dt);
-        brain->lastHP = e->hp;
-        return;
     }
 
     if (brain->attackCooldown > 0.0f)
@@ -451,6 +216,9 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
     if (behavior_entity_has_competence(e, ENTITY_COMPETENCE_LIGHT_AT_NIGHT))
         behavior_sync_nearby_lights(e, mutableMap, isNight, 1);
 
+    behavior_hunt(e, (EntityList*)sys, mutableMap);
+    behavior_gather(e, mutableMap);
+
     if (brain->targetId != ENTITY_ID_INVALID)
     {
         target = entity_acquire(sys, (uint16_t)brain->targetId);
@@ -458,7 +226,17 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
         {
             target          = NULL;
             brain->targetId = ENTITY_ID_INVALID;
+            e->behaviorTargetId = ENTITY_ID_INVALID;
         }
+    }
+
+    if (!target && e->behaviorTargetId != ENTITY_ID_INVALID)
+    {
+        target = entity_acquire(sys, e->behaviorTargetId);
+        if (cannibal_is_valid_target(e, target))
+            brain->targetId = (int)e->behaviorTargetId;
+        else
+            e->behaviorTargetId = ENTITY_ID_INVALID;
     }
 
     if (!target)
@@ -492,6 +270,11 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
         if (target)
         {
             desiredGoal = target->position;
+            haveGoal    = true;
+        }
+        else if (e->gatherActive)
+        {
+            desiredGoal = e->gatherTarget;
             haveGoal    = true;
         }
         else if (homeDistSq > maxRangeSq)
@@ -627,7 +410,20 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
     if (!entity_position_is_walkable(map, next, e->type->radius))
     {
         bool openedDoor = behavior_try_open_doors(e, mutableMap, next);
-        if (!openedDoor || !entity_position_is_walkable(map, next, e->type->radius))
+        if ((!openedDoor || !entity_position_is_walkable(map, next, e->type->radius)) && e->behaviorTargetId != ENTITY_ID_INVALID)
+        {
+            float doorRadius = e->type ? fmaxf(e->type->radius, TILE_SIZE * 0.6f) : TILE_SIZE * 0.6f;
+            if (!behavior_force_open_doors(e, mutableMap, next, doorRadius) || !entity_position_is_walkable(map, next, e->type->radius))
+            {
+                e->velocity.x        = -e->velocity.x * 0.3f;
+                e->velocity.y        = -e->velocity.y * 0.3f;
+                brain->wanderTimer   = 0.0f;
+                brain->lastHP        = e->hp;
+                brain->waypointValid = 0;
+                return;
+            }
+        }
+        else if (!openedDoor || !entity_position_is_walkable(map, next, e->type->radius))
         {
             e->velocity.x        = -e->velocity.x * 0.3f;
             e->velocity.y        = -e->velocity.y * 0.3f;
@@ -642,17 +438,6 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
     if (fabsf(e->velocity.x) > 1e-3f || fabsf(e->velocity.y) > 1e-3f)
         e->orientation = atan2f(e->velocity.y, e->velocity.x);
 
-    bool idleForRomance = (!target && !seekingShelter && cannibal_is_idle_candidate(e, brain));
-    if (idleForRomance && cannibal_is_male(e) && isNight)
-    {
-        if (cannibal_try_begin_romance(sys, e, brain, isNight, idleForRomance))
-        {
-            cannibal_update_romance_animation(sys, e, brain, dt);
-            brain->lastHP = e->hp;
-            return;
-        }
-    }
-
     if (target && target->active && target->type)
     {
         float dx          = target->position.x - e->position.x;
@@ -663,7 +448,10 @@ static void cannibal_on_update(EntitySystem* sys, Entity* e, const Map* map, flo
         {
             target->hp -= 18;
             if (target->hp <= 0)
-                entity_despawn(sys, target->id);
+            {
+                behavior_handle_entity_death(sys, mutableMap, target, e);
+                target = NULL;
+            }
             brain->attackCooldown = 0.9f;
         }
     }
@@ -681,32 +469,4 @@ static const EntityBehavior G_CANNIBAL_BEHAVIOR = {
 const EntityBehavior* entity_cannibal_behavior(void)
 {
     return &G_CANNIBAL_BEHAVIOR;
-}
-
-void cannibal_draw_overlay(const Entity* e)
-{
-    if (!e || !e->type)
-        return;
-
-    const CannibalBrain* brain = (const CannibalBrain*)e->brain;
-    if (!brain || !brain->romanceActive)
-        return;
-
-    float radius = (e->type->radius > 0.0f) ? e->type->radius : 16.0f;
-    float bob    = sinf(brain->heartPhase) * 4.0f;
-    float baseY  = e->position.y - radius - 18.0f + bob;
-    float centerX = e->position.x;
-
-    unsigned char alpha = (unsigned char)fminf(255.0f, 180.0f + fabsf(sinf(brain->heartPhase * 0.5f)) * 60.0f);
-    Color heartColor    = (Color){220, 40, 70, alpha};
-
-    Vector2 left    = {centerX - 6.0f, baseY};
-    Vector2 right   = {centerX + 6.0f, baseY};
-    Vector2 bottomA = {centerX - 10.0f, baseY + 8.0f};
-    Vector2 bottomB = {centerX, baseY + 16.0f};
-    Vector2 bottomC = {centerX + 10.0f, baseY + 8.0f};
-
-    DrawCircleV(left, 4.0f, heartColor);
-    DrawCircleV(right, 4.0f, heartColor);
-    DrawTriangle(bottomA, bottomB, bottomC, heartColor);
 }

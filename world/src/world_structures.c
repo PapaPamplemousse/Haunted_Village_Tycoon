@@ -445,18 +445,37 @@ void build_hut_cannibal(Map* map, int x, int y, uint64_t* rng)
     rect_walls(map, x, y, w, h, OBJ_WALL_WOOD, OBJ_DOOR_WOOD);
     fill_tiles(map, x + 1, y + 1, w - 2, h - 2, TILE_STRAW_FLOOR);
 
-    // Décor intérieur (ossements, feu, caisse)
-    for (int j = y + 1; j < y + h - 1; j++)
-        for (int i = x + 1; i < x + w - 1; i++)
+    int innerX0 = x + 1;
+    int innerY0 = y + 1;
+    int innerW  = w - 2;
+    int innerH  = h - 2;
+
+    int centerX = innerX0 + innerW / 2;
+    int centerY = innerY0 + innerH / 2;
+    map_place_object(map, OBJ_FIREPIT, centerX, centerY);
+
+    int crateX = innerX0;
+    int crateY = innerY0;
+    map_place_object(map, OBJ_CRATE, crateX, crateY);
+
+    int boneX = innerX0 + innerW - 1;
+    int boneY = innerY0 + innerH - 1;
+    map_place_object(map, OBJ_BONE_PILE, boneX, boneY);
+
+    for (int j = innerY0; j < innerY0 + innerH; ++j)
+    {
+        for (int i = innerX0; i < innerX0 + innerW; ++i)
         {
+            if ((i == centerX && j == centerY) || (i == crateX && j == crateY) || (i == boneX && j == boneY))
+                continue;
+
             float r = (float)rand() / RAND_MAX;
-            if (r < 0.05f)
+            if (r < 0.06f)
                 map_place_object(map, OBJ_BONE_PILE, i, j);
-            else if (r < 0.08f)
-                map_place_object(map, OBJ_FIREPIT, i, j);
-            else if (r < 0.11f)
+            else if (r < 0.10f)
                 map_place_object(map, OBJ_CRATE, i, j);
         }
+    }
 
     // Liaison auto au système de rooms (bounds = extérieur des murs)
     Rectangle bounds = {(float)x, (float)y, (float)w, (float)h};
@@ -1517,6 +1536,11 @@ void load_structure_metadata(const char* path)
                 def->minArea          = 0;
                 def->maxArea          = 0;
                 def->requirementCount = 0;
+                def->species[0]       = '\0';
+                def->speciesId        = 0;
+                def->hasPantry        = false;
+                def->pantryCapacity   = 0;
+                def->roleCount        = 0;
             }
             continue;
         }
@@ -1595,6 +1619,24 @@ void load_structure_metadata(const char* path)
                  strcasecmp(key, "trigger") == 0)
         {
             snprintf(def->triggerDescription, sizeof(def->triggerDescription), "%s", value);
+        }
+        else if (strcasecmp(key, "species") == 0)
+        {
+            normalize_token(value, def->species, sizeof(def->species));
+            if (def->species[0] != '\0')
+                def->speciesId = entity_species_id_from_label(def->species);
+        }
+        else if (strcasecmp(key, "has_pantry") == 0)
+        {
+            bool flag = false;
+            if (parse_bool_token(value, &flag))
+                def->hasPantry = flag;
+        }
+        else if (strcasecmp(key, "pantry_capacity") == 0)
+        {
+            def->pantryCapacity = atoi(value);
+            if (def->pantryCapacity < 0)
+                def->pantryCapacity = 0;
         }
         else if (strcasecmp(key, "allowed_biomes") == 0)
         {

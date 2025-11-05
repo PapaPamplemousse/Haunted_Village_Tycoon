@@ -16,6 +16,7 @@
 #include "camera.h"
 #include "tile.h"
 #include "building.h"
+#include "pantry.h"
 #include "object.h"
 #include "world.h"
 #include "world_chunk.h"
@@ -203,6 +204,17 @@ static void app_update(void)
                     chunkgrid_redraw_cell(gChunks, &G_MAP, tx, ty);
             }
         }
+
+        if (IsKeyPressed(KEY_F6))
+        {
+            MouseState mouse;
+            input_update_mouse(&mouse, &G_CAMERA, &G_MAP);
+            if (mouse.insideMap)
+            {
+                Building* b = building_get_at_tile(mouse.tileX, mouse.tileY);
+                building_debug_print(b, &G_ENTITIES);
+            }
+        }
     }
 
     music_system_update(dt);
@@ -363,6 +375,31 @@ static void app_draw_world(void)
                 }
             }
 
+            if (b->hasPantry)
+            {
+                Pantry* pantry = pantry_get_for_building(b->id);
+                if (pantry)
+                {
+                    int meat  = pantry->counts[PANTRY_ITEM_MEAT];
+                    int plant = pantry->counts[PANTRY_ITEM_PLANT];
+
+                    const char* pantryFmt = localization_try("buildings.pantry_line");
+                    if (!pantryFmt)
+                        pantryFmt = "Pantry: %d meat / %d veg (cap %d)";
+
+                    char pantryLine[160];
+                    snprintf(pantryLine, sizeof(pantryLine), pantryFmt, meat, plant, pantry->capacity);
+                    int pantryWidth = MeasureText(pantryLine, 10);
+                    Rectangle pantryRect = {(float)textX - 6.0f, (float)infoY - 2.0f, (float)pantryWidth + 12.0f, 16.0f};
+                    if (uiPtr && ui_theme_is_ready())
+                        DrawRectangleRounded(pantryRect, 0.2f, 4, ColorAlpha(uiPtr->overlayDim, 0.6f));
+                    else
+                        DrawRectangleRounded(pantryRect, 0.2f, 4, ColorAlpha(BLACK, 0.5f));
+                    DrawText(pantryLine, textX, infoY, 10, ColorAlpha(WHITE, 0.9f));
+                    infoY += 16;
+                }
+            }
+
             if (b->occupantType > ENTITY_TYPE_INVALID && b->occupantMax > 0)
             {
                 const char* occLabel = localized_structure_field(kind, "occupant_description", fallback_text(b->occupantDescription));
@@ -370,11 +407,12 @@ static void app_draw_world(void)
                     occLabel = localization_get("buildings.residents_fallback");
 
                 char occLine[160];
+                int  activeResidents = building_active_residents(b, &G_ENTITIES);
                 snprintf(occLine,
                          sizeof(occLine),
                          localization_get("buildings.residents_line"),
-                         b->occupantActive,
-                         b->occupantCurrent,
+                         activeResidents,
+                         b->residentCount,
                          b->occupantMin,
                          b->occupantMax,
                          occLabel);

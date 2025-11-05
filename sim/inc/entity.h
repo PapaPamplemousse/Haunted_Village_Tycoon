@@ -22,13 +22,17 @@
 // -----------------------------------------------------------------------------
 
 /** Maximum number of simultaneously active entities (pooled storage). */
-#define MAX_ENTITIES 1024
+#define MAX_ENTITIES 4096
 
 /** Maximum amount of entity types that can be loaded from configuration. */
 #define ENTITY_MAX_TYPES 128
 
 /** Maximum number of custom personality traits per entity type. */
 #define ENTITY_MAX_TRAITS 8
+#define ENTITY_MAX_TARGET_TAGS 8
+#define ENTITY_TARGET_TAG_MAX 32
+#define ENTITY_SPECIES_NAME_MAX 32
+#define ENTITY_MAX_SPECIES 64
 
 /** Maximum length (including null terminator) of a single trait name. */
 #define ENTITY_TRAIT_NAME_MAX 32
@@ -73,6 +77,13 @@ typedef void (*EntityBehaviourSpawnFn)(struct EntitySystem*, struct Entity*);
 typedef void (*EntityBehaviourUpdateFn)(struct EntitySystem*, struct Entity*, const Map*, float dt);
 typedef void (*EntityBehaviourDespawnFn)(struct EntitySystem*, struct Entity*);
 
+typedef enum EntitySex
+{
+    ENTITY_SEX_UNDEFINED = 0,
+    ENTITY_SEX_MAN,
+    ENTITY_SEX_WOMAN,
+} EntitySex;
+
 typedef struct EntityBehavior
 {
     EntityBehaviourSpawnFn   onSpawn;
@@ -106,6 +117,8 @@ typedef struct EntityType
     char                  category[ENTITY_CATEGORY_NAME_MAX];               /**< Normalised faction/category label. */
     int                   traitCount;                                       /**< Number of active trait labels. */
     char                  traits[ENTITY_MAX_TRAITS][ENTITY_TRAIT_NAME_MAX]; /**< Normalised trait labels. */
+    char                  species[ENTITY_SPECIES_NAME_MAX];                 /**< Normalised species label. */
+    int                   speciesId;                                        /**< Stable hash representing the species. */
     float                 maxSpeed;                                         /**< Maximum locomotion speed (px/s). */
     float                 radius;                                           /**< Collision/render radius (px). */
     int                   maxHP;                                            /**< Maximum hit points. */
@@ -113,6 +126,17 @@ typedef struct EntityType
     EntitySprite          sprite;                                           /**< Sprite description (texture/animation). */
     const EntityBehavior* behavior;                                         /**< Optional default behaviour. */
     StructureKind         referredStructure;                                /**< Optional structure affinity. */
+    EntitySex             sex;                                              /**< Default biological sex of the type. */
+    EntitiesTypeID        offspringTypeId;                                  /**< Optional explicit offspring type. */
+    bool                  canReproduce;                                     /**< True if the type may attempt reproduction. */
+    bool                  canHunt;                                          /**< True if the type may perform the hunt behaviour. */
+    bool                  canGather;                                        /**< True if the type may perform the gather behaviour. */
+    int                   huntTargetCount;                                  /**< Number of hunt target descriptors. */
+    char                  huntTargets[ENTITY_MAX_TARGET_TAGS][ENTITY_TARGET_TAG_MAX];
+    int                   gatherTargetCount; /**< Number of gather target descriptors. */
+    char                  gatherTargets[ENTITY_MAX_TARGET_TAGS][ENTITY_TARGET_TAG_MAX];
+    float                 ageElderAfterDays; /**< Days before becoming an elder. */
+    float                 ageDieAfterDays;   /**< Days before dying of old age. */
 } EntityType;
 
 typedef struct Entity
@@ -131,6 +155,26 @@ typedef struct Entity
     Vector2               home;                      /**< Preferred anchor position in world space. */
     StructureKind         homeStructure;             /**< Structure affinity used for behaviour. */
     int                   reservationIndex;          /**< Index into reservation array or -1 if none. */
+    struct EntitySystem*  system;                    /**< Owning entity system instance. */
+    EntitySex             sex;                       /**< Runtime sex (can differ from default). */
+    float                 hunger;                    /**< Current hunger value (0 = starving, 100 = satiated). */
+    float                 maxHunger;                 /**< Maximum hunger capacity. */
+    bool                  isUndead;                  /**< Cached undead flag for quick checks. */
+    bool                  isHungry;                  /**< Convenience hunger status flag. */
+    bool                  enraged;                   /**< True when undead frenzy triggered by starvation. */
+    float                 reproductionCooldown;      /**< Cooldown timer before mating again. */
+    float                 affectionTimer;            /**< Remaining time for heart animation. */
+    float                 affectionPhase;            /**< Oscillating phase used by the heart animation. */
+    uint16_t              reproductionPartnerId;     /**< Currently linked partner id or invalid. */
+    uint16_t              behaviorTargetId;          /**< Generic target selected by helper behaviours. */
+    float                 behaviorTimer;             /**< Helper timer used by behaviours (seconds). */
+    Vector2               gatherTarget;              /**< Target location for gathering behaviours. */
+    uint8_t               gatherActive;              /**< Flag indicating an active gather target. */
+    int                   homeBuildingId;            /**< Identifier of the home building (-1 if homeless). */
+    int                   villageId;                 /**< Village/colony identifier (-1 if none). */
+    int                   speciesId;                 /**< Cached species identifier. */
+    float                 ageDays;                   /**< Accumulated age in simulation days. */
+    bool                  isElder;                   /**< True once promoted to elder form. */
 } Entity;
 
 typedef struct EntitySpawnRule
@@ -159,6 +203,8 @@ typedef struct EntityReservation
     int            buildingId;         /**< Owning building id or -1 if free roaming. */
     float          activationRadius;   /**< Distance from focus required to instantiate. */
     float          deactivationRadius; /**< Distance from focus required to despawn. */
+    int            villageId;          /**< Associated village identifier. */
+    int            speciesId;          /**< Cached species identifier for the reservation. */
 } EntityReservation;
 
 typedef struct EntitySystem
@@ -176,8 +222,11 @@ typedef struct EntitySystem
 
     EntityReservation reservations[ENTITY_MAX_RESERVATIONS];
     int               reservationCount;
-    float             streamActivationPadding;   /**< Additional radius around viewport for activation. */
-    float             streamDeactivationPadding; /**< Hysteresis radius for deactivation. */
+    float             streamActivationPadding;                                    /**< Additional radius around viewport for activation. */
+    float             streamDeactivationPadding;                                  /**< Hysteresis radius for deactivation. */
+    char              speciesLabels[ENTITY_MAX_SPECIES][ENTITY_SPECIES_NAME_MAX]; /**< Registered species labels. */
+    int               speciesCount;                                               /**< Number of registered species labels. */
+    float             residentRefreshTimer;                                       /**< Accumulator for structure resident refresh logic. */
 } EntitySystem;
 
 // -----------------------------------------------------------------------------
@@ -318,5 +367,12 @@ const EntityType* entity_system_type_at(const EntitySystem* sys, int index);
  * @brief Tests whether a position is traversable for an entity with the provided radius.
  */
 bool entity_position_is_walkable(const Map* map, Vector2 position, float radius);
+
+int         entity_species_id_from_label(const char* label);
+int         entity_system_register_species(EntitySystem* sys, const char* label);
+const char* entity_system_species_label(const EntitySystem* sys, int speciesId);
+
+void age_update(Entity* entity, float dtDays);
+void entity_promote_to_elder(Entity* entity);
 
 #endif /* ENTITY_H */

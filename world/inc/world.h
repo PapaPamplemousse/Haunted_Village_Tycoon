@@ -33,7 +33,7 @@
  * @def TILE_SIZE
  * @brief Size of one tile in pixels (for rendering and placement).
  */
-#define TILE_SIZE 32
+#define TILE_SIZE 64
 
 /**
  * @def MAX_BUILDINGS
@@ -49,6 +49,9 @@
 #define STRUCTURE_OCCUPANT_DESC_MAX 128
 /** Maximum characters allowed for structure trigger/action description text. */
 #define STRUCTURE_TRIGGER_DESC_MAX 192
+#define BUILDING_SPECIES_NAME_MAX 32
+#define STRUCTURE_MAX_RESIDENT_ROLES 8
+#define BUILDING_ROLE_NAME_MAX 32
 
 // Tune for your target GPU. 128×128 balances rebuild cost vs draw calls.
 // You can go 64×64 on very low-end GPUs or 256×256 for fewer textures.
@@ -529,11 +532,17 @@ typedef struct StructureDef
     float auraRadius;                               ///< Aura influence radius (in tiles).
     float auraIntensity;                            ///< Aura intensity score (arbitrary units).
 
-    EntitiesTypeID occupantType;                                     ///< Default resident type.
-    int            occupantMin;                                      ///< Minimum number of residents.
-    int            occupantMax;                                      ///< Maximum number of residents.
-    char           occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX]; ///< Resident label/description.
-    char           triggerDescription[STRUCTURE_TRIGGER_DESC_MAX];   ///< Description of the structure's triggered action/effect.
+    EntitiesTypeID occupantType;                                                ///< Default resident type.
+    int            occupantMin;                                                 ///< Minimum number of residents.
+    int            occupantMax;                                                 ///< Maximum number of residents.
+    char           occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX];            ///< Resident label/description.
+    char           triggerDescription[STRUCTURE_TRIGGER_DESC_MAX];              ///< Description of the structure's triggered action/effect.
+    char           species[BUILDING_SPECIES_NAME_MAX];                          ///< Normalised species owning the structure.
+    int            speciesId;                                                   ///< Stable species identifier for the owning faction.
+    bool           hasPantry;                                                   ///< True if the structure exposes a pantry inventory.
+    int            pantryCapacity;                                              ///< Maximum number of food stacks stored in the pantry.
+    int            roleCount;                                                   ///< Number of role labels bound to resident slots.
+    char           roles[STRUCTURE_MAX_RESIDENT_ROLES][BUILDING_ROLE_NAME_MAX]; ///< Role labels for residents.
 
     char                   clusterGroup[STRUCTURE_CLUSTER_NAME_MAX];      ///< Optional identifier grouping related structures.
     bool                   clusterAnchor;                                 ///< Whether this blueprint seeds a cluster.
@@ -580,8 +589,19 @@ typedef struct Building
     int                        occupantCurrent; /**< Deterministic resident count used for spawning. */
     int                        occupantActive;  /**< Currently instantiated resident count. */
     char                       occupantDescription[STRUCTURE_OCCUPANT_DESC_MAX];
-    char                       triggerDescription[STRUCTURE_TRIGGER_DESC_MAX]; /**< Narrative of the structure's special action. */
-    bool                       isGenerated;                                    /**< True if this entry originates from world generation. */
+    char                       triggerDescription[STRUCTURE_TRIGGER_DESC_MAX];              /**< Narrative of the structure's special action. */
+    bool                       isGenerated;                                                 /**< True if this entry originates from world generation. */
+    int                        speciesId;                                                   /**< Owning species identifier (0 = none). */
+    char                       species[BUILDING_SPECIES_NAME_MAX];                          /**< Normalised owning species label. */
+    int                        villageId;                                                   /**< Village/colony grouping identifier. */
+    bool                       hasPantry;                                                   /**< True when a pantry inventory is available. */
+    int                        pantryCapacity;                                              /**< Maximum pantry storage capacity. */
+    int                        pantryId;                                                    /**< Index into pantry system (-1 if none). */
+    int                        roleCount;                                                   /**< Number of resident role labels. */
+    char                       roles[STRUCTURE_MAX_RESIDENT_ROLES][BUILDING_ROLE_NAME_MAX]; /**< Resident role labels. */
+    uint16_t*                  residents;                                                   /**< Dynamic list of resident entity identifiers. */
+    int                        residentCount;                                               /**< Current number of registered residents. */
+    int                        residentCapacity;                                            /**< Allocated capacity for resident ids. */
 } Building;
 
 /**
@@ -667,6 +687,21 @@ typedef struct
     BiomeStructureEntry* structures;
     int                  structureCount;
 } BiomeDef;
+
+typedef struct
+{
+    int           x;
+    int           y;
+    StructureKind kind;
+    int           doorX;
+    int           doorY;
+    int           boundsX;
+    int           boundsY;
+    int           boundsW;
+    int           boundsH;
+    int           speciesId;
+    int           villageId;
+} PlacedStructure;
 
 typedef struct MapChunk
 {
