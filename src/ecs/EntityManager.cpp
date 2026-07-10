@@ -39,6 +39,12 @@ EntityManager::EntityManager() {
 
     hasRoom.reserve(INITIAL_CAPACITY);
     rooms.reserve(INITIAL_CAPACITY);
+
+    hasCost.reserve(INITIAL_CAPACITY);
+    costs.reserve(INITIAL_CAPACITY);
+
+    hasDeconstruct.reserve(INITIAL_CAPACITY);
+    deconstructs.reserve(INITIAL_CAPACITY);
 }
 
 EntityID EntityManager::CreateEntity() {
@@ -83,6 +89,10 @@ EntityID EntityManager::CreateEntity() {
         constructions.push_back({});
         hasRoom.push_back(false);
         rooms.push_back({});
+        hasCost.push_back(false);
+        costs.push_back({});
+        hasDeconstruct.push_back(false);
+        deconstructs.push_back({});
     }
 
     // 3. Initialize the new entity
@@ -101,6 +111,8 @@ EntityID EntityManager::CreateEntity() {
     hasStats[id] = false;
     hasConstruction[id] = false;
     hasRoom[id] = false;
+    hasCost[id] = false;
+    hasDeconstruct[id] = false;
 
     return id;
 }

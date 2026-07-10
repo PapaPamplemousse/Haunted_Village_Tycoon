@@ -31,11 +31,24 @@ Application::Application()
     if (!m_structureRegistry.LoadFromSTV("data/structures.stv")) {
         std::cerr << "Failed to load structures!" << std::endl;
     }
+    if (!m_nameRegistry.LoadFromSTV("data/names.stv")) {
+        std::cerr << "Failed to load names!" << std::endl;
+    }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
     MapGenerator::GenerateIsland(m_worldMap, m_tileRegistry, m_biomeRegistry, 42);
 
     m_uiManager.Initialize(m_entityRegistry, m_furnitureRegistry, m_constructionRegistry);
+
+    float midX = (Config::MAP_WIDTH / 2) * (float)Config::TILE_SIZE;
+    float midY = (Config::MAP_HEIGHT / 2) * (float)Config::TILE_SIZE;
+
+    // Cherche la ligne où tu spawn ton villageois :
+    EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry);
+
+    // --- NOUVEAU : Cheat code d'inventaire ---
+    m_entityManager.inventories[vId].items["wood"] = 500; // Il a 500 de bois !
+    m_entityManager.inventories[vId].items["rope"] = 50;  // Et 50 cordes !
 
     m_camera.GetRaylibCamera();
 }
@@ -71,8 +84,7 @@ void Application::Update(float deltaTime) {
     m_camera.Update(deltaTime);
 
     m_timeSystem.Update(deltaTime, m_entityManager);
-    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry);
-
+    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_roomSystem);
     // ==========================================
     // LOGIQUE DE PLACEMENT ET SUPPRESSION
     // ==========================================
@@ -85,15 +97,15 @@ void Application::Update(float deltaTime) {
                             m_inputManager.GetMouseGridY() * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f)};
 
         if (m_uiManager.GetSelectedCategory() == BuildCategory::Entities) {
-            m_entityRegistry.SpawnEntity(m_entityManager, prefabToPlace, spawnPos);
+            m_entityRegistry.SpawnEntity(m_entityManager, prefabToPlace, spawnPos, m_nameRegistry);
             // Les entités (PNJ) ne changent pas les pièces, pas besoin de MarkDirty
 
         } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Furniture) {
-            m_furnitureRegistry.SpawnFurniture(m_entityManager, prefabToPlace, spawnPos, false);
+            m_furnitureRegistry.SpawnFurniture(m_entityManager, prefabToPlace, spawnPos, true);
             m_roomSystem.MarkDirty();
 
         } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Constructions) {
-            m_constructionRegistry.SpawnConstruction(m_entityManager, prefabToPlace, spawnPos, false);
+            m_constructionRegistry.SpawnConstruction(m_entityManager, prefabToPlace, spawnPos, true);
             m_roomSystem.MarkDirty();
         }
     }
@@ -103,19 +115,22 @@ void Application::Update(float deltaTime) {
         int targetX = m_inputManager.GetMouseGridX();
         int targetY = m_inputManager.GetMouseGridY();
 
-        // On parcourt les entités pour voir si l'une d'elle est sur cette case
         for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
             if (m_entityManager.active[i] && m_entityManager.hasTransform[i]) {
                 int entityGridX = static_cast<int>(m_entityManager.transforms[i].position.x / Config::TILE_SIZE);
                 int entityGridY = static_cast<int>(m_entityManager.transforms[i].position.y / Config::TILE_SIZE);
 
                 if (entityGridX == targetX && entityGridY == targetY) {
-                    if (m_entityManager.hasConstruction[i] || (m_entityManager.hasTag[i] && !m_entityManager.hasBehavior[i])) {
-                        m_roomSystem.MarkDirty();
+                    // Si c'est un blueprint (projet non commencé), on l'annule instantanément
+                    if (m_entityManager.hasBlueprint[i] && !m_entityManager.blueprints[i].isFinished) {
+                        m_entityManager.DestroyEntity(i);
                     }
-                    m_entityManager.DestroyEntity(i);
-                    std::cout << "[GAME] Entity deleted at " << targetX << ", " << targetY << std::endl;
-                    break; // On n'en supprime qu'une par clic
+                    // Si c'est un objet réel, on place un Ordre de Démolition !
+                    else if (!m_entityManager.hasDeconstruct[i] && !m_entityManager.hasBehavior[i]) {
+                        m_entityManager.hasDeconstruct[i] = true;
+                        m_entityManager.deconstructs[i] = {true};
+                    }
+                    break;
                 }
             }
         }
@@ -215,5 +230,72 @@ void Application::Render() {
 
     m_uiManager.Render();
 
+    // ==========================================================
+    // 3. INSPECTION (CTRL + Hover)
+    // ==========================================================
+    if (m_inputManager.IsInspectPressed()) {
+        int hoverX = m_inputManager.GetMouseGridX();
+        int hoverY = m_inputManager.GetMouseGridY();
+
+        EntityID hoveredEntity = (EntityID)-1;
+
+        // On cherche une entité sur cette case
+        for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
+            if (m_entityManager.active[i] && m_entityManager.hasTransform[i]) {
+                int ex = static_cast<int>(m_entityManager.transforms[i].position.x / Config::TILE_SIZE);
+                int ey = static_cast<int>(m_entityManager.transforms[i].position.y / Config::TILE_SIZE);
+                if (ex == hoverX && ey == hoverY) {
+                    hoveredEntity = i;
+                    break; // On inspecte la première trouvée
+                }
+            }
+        }
+
+        // Si on survole une entité, on compile ses données
+        if (hoveredEntity != (EntityID)-1) {
+            std::vector<std::string> lines;
+            auto i = hoveredEntity;
+
+            if (m_entityManager.hasTag[i]) {
+                const auto& tag = m_entityManager.tags[i];
+                if (!tag.firstName.empty()) {
+                    lines.push_back(tag.firstName + " the " + tag.name);
+                    lines.push_back("Species: " + tag.species);
+                    lines.push_back("Age: " + std::to_string(tag.age));
+                } else {
+                    lines.push_back(tag.name); // Pour les Murs, Meubles, etc.
+                }
+            }
+
+            if (m_entityManager.hasHealth[i]) {
+                lines.push_back(TextFormat("HP: %.0f / %.0f", m_entityManager.healths[i].current, m_entityManager.healths[i].max));
+            }
+            if (m_entityManager.hasStats[i]) {
+                lines.push_back(TextFormat("Speed: %.0f", m_entityManager.stats[i].maxSpeed));
+            }
+            if (m_entityManager.hasNeeds[i]) {
+                lines.push_back(TextFormat("Hunger: %.0f / %.0f", m_entityManager.needs[i].hunger, m_entityManager.needs[i].maxHunger));
+            }
+
+            // On dessine le panneau !
+            if (!lines.empty()) {
+                Vector2 mousePos = GetMousePosition();
+                float boxWidth = 220.0f;
+                float boxHeight = lines.size() * 25.0f + 10.0f;
+
+                // Décalage pour ne pas être sous le curseur
+                float boxX = mousePos.x + 15;
+                float boxY = mousePos.y + 15;
+
+                DrawRectangle(boxX, boxY, boxWidth, boxHeight, ColorAlpha(BLACK, 0.9f));
+                DrawRectangleLines(boxX, boxY, boxWidth, boxHeight, DARKGRAY);
+
+                for (size_t l = 0; l < lines.size(); ++l) {
+                    Color c = (l == 0) ? GOLD : LIGHTGRAY; // Le titre en Or
+                    DrawText(lines[l].c_str(), boxX + 10, boxY + 10 + l * 25, 20, c);
+                }
+            }
+        }
+    }
     EndDrawing();
 }

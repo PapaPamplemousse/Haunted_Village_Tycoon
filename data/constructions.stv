@@ -2,6 +2,7 @@
 name = Wooden Wall
 is_wall = true
 is_door = false
+max_hp = 100
 blueprint_cost = wood:5
 texture = square
 color = 120, 70, 40, 255
@@ -11,6 +12,7 @@ sprite_size = 32, 32
 name = Wooden Door
 is_wall = true
 is_door = true
+max_hp = 100
 blueprint_cost = wood:3, rope:1
 texture = square
 color = 160, 100, 60, 255

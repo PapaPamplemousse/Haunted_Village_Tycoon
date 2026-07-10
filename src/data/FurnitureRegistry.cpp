@@ -36,6 +36,8 @@ bool FurnitureRegistry::LoadFromSTV(const std::string& filepath) {
 
         if (block.properties.count("name"))
             def.name = block.properties.at("name");
+        if (block.properties.count("max_hp"))
+            def.maxHp = std::stof(block.properties.at("max_hp"));
         if (block.properties.count("interaction_type"))
             def.interactionType = block.properties.at("interaction_type");
         if (block.properties.count("storage_capacity"))
@@ -101,6 +103,9 @@ EntityID FurnitureRegistry::SpawnFurniture(EntityManager& em, const std::string&
     em.hasTag[id] = true;
     em.tags[id] = {def.name, def.id};
 
+    em.hasHealth[id] = true;
+    em.healths[id] = {def.maxHp, def.maxHp};
+
     em.hasTransform[id] = true;
     em.transforms[id] = {position};
 
@@ -124,6 +129,9 @@ EntityID FurnitureRegistry::SpawnFurniture(EntityManager& em, const std::string&
     std::string typeStr = asBlueprint ? "Blueprint Plan" : "Completed Facility";
     std::cout << "[ECS] Spawned Furniture [" << typeStr << "]: " << def.name << " at Position (" << position.x << ", " << position.y << ")"
               << std::endl;
+
+    em.hasCost[id] = true;
+    em.costs[id] = {def.blueprintCost};
     return id;
 }
 

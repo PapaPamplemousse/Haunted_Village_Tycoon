@@ -12,6 +12,7 @@ set(OLD_GLOB
   "/home/hreiffau/github/Haunted_Village_Tycoon/src/data/ConstructionRegistry.cpp"
   "/home/hreiffau/github/Haunted_Village_Tycoon/src/data/EntityRegistry.cpp"
   "/home/hreiffau/github/Haunted_Village_Tycoon/src/data/FurnitureRegistry.cpp"
+  "/home/hreiffau/github/Haunted_Village_Tycoon/src/data/NameRegistry.cpp"
   "/home/hreiffau/github/Haunted_Village_Tycoon/src/data/STVParser.cpp"
   "/home/hreiffau/github/Haunted_Village_Tycoon/src/data/StructureRegistry.cpp"
   "/home/hreiffau/github/Haunted_Village_Tycoon/src/data/TileRegistry.cpp"

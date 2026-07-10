@@ -21,6 +21,9 @@ using EntityID = size_t;
 struct TagComponent {
     std::string name;
     std::string prefabId;
+    std::string firstName = "";
+    std::string species = "";
+    int age = 0;
 };
 
 /**
@@ -84,6 +87,22 @@ struct RoomComponent {
     std::vector<Vector2> floorTiles;
 };
 
+/**
+ * @struct CostComponent
+ * @brief Stores the original blueprint cost of the entity to calculate refunds.
+ */
+struct CostComponent {
+    std::unordered_map<std::string, int> materials;
+};
+
+/**
+ * @struct DeconstructComponent
+ * @brief Marks an entity to be dismantled by a worker.
+ */
+struct DeconstructComponent {
+    bool marked = true;
+};
+
 // =========================================================
 // LIFE, AI & JOBS
 // =========================================================
@@ -132,4 +151,8 @@ struct BehaviorComponent {
     Vector2 currentTarget = {0.0f, 0.0f};
     bool isMoving = false;
     float stateTimer = 0.0f; // Used to wait between actions
+
+    std::string currentTask = "idle"; // "idle", "wandering", "moving_to_build", "building"
+    EntityID currentJobTarget = 0;
+    bool hasJob = false;
 };

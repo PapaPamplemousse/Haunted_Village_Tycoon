@@ -1,4 +1,5 @@
 #pragma once
+#include "data/NameRegistry.hpp"
 #include "ecs/Components.hpp"
 
 #include <raylib.h>
@@ -50,7 +51,7 @@ public:
      * @param position Where to spawn the entity in world space.
      * @return EntityID The allocated ECS unique ID. Returns 0 on failure.
      */
-    EntityID SpawnEntity(EntityManager& em, const std::string& prefabId, Vector2 position);
+    EntityID SpawnEntity(EntityManager& em, const std::string& prefabId, Vector2 position, const NameRegistry& nameReg);
 
     /**
      * @brief Fetches a template definition by its ID.

@@ -43,6 +43,11 @@ public:
         return IsKeyDown(KEY_TAB);
     }
 
+    // Check if player is holding CTRL to inspect
+    bool IsInspectPressed() const {
+        return IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    }
+
 private:
     Vector2 m_mouseWorldPos = {0.0f, 0.0f};
     int m_mouseGridX = 0;

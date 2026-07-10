@@ -53,6 +53,14 @@ void RenderSystem::Render(const EntityManager& em, const Camera2D& camera, bool 
         if (em.hasBlueprint[i] && !em.blueprints[i].isFinished) {
             DrawPoly(drawPos, 6, sprite.width / 1.5f, time * 50.0f, ColorAlpha(YELLOW, 0.6f));
         }
+        if (em.hasDeconstruct[i]) {
+            Vector2 p1 = {drawPos.x - sprite.width / 2.0f, drawPos.y - sprite.height / 2.0f};
+            Vector2 p2 = {drawPos.x + sprite.width / 2.0f, drawPos.y + sprite.height / 2.0f};
+            Vector2 p3 = {drawPos.x + sprite.width / 2.0f, drawPos.y - sprite.height / 2.0f};
+            Vector2 p4 = {drawPos.x - sprite.width / 2.0f, drawPos.y + sprite.height / 2.0f};
+            DrawLineEx(p1, p2, 4.0f, RED);
+            DrawLineEx(p3, p4, 4.0f, RED);
+        }
     }
 
     // ==========================================

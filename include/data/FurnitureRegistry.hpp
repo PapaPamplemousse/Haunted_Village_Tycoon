@@ -14,6 +14,7 @@ class EntityManager;
 struct FurnitureDef {
     std::string id;
     std::string name;
+    float maxHp = 100.0f;
 
     // Size in grid cells (e.g., 1x1, 2x3)
     int gridWidth = 1;

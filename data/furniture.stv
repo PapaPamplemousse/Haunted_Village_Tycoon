@@ -1,5 +1,6 @@
 [CAMPFIRE]
 name = Campfire
+max_hp = 50
 grid_size = 1, 1
 interaction_type = cook
 storage_capacity = 0
@@ -10,6 +11,7 @@ sprite_size = 32, 32
 
 [WOOD_CHEST]
 name = Wooden Chest
+max_hp = 60
 grid_size = 1, 1
 interaction_type = store
 storage_capacity = 20

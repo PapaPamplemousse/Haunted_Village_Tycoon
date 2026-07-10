@@ -36,6 +36,8 @@ bool ConstructionRegistry::LoadFromSTV(const std::string& filepath) {
 
         if (block.properties.count("name"))
             def.name = block.properties.at("name");
+        if (block.properties.count("max_hp"))
+            def.maxHp = std::stof(block.properties.at("max_hp"));
         if (block.properties.count("is_wall"))
             def.isWall = (block.properties.at("is_wall") == "true");
         if (block.properties.count("is_door"))
@@ -84,6 +86,9 @@ EntityID ConstructionRegistry::SpawnConstruction(EntityManager& em, const std::s
 
     em.hasTag[id] = true;
     em.tags[id] = {def.name, def.id};
+
+    em.hasHealth[id] = true;
+    em.healths[id] = {def.maxHp, def.maxHp};
 
     em.hasTransform[id] = true;
     em.transforms[id] = {position};

@@ -10,6 +10,8 @@ class EntityManager;
 struct ConstructionDef {
     std::string id;
     std::string name;
+    float maxHp = 100.0f;
+
     bool isWall = false;
     bool isDoor = false;
     std::unordered_map<std::string, int> blueprintCost;

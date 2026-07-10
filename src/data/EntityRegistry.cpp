@@ -77,7 +77,7 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
     return true;
 }
 
-EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefabId, Vector2 position) {
+EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefabId, Vector2 position, const NameRegistry& nameReg) {
     auto it = m_templates.find(prefabId);
     if (it == m_templates.end()) {
         std::cerr << "[WARNING] Cannot spawn unknown entity prefab: " << prefabId << std::endl;
@@ -119,6 +119,9 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
     // 6. RPG Statistics
     em.hasStats[id] = true;
     em.stats[id] = {def.maxSpeed};
+
+    em.hasTag[id] = true;
+    em.tags[id] = {def.name, def.id, nameReg.GetRandomName(def.species), def.species, 0};
 
     std::cout << "[ECS] Spawned Entity: " << def.name << " at Position (" << position.x << ", " << position.y << ")" << std::endl;
     return id;
