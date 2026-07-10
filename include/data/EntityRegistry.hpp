@@ -7,7 +7,9 @@
 #include <unordered_map>
 #include <vector>
 
-class EntityManager; // Forward declaration
+// Forward declaration
+class EntityManager;
+class BehaviorRegistry;
 
 /**
  * @struct EntityDef
@@ -20,6 +22,7 @@ struct EntityDef {
     float maxSpeed = 30.0f;
     std::string category;
     std::string species;
+    std::string defaultProfession = "none";
     std::vector<std::string> innateBehaviors;
     std::vector<BehaviorRule> innateBehaviorRules;
     /* Graphics */
@@ -52,7 +55,8 @@ public:
      * @param position Where to spawn the entity in world space.
      * @return EntityID The allocated ECS unique ID. Returns 0 on failure.
      */
-    EntityID SpawnEntity(EntityManager& em, const std::string& prefabId, Vector2 position, const NameRegistry& nameReg);
+    EntityID SpawnEntity(EntityManager& em, const std::string& prefabId, Vector2 position, const NameRegistry& nameReg,
+                         const BehaviorRegistry& behaviorReg);
 
     /**
      * @brief Fetches a template definition by its ID.

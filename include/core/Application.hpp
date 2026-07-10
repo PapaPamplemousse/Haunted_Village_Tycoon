@@ -1,6 +1,7 @@
 #pragma once
 #include "core/GameCamera.hpp"
 #include "core/InputManager.hpp"
+#include "data/BehaviorRegistry.hpp"
 #include "data/BiomeRegistry.hpp"
 #include "data/ConstructionRegistry.hpp"
 #include "data/EntityRegistry.hpp"
@@ -76,4 +77,5 @@ private:
     RoomSystem m_roomSystem;
     NameRegistry m_nameRegistry;
     EnvironmentRegistry m_environmentRegistry;
+    BehaviorRegistry m_behaviorRegistry;
 };

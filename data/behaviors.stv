@@ -1,0 +1,27 @@
+[WANDER_BASIC]
+rule = wander
+categories = humanoid
+
+[FLEE_HUMAN]
+rule = flee
+species = human
+
+[HUNT_CANNIBAL]
+rule = hunt(human)
+species = cannibal
+
+[HARVEST_BUSH_HUMAN]
+rule = harvest(BUSH_BERRY)
+species = human
+
+[HARVEST_OAK_LUMBERJACK]
+rule = harvest(TREE_OAK)
+professions = lumberjack
+
+[BUILD_HUMAN]
+rule = build
+species = human
+
+[DISMANTLE_HUMAN]
+rule = dismantle
+species = human

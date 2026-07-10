@@ -91,6 +91,9 @@ Application::Application()
     if (!m_environmentRegistry.LoadFromSTV("data/environment.stv")) {
         std::cerr << "Failed to load environment!" << std::endl;
     }
+    if (!m_behaviorRegistry.LoadFromSTV("data/behaviors.stv")) {
+        std::cerr << "Failed to load behaviors!" << std::endl;
+    }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
@@ -101,7 +104,7 @@ Application::Application()
     float midY = (Config::MAP_HEIGHT / 2) * (float)Config::TILE_SIZE;
 
     // Cherche la ligne où tu spawn ton villageois :
-    EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry);
+    EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry, m_behaviorRegistry);
 
     // --- : Cheat code d'inventaire ---
     m_entityManager.inventories[vId].items["wood"] = 500; // Il a 500 de bois !
@@ -158,7 +161,7 @@ void Application::Update(float deltaTime) {
                             m_inputManager.GetMouseGridY() * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f)};
 
         if (m_uiManager.GetSelectedCategory() == BuildCategory::Entities) {
-            m_entityRegistry.SpawnEntity(m_entityManager, prefabToPlace, spawnPos, m_nameRegistry);
+            m_entityRegistry.SpawnEntity(m_entityManager, prefabToPlace, spawnPos, m_nameRegistry, m_behaviorRegistry);
 
         } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Furniture) {
             m_furnitureRegistry.SpawnFurniture(m_entityManager, prefabToPlace, spawnPos, true);
