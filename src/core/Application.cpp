@@ -100,6 +100,9 @@ Application::Application()
     if (!m_professionRegistry.LoadFromSTV("data/professions.stv")) {
         std::cerr << "Failed to load professions!" << std::endl;
     }
+    if (!m_resourceRegistry.LoadFromSTV("data/resources.stv")) {
+        std::cerr << "Failed to load resources!" << std::endl;
+    }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
@@ -113,8 +116,8 @@ Application::Application()
     EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry, m_behaviorRegistry);
 
     // --- : Cheat code d'inventaire ---
-    m_entityManager.inventories[vId].items["wood"] = 100;
-    m_entityManager.inventories[vId].items["rope"] = 50;
+    m_entityManager.inventories[vId].items["WOOD"] = 100;
+    m_entityManager.inventories[vId].items["ROPE"] = 50;
     const WeaponDef* axeDef = m_weaponRegistry.GetWeaponDef("IRON_AXE");
     if (axeDef) {
         m_entityManager.hasEquipment[vId] = true;
@@ -219,7 +222,7 @@ void Application::Update(float deltaTime) {
     m_professionSystem.Update(m_entityManager, m_professionRegistry, m_behaviorRegistry);
 
     // L'IA utilise ensuite les professions/comportements à jour.
-    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_roomSystem);
+    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, m_roomSystem);
 }
 void Application::Render() {
     BeginDrawing();
@@ -484,10 +487,13 @@ void Application::Render() {
                 // 2. On affiche le contenu récoltable comme si c'était dans l'inventaire
                 if (hasHarv) {
                     const auto& harvestable = m_entityManager.harvestables[i];
-                    if (harvestable.dropAmount > 0 && !harvestable.dropItemId.empty()) {
-                        // On précise que c'est un "Yield" (Rendement) pour que ça soit clair
-                        lines.push_back(harvestable.dropItemId + ": " + std::to_string(harvestable.dropAmount) + " (Yield)");
-                        isEmpty = false;
+
+                    for (const DropEntry& drop : harvestable.drops) {
+                        if (drop.amount > 0 && !drop.itemId.empty()) {
+                            lines.push_back(drop.itemId + ": " + std::to_string(drop.amount) + " (Yield)");
+
+                            isEmpty = false;
+                        }
                     }
                 }
 

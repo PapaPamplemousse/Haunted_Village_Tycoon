@@ -9,6 +9,7 @@ gender = binary
 texture = circle
 color = 200, 200, 255, 255
 sprite_size = 24, 24
+drops = FLESH:2:0.5
 
 [CANNIBAL]
 name = Cannibal Raider
@@ -21,6 +22,7 @@ gender = binary
 texture = triangle
 color = 255, 50, 50, 255
 sprite_size = 28, 28
+drops = FLESH:2:0.75
 
 [ELDRITCH_HORROR]
 name = Eldritch Horror

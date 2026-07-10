@@ -70,15 +70,19 @@ struct BlueprintComponent {
     bool isFinished = false;
 };
 
+struct DropEntry {
+    std::string itemId = "";
+    int amount = 1;
+    float chance = 1.0f;
+};
+
 /**
  * @struct HarvestableComponent
  * @brief Identifies natural resources that can be chopped, mined, or gathered.
  */
 struct HarvestableComponent {
-    std::string requiredTool = "none"; // e.g., "axe", "pickaxe", "none"
-    std::string dropItemId = "";       // e.g., "wood"
-    int dropAmount = 1;
-    float dropChance = 1.0f;
+    std::string requiredTool = "none";
+    std::vector<DropEntry> drops;
 };
 
 /**
@@ -132,6 +136,9 @@ struct DoorComponent {
     }
 };
 
+struct LootComponent {
+    std::vector<DropEntry> drops;
+};
 // =========================================================
 // LIFE, AI & JOBS
 // =========================================================

@@ -131,6 +131,34 @@ BehaviorRule ParseBehaviorRule(const std::string& rawBehavior) {
     return rule;
 }
 
+std::vector<DropEntry> ParseDrops(const std::string& value) {
+    std::vector<DropEntry> drops;
+
+    std::stringstream ss(value);
+    std::string dropToken;
+
+    while (std::getline(ss, dropToken, ',')) {
+        std::stringstream dropSS(dropToken);
+
+        std::string itemId;
+        std::string amount;
+        std::string chance;
+
+        if (std::getline(dropSS, itemId, ':') && std::getline(dropSS, amount, ':') && std::getline(dropSS, chance, ':')) {
+            DropEntry drop;
+            drop.itemId = Trim(itemId);
+            drop.amount = std::stoi(Trim(amount));
+            drop.chance = std::stof(Trim(chance));
+
+            if (!drop.itemId.empty() && drop.amount > 0) {
+                drops.push_back(drop);
+            }
+        }
+    }
+
+    return drops;
+}
+
 } // namespace
 
 bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
@@ -181,6 +209,10 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
 
         if (block.properties.count("default_profession")) {
             def.defaultProfession = block.properties.at("default_profession");
+        }
+
+        if (block.properties.count("drops")) {
+            def.drops = ParseDrops(block.properties.at("drops"));
         }
 
         if (block.properties.count("texture")) {
@@ -261,6 +293,11 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
     // 4. Inventory
     em.hasInventory[id] = true;
     em.inventories[id] = {};
+
+    if (!def.drops.empty()) {
+        em.hasLoot[id] = true;
+        em.loots[id] = {def.drops};
+    }
 
     // 5. Visual representation
     em.hasSprite[id] = true;

@@ -18,7 +18,6 @@ constexpr float ATTACK_COOLDOWN = 0.6f;
 
 constexpr float HUNGER_DECAY_PER_SECOND = 0.05f;
 constexpr float SEEK_FOOD_THRESHOLD_RATIO = 0.5f;
-constexpr float FOOD_RESTORE_AMOUNT = 35.0f;
 constexpr float EAT_DURATION = 0.8f;
 
 int ToTileCoord(float worldCoord) {
@@ -31,13 +30,25 @@ float SquaredDistance(Vector2 a, Vector2 b) {
     return dx * dx + dy * dy;
 }
 
-bool IsFoodItem(const std::string& itemId) {
-    return itemId == "food" || itemId == "berry" || itemId == "berries" || itemId == "meat" || itemId == "mushroom";
+void GiveLootToInventory(EntityID receiver, EntityID source, EntityManager& em) {
+    if (receiver >= em.active.size() || source >= em.active.size() || !em.active[receiver] || !em.hasInventory[receiver] ||
+        !em.hasLoot[source]) {
+        return;
+    }
+
+    for (const DropEntry& drop : em.loots[source].drops) {
+        float roll = static_cast<float>(GetRandomValue(0, 100)) / 100.0f;
+
+        if (roll <= drop.chance) {
+            em.inventories[receiver].items[drop.itemId] += drop.amount;
+        }
+    }
 }
 
 } // namespace
 
-void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, RoomSystem& roomSys) {
+void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                      const ResourceRegistry& resourceReg, RoomSystem& roomSys) {
     for (size_t i = 0; i < em.active.size(); ++i) {
         if (!em.active[i]) {
             continue;
@@ -73,11 +84,11 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
         }
 
         if (behavior.currentTask == "idle") {
-            HandleIdleState(i, em, map, tileReg);
+            HandleIdleState(i, em, map, tileReg, resourceReg);
         } else if (behavior.isMoving) {
             HandleMovingState(i, deltaTime, em);
         } else {
-            HandleTaskCompletion(i, em, roomSys);
+            HandleTaskCompletion(i, em, resourceReg, roomSys);
         }
     }
 }
@@ -86,7 +97,8 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
 // STATE HANDLERS
 // ============================================================================
 
-void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
+void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                               const ResourceRegistry& resourceReg) {
     auto& behavior = em.behaviors[i];
 
     const bool canHunt = HasCapability(behavior, "hunt");
@@ -97,7 +109,7 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
     const bool canSeekFood = HasCapability(behavior, "seek_food");
 
     // Survival behavior first
-    if (canSeekFood && TryFindSeekFoodJob(i, em)) {
+    if (canSeekFood && TryFindSeekFoodJob(i, em, resourceReg)) {
         return;
     }
 
@@ -229,7 +241,7 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
     transform.position.y += normalizedDir.y * step;
 }
 
-void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& roomSys) {
+void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const ResourceRegistry& resourceReg, RoomSystem& roomSys) {
     auto& behavior = em.behaviors[i];
 
     if (behavior.currentTask == "building") {
@@ -293,9 +305,12 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& r
                 // Vérification de l'outil requis
                 if (harvestable.requiredTool == "none" || harvestable.requiredTool == toolType) {
                     if (em.hasInventory[i]) {
-                        float roll = (float)GetRandomValue(0, 100) / 100.0f;
-                        if (roll <= harvestable.dropChance) {
-                            em.inventories[i].items[harvestable.dropItemId] += harvestable.dropAmount;
+                        for (const DropEntry& drop : harvestable.drops) {
+                            float roll = static_cast<float>(GetRandomValue(0, 100)) / 100.0f;
+
+                            if (roll <= drop.chance) {
+                                em.inventories[i].items[drop.itemId] += drop.amount;
+                            }
                         }
                     }
                 }
@@ -341,6 +356,7 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& r
             attackSucceeded = true;
 
             if (em.healths[target].current <= 0.0f) {
+                GiveLootToInventory(i, target, em);
                 em.DestroyEntity(target);
             }
         }
@@ -362,7 +378,11 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& r
                     inventory.items.erase(it);
                 }
 
-                needs.hunger += FOOD_RESTORE_AMOUNT;
+                const ResourceDef* resource = resourceReg.GetResourceDef(behavior.currentItemTarget);
+
+                if (resource != nullptr) {
+                    needs.hunger += resource->nutrition;
+                }
 
                 if (needs.hunger > needs.maxHunger) {
                     needs.hunger = needs.maxHunger;
@@ -695,7 +715,7 @@ bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const World
     return true;
 }
 
-bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em) {
+bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity] || !em.hasInventory[entity] || !em.hasBehavior[entity]) {
         return false;
     }
@@ -718,7 +738,13 @@ bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em) {
             continue;
         }
 
-        if (!IsFoodItem(itemId)) {
+        const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
+
+        if (resource == nullptr) {
+            continue;
+        }
+
+        if (!resource->isConsumable || resource->nutrition <= 0.0f) {
             continue;
         }
 

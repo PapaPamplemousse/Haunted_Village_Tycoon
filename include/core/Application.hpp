@@ -9,6 +9,7 @@
 #include "data/FurnitureRegistry.hpp"
 #include "data/NameRegistry.hpp"
 #include "data/ProfessionRegistry.hpp"
+#include "data/ResourceRegistry.hpp"
 #include "data/StructureRegistry.hpp"
 #include "data/TileRegistry.hpp"
 #include "data/WeaponRegistry.hpp"
@@ -84,4 +85,5 @@ private:
     WeaponRegistry m_weaponRegistry;
     ProfessionRegistry m_professionRegistry;
     ProfessionSystem m_professionSystem;
+    ResourceRegistry m_resourceRegistry;
 };

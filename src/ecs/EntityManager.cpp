@@ -56,6 +56,9 @@ EntityManager::EntityManager() {
     equipments.reserve(INITIAL_CAPACITY);
     hasWorkplace.reserve(INITIAL_CAPACITY);
     workplaces.reserve(INITIAL_CAPACITY);
+
+    hasLoot.reserve(INITIAL_CAPACITY);
+    loots.reserve(INITIAL_CAPACITY);
 }
 
 EntityID EntityManager::CreateEntity() {
@@ -112,6 +115,8 @@ EntityID EntityManager::CreateEntity() {
         equipments.push_back({});
         hasWorkplace.push_back(false);
         workplaces.push_back({});
+        hasLoot.push_back(false);
+        loots.push_back({});
     }
 
     // 3. Initialize the new entity
@@ -136,6 +141,7 @@ EntityID EntityManager::CreateEntity() {
     hasHarvestable[id] = false;
     hasEquipment[id] = false;
     hasWorkplace[id] = false;
+    hasLoot[id] = false;
 
     return id;
 }

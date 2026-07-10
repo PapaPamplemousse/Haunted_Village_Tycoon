@@ -1,9 +1,11 @@
 #pragma once
+
 #include "ecs/Components.hpp"
 
 #include <raylib.h>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class EntityManager;
 
@@ -12,12 +14,9 @@ struct EnvironmentDef {
     std::string name;
     float maxHp = 80.0f;
     bool isObstacle = false;
-    std::string harvestTool;
+    std::string harvestTool = "none";
 
-    // Simple drop system (e.g., "wood:3:1.0")
-    std::string dropItem;
-    int dropAmount;
-    float dropChance;
+    std::vector<DropEntry> drops;
 };
 
 class EnvironmentRegistry {

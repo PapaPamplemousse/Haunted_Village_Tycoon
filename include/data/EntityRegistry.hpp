@@ -25,6 +25,9 @@ struct EntityDef {
     std::string species;
     std::string genderModel = "undefined";
     std::string defaultProfession = "none";
+
+    std::vector<DropEntry> drops;
+
     std::vector<std::string> innateBehaviors;
     std::vector<BehaviorRule> innateBehaviorRules;
     /* Graphics */

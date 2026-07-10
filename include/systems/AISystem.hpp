@@ -1,5 +1,6 @@
 #pragma once
 
+#include "data/ResourceRegistry.hpp"
 #include "data/TileRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/RoomSystem.hpp"
@@ -15,15 +16,17 @@ class AISystem {
 public:
     AISystem() = default;
 
-    void Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, RoomSystem& roomSys);
+    void Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, const ResourceRegistry& resourceReg,
+                RoomSystem& roomSys);
 
 private:
     // --- State Handlers ---
-    void HandleIdleState(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+    void HandleIdleState(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                         const ResourceRegistry& resourceReg);
 
     void HandleMovingState(EntityID entity, float deltaTime, EntityManager& em);
 
-    void HandleTaskCompletion(EntityID entity, EntityManager& em, RoomSystem& roomSys);
+    void HandleTaskCompletion(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg, RoomSystem& roomSys);
 
     // --- Helper Functions ---
     void InteractWithDoorIfPresent(EntityID entity, int targetX, int targetY, EntityManager& em);
@@ -49,5 +52,5 @@ private:
 
     bool TryFindHarvestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 
-    bool TryFindSeekFoodJob(EntityID entity, EntityManager& em);
+    bool TryFindSeekFoodJob(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg);
 };
