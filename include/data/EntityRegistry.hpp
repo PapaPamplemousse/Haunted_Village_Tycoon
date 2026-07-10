@@ -21,6 +21,7 @@ struct EntityDef {
     std::string category;
     std::string species;
     std::vector<std::string> innateBehaviors;
+    std::vector<BehaviorRule> innateBehaviorRules;
     /* Graphics */
     std::string texturePath;
     Color color;

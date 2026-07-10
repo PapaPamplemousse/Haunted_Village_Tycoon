@@ -156,12 +156,20 @@ struct ProfessionComponent {
     std::string currentProfession = "none"; // e.g., "builder", "lumberjack"
 };
 
+/**170 * @struct BehaviorRule171 * @brief Parsed AI behavior rule.172 *173 * Examples:174 *   "wander"             -> name="wander",
+ * arguments={}175 *   "hunt(human,rabbit)" -> name="hunt", arguments={"human", "rabbit"}176 */
+struct BehaviorRule {
+    std::string name;
+    std::vector<std::string> arguments;
+};
+
 /**
  * @struct BehaviorComponent
  * @brief Stores innate capabilities for the AI (e.g., "hunt", "flee", "wander").
  */
 struct BehaviorComponent {
     std::vector<std::string> innateCapabilities;
+    std::vector<BehaviorRule> innateBehaviorRules;
 
     Vector2 currentTarget = {0.0f, 0.0f};
     bool isMoving = false;

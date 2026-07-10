@@ -4,9 +4,17 @@
 #include "world/MapGenerator.hpp"
 #include "world/WorldMap.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace {
+
+static constexpr EntityID INVALID_ENTITY = static_cast<EntityID>(-1);
+
 static const char* DoorStateToString(DoorState state) {
     switch (state) {
         case DoorState::OPEN:
@@ -19,6 +27,37 @@ static const char* DoorStateToString(DoorState state) {
             return "UNKNOWN";
     }
 }
+
+static const char* BoolToString(bool value) {
+    return value ? "true" : "false";
+}
+
+static int WorldToTile(float value) {
+    return static_cast<int>(std::floor(value / Config::TILE_SIZE));
+}
+
+static std::string JoinStrings(const std::vector<std::string>& values, const std::string& separator) {
+    std::string result;
+
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            result += separator;
+        }
+
+        result += values[i];
+    }
+
+    return result;
+}
+
+static std::string BehaviorRuleToString(const BehaviorRule& rule) {
+    if (rule.arguments.empty()) {
+        return rule.name;
+    }
+
+    return rule.name + "(" + JoinStrings(rule.arguments, ",") + ")";
+}
+
 } // namespace
 
 Application::Application()
@@ -249,76 +288,149 @@ void Application::Render() {
         int hoverX = m_inputManager.GetMouseGridX();
         int hoverY = m_inputManager.GetMouseGridY();
 
-        EntityID hoveredEntity = (EntityID)-1;
+        EntityID hoveredEntity = static_cast<EntityID>(-1);
+        EntityID firstEntityOnTile = static_cast<EntityID>(-1);
+        EntityID doorEntityOnTile = static_cast<EntityID>(-1);
+        EntityID behaviorEntityOnTile = static_cast<EntityID>(-1);
 
-        // On cherche une entité sur cette case
+        // On cherche les entités sur cette case.
+        // Priorité: PNJ/AI > Porte > autre entité.
         for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
-            if (m_entityManager.active[i] && m_entityManager.hasTransform[i]) {
-                int ex = static_cast<int>(m_entityManager.transforms[i].position.x / Config::TILE_SIZE);
-                int ey = static_cast<int>(m_entityManager.transforms[i].position.y / Config::TILE_SIZE);
-                if (ex == hoverX && ey == hoverY) {
-                    hoveredEntity = i;
-                    break; // On inspecte la première trouvée
-                }
+            if (!m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
+                continue;
+            }
+
+            int ex = WorldToTile(m_entityManager.transforms[i].position.x);
+            int ey = WorldToTile(m_entityManager.transforms[i].position.y);
+
+            if (ex != hoverX || ey != hoverY) {
+                continue;
+            }
+
+            if (firstEntityOnTile == static_cast<EntityID>(-1)) {
+                firstEntityOnTile = i;
+            }
+
+            if (m_entityManager.hasDoor[i]) {
+                doorEntityOnTile = i;
+            }
+
+            if (m_entityManager.hasBehavior[i]) {
+                behaviorEntityOnTile = i;
             }
         }
 
-        // Si on survole une entité, on compile ses données
-        if (hoveredEntity != (EntityID)-1) {
+        if (behaviorEntityOnTile != static_cast<EntityID>(-1)) {
+            hoveredEntity = behaviorEntityOnTile;
+        } else if (doorEntityOnTile != static_cast<EntityID>(-1)) {
+            hoveredEntity = doorEntityOnTile;
+        } else {
+            hoveredEntity = firstEntityOnTile;
+        }
+
+        if (hoveredEntity != static_cast<EntityID>(-1)) {
             std::vector<std::string> lines;
-            auto i = hoveredEntity;
+            EntityID i = hoveredEntity;
+
+            lines.push_back("Entity ID: " + std::to_string(i));
 
             if (m_entityManager.hasTag[i]) {
                 const auto& tag = m_entityManager.tags[i];
+
                 if (!tag.firstName.empty()) {
                     lines.push_back(tag.firstName + " the " + tag.name);
-                    lines.push_back("Species: " + tag.species);
-                    lines.push_back("Age: " + std::to_string(tag.age));
-                } else if (m_entityManager.hasDoor[i]) {
-                    const auto& door = m_entityManager.doors[i];
-
-                    lines.push_back("Type: Door");
-                    lines.push_back(std::string("Door state: ") + DoorStateToString(door.state));
-                    lines.push_back("Owner ID: " + std::to_string(door.ownerId));
-
-                    if (door.state == DoorState::LOCKED) {
-                        lines.push_back("Passable: no, unless owner");
-                    } else if (door.state == DoorState::CLOSED) {
-                        lines.push_back("Passable: yes, AI should open it");
-                    } else if (door.state == DoorState::OPEN) {
-                        lines.push_back("Passable: yes");
-                    }
                 } else {
-                    lines.push_back(tag.name); // Pour les Murs, Meubles, etc.
+                    lines.push_back(tag.name);
                 }
+
+                lines.push_back("Prefab: " + tag.prefabId);
+
+                if (!tag.species.empty()) {
+                    lines.push_back("Species: " + tag.species);
+                }
+            }
+
+            if (m_entityManager.hasTransform[i]) {
+                int tileX = WorldToTile(m_entityManager.transforms[i].position.x);
+                int tileY = WorldToTile(m_entityManager.transforms[i].position.y);
+
+                lines.push_back("Tile: " + std::to_string(tileX) + ", " + std::to_string(tileY));
+            }
+
+            if (m_entityManager.hasDoor[i]) {
+                const auto& door = m_entityManager.doors[i];
+
+                lines.push_back("Door state: " + std::string(DoorStateToString(door.state)));
+                lines.push_back("Owner ID: " + std::to_string(door.ownerId));
             }
 
             if (m_entityManager.hasHealth[i]) {
                 lines.push_back(TextFormat("HP: %.0f / %.0f", m_entityManager.healths[i].current, m_entityManager.healths[i].max));
             }
+
             if (m_entityManager.hasStats[i]) {
                 lines.push_back(TextFormat("Speed: %.0f", m_entityManager.stats[i].maxSpeed));
             }
+
             if (m_entityManager.hasNeeds[i]) {
                 lines.push_back(TextFormat("Hunger: %.0f / %.0f", m_entityManager.needs[i].hunger, m_entityManager.needs[i].maxHunger));
             }
 
-            // On dessine le panneau !
+            if (m_entityManager.hasInventory[i]) {
+                const auto& inventory = m_entityManager.inventories[i];
+
+                lines.push_back("--- Inventory ---");
+
+                if (inventory.items.empty()) {
+                    lines.push_back("Empty");
+                } else {
+                    for (const auto& item : inventory.items) {
+                        lines.push_back(item.first + ": " + std::to_string(item.second));
+                    }
+                }
+            }
+
+            if (m_entityManager.hasBehavior[i]) {
+                const auto& behavior = m_entityManager.behaviors[i];
+
+                lines.push_back("--- AI ---");
+                lines.push_back("Task: " + behavior.currentTask);
+            }
+
             if (!lines.empty()) {
                 Vector2 mousePos = GetMousePosition();
-                float boxWidth = 220.0f;
-                float boxHeight = lines.size() * 25.0f + 10.0f;
 
-                // Décalage pour ne pas être sous le curseur
-                float boxX = mousePos.x + 15;
-                float boxY = mousePos.y + 15;
+                float boxWidth = 300.0f;
+                float lineHeight = 22.0f;
+                float boxHeight = lines.size() * lineHeight + 12.0f;
 
-                DrawRectangle(boxX, boxY, boxWidth, boxHeight, ColorAlpha(BLACK, 0.9f));
-                DrawRectangleLines(boxX, boxY, boxWidth, boxHeight, DARKGRAY);
+                float boxX = mousePos.x + 15.0f;
+                float boxY = mousePos.y + 15.0f;
+
+                if (boxX + boxWidth > GetScreenWidth()) {
+                    boxX = mousePos.x - boxWidth - 15.0f;
+                }
+
+                if (boxY + boxHeight > GetScreenHeight()) {
+                    boxY = mousePos.y - boxHeight - 15.0f;
+                }
+
+                DrawRectangle(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(boxHeight),
+                              ColorAlpha(BLACK, 0.9f));
+
+                DrawRectangleLines(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(boxHeight),
+                                   DARKGRAY);
 
                 for (size_t l = 0; l < lines.size(); ++l) {
-                    Color c = (l == 0) ? GOLD : LIGHTGRAY; // Le titre en Or
-                    DrawText(lines[l].c_str(), boxX + 10, boxY + 10 + l * 25, 20, c);
+                    Color c = LIGHTGRAY;
+
+                    if (l == 0) {
+                        c = GOLD;
+                    } else if (lines[l] == "--- AI ---" || lines[l] == "--- Inventory ---") {
+                        c = SKYBLUE;
+                    }
+
+                    DrawText(lines[l].c_str(), static_cast<int>(boxX + 10.0f), static_cast<int>(boxY + 8.0f + l * lineHeight), 18, c);
                 }
             }
         }
