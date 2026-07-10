@@ -1,323 +1,47 @@
-# =========================================================
-# TILE DEFINITIONS (.stv)
-# =========================================================
-# id           = TileTypeID (see enum)
-# name         = internal name
-# category     = ground | water | hazard | obstacle
-# walkable     = bool
-# is_breakable = bool
-# durability   = int
-# movement     = float
-# humidity     = float
-# fertility    = float
-# temperature  = float
-# color        = r,g,b,a
-# texture      = path
-# variations   = int (optional) number of horizontal frames inside the texture
-# =========================================================
+[DEEP_WATER]
+id = 0
+name = Deep Water
+walkable = false
+color = 20, 20, 100, 255
 
-[GRASS]
-id           = 0
-name         = Grass
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 1.0
-humidity     = 0.7
-fertility    = 0.8
-temperature  = 18
-color        = 34,139,34,255
-texture      = assets/textures/grass.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
+[SHALLOW_WATER]
+id = 1
+name = Shallow Water
+walkable = true
+color = 60, 100, 200, 255
 
-[WATER]
-id           = 1
-name         = Water
-category     = water
-walkable     = false
-is_breakable = false
-durability   = 100
-movement     = 100.0
-humidity     = 1.0
-fertility    = 0.0
-temperature  = 12
-color        = 70,130,180,255
-texture      = assets/textures/water.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
+[SAND]
+id = 2
+name = Sand
+walkable = true
+color = 230, 200, 100, 255
+
+[GRASS_DRY]
+id = 3
+name = Dry Grass
+walkable = true
+color = 150, 160, 50, 255
+
+[GRASS_LUSH]
+id = 4
+name = Lush Grass
+walkable = true
+color = 50, 150, 50, 255
 
 [LAVA]
-id           = 2
-name         = Lava
-category     = hazard
-walkable     = false
-is_breakable = false
-durability   = 100
-movement     = 100.0
-humidity     = 0.0
-fertility    = 0.0
-temperature  = 1000
-color        = 255,69,0,255
-texture      = assets/textures/lava.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
+id = 5
+name = Magma
+walkable = false
+color = 220, 50, 10, 255
 
-[FOREST]
-id           = 3
-name         = Forest
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 1.5
-humidity     = 0.8
-fertility    = 0.7
-temperature  = 15
-color        = 34,100,34,255
-texture      = assets/textures/forest.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
+[CURSED_DIRT]
+id = 6
+name = Cursed Dirt
+walkable = true
+color = 70, 40, 80, 255
 
-[PLAIN]
-id           = 4
-name         = Plain
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 1.0
-humidity     = 0.5
-fertility    = 0.6
-temperature  = 20
-color        = 124,252,0,255
-texture      = assets/textures/plain.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[SAVANNA]
-id           = 5
-name         = Savanna
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 1.2
-humidity     = 0.3
-fertility    = 0.3
-temperature  = 28
-color        = 189,183,107,255
-texture      = assets/textures/savana.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[TUNDRA]
-id           = 6
-name         = Tundra
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 2.0
-humidity     = 0.2
-fertility    = 0.1
-temperature  = -10
-color        = 176,196,222,255
-texture      = assets/textures/tundra.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[TUNDRA_2]
-id           = 7
-name         = Tundra_2
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 2.0
-humidity     = 0.2
-fertility    = 0.1
-temperature  = -10
-color        = 176,196,222,255
-texture      = assets/textures/tundra_2.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[HELL]
-id           = 8
-name         = Hell
-category     = hazard
-walkable     = false
-is_breakable = false
-durability   = 100
-movement     = 3.0
-humidity     = 0.0
-fertility    = 0.0
-temperature  = 50
-color        = 139,0,0,255
-texture      = assets/textures/hell.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[CURSED_FOREST]
-id           = 9
-name         = Cursed_Forest
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 2.5
-humidity     = 0.7
-fertility    = 0.5
-temperature  = 8
-color        = 85,107,47,255
-texture      = assets/textures/cursed_forest.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[SWAMP]
-id           = 10
-name         = Swamp
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 3.0
-humidity     = 0.9
-fertility    = 0.8
-temperature  = 10
-color        = 102,102,51,255
-texture      = assets/textures/swamp.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[DESERT]
-id           = 11
-name         = Desert
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 100
-movement     = 1.3
-humidity     = 0.1
-fertility    = 0.05
-temperature  = 40
-color        = 244,164,96,255
-texture      = assets/textures/desert.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[MOUNTAIN]
-id           = 12
-name         = Mountain
-category     = obstacle
-walkable     = false
-is_breakable = true
-durability   = 500
-movement     = 3.0
-humidity     = 0.2
-fertility    = 0.05
-temperature  = 0
-color        = 105,105,105,255
-texture      = assets/textures/mountain.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[POISON]
-id           = 13
-name         = Poison
-category     = hazard
-walkable     = false
-is_breakable = false
-durability   = 100
-movement     = 100.0
-humidity     = 0.9
-fertility    = 0.0
-temperature  = 6
-color        = 135,0,170,255
-texture      = assets/textures/poison.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[WOOD_FLOOR]
-id           = 14
-name         = Wood_Floor
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 120
-movement     = 0.85
-humidity     = 0.4
-fertility    = 0.0
-temperature  = 19
-color        = 150,110,70,255
-texture      = assets/textures/wood_floor.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[STRAW_FLOOR]
-id           = 15
-name         = Straw_Floor
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 80
-movement     = 0.95
-humidity     = 0.3
-fertility    = 0.0
-temperature  = 21
-color        = 194,172,92,255
-texture      = assets/textures/straw_floor.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[STONE_FLOOR]
-id           = 16
-name         = Stone_Floor
-category     = ground
-walkable     = true
-is_breakable = false
-durability   = 200
-movement     = 0.9
-humidity     = 0.2
-fertility    = 0.0
-temperature  = 16
-color        = 128,128,128,255
-texture      = assets/textures/stone_floor.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
-
-[MUD_ROAD]
-id           = 17
-name         = Mud_Road
-category     = road
-walkable     = true
-is_breakable = false
-durability   = 150
-movement     = 0.7
-humidity     = 0.6
-fertility    = 0.0
-temperature  = 18
-color        = 115,82,56,255
-texture      = assets/textures/mud_road.png
-texture_variations = 1
-variation_columns  = 1
-variation_rows     = 1
+[MUD]
+id = 7
+name = Mud
+walkable = true
+color = 80, 60, 40, 255

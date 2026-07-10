@@ -1,0 +1,115 @@
+#pragma once
+#include <raylib.h>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+/**
+ * @typedef EntityID
+ * @brief Represents a unique identifier for an entity in the game world.
+ */
+using EntityID = size_t;
+
+// =========================================================
+// IDENTITY & RENDERING
+// =========================================================
+
+/**
+ * @struct TagComponent
+ * @brief Stores the readable name and the prefab ID (from the .stv files).
+ */
+struct TagComponent {
+    std::string name;
+    std::string prefabId;
+};
+
+/**
+ * @struct TransformComponent
+ * @brief Represents the physical location in the 2D world.
+ */
+struct TransformComponent {
+    Vector2 position = {0.0f, 0.0f};
+};
+
+/**
+ * @struct SpriteComponent
+ * @brief Holds visual data for rendering. Supports primitive shapes for prototyping and texture paths for final assets.
+ */
+struct SpriteComponent {
+    std::string texturePath = "square"; // Can be "square", "circle", "triangle", or a path like "assets/hero.png"
+    Color tint = WHITE;                 // The color of the shape or the tint of the texture
+    float width = 32.0f;
+    float height = 32.0f;
+    bool isAnimated = false; // If true, applies a mathematical idle bounce effect
+};
+
+// =========================================================
+// LOGISTICS & CONSTRUCTION
+// =========================================================
+
+/**
+ * @struct InventoryComponent
+ * @brief Stores items held by an entity (NPC backpack, chest, or tree drops).
+ */
+struct InventoryComponent {
+    std::unordered_map<std::string, int> items;
+};
+
+/**
+ * @struct BlueprintComponent
+ * @brief Represents an unfinished structure. Requires materials to become active.
+ */
+struct BlueprintComponent {
+    std::unordered_map<std::string, int> requiredMaterials;
+    bool isFinished = false;
+};
+
+// =========================================================
+// LIFE, AI & JOBS
+// =========================================================
+
+/**
+ * @struct StatsComponent
+ * @brief Holds fixed RPG statistics.
+ */
+struct StatsComponent {
+    float maxSpeed = 30.0f;
+};
+
+/**
+ * @struct HealthComponent
+ * @brief Tracks physical damage and life status.
+ */
+struct HealthComponent {
+    float current = 100.0f;
+    float max = 100.0f;
+};
+
+/**
+ * @struct NeedsComponent
+ * @brief Tracks survival metrics like hunger, thirst, or sanity.
+ */
+struct NeedsComponent {
+    float hunger = 100.0f;
+    float maxHunger = 100.0f;
+};
+
+/**
+ * @struct ProfessionComponent
+ * @brief Determines what kind of jobs this entity is allowed to take.
+ */
+struct ProfessionComponent {
+    std::string currentProfession = "none"; // e.g., "builder", "lumberjack"
+};
+
+/**
+ * @struct BehaviorComponent
+ * @brief Stores innate capabilities for the AI (e.g., "hunt", "flee", "wander").
+ */
+struct BehaviorComponent {
+    std::vector<std::string> innateCapabilities;
+
+    Vector2 currentTarget = {0.0f, 0.0f};
+    bool isMoving = false;
+    float stateTimer = 0.0f; // Used to wait between actions
+};

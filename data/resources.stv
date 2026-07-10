@@ -1,0 +1,11 @@
+[WOOD]
+name = Wood Log
+max_stack = 50
+is_consumable = false
+
+[RAW_MEAT]
+name = Raw Meat
+max_stack = 20
+is_consumable = true
+nutrition = 25.0
+spoilage_days = 3

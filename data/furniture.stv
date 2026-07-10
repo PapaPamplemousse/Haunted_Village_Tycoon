@@ -1,0 +1,20 @@
+[CAMPFIRE]
+name = Campfire
+grid_size = 1, 1
+interaction_type = cook
+storage_capacity = 0
+blueprint_cost = wood:4, stone:2
+texture = square
+color = 220, 100, 30, 255
+sprite_size = 32, 32
+
+[WOOD_CHEST]
+name = Wooden Chest
+grid_size = 1, 1
+interaction_type = store
+storage_capacity = 20
+blueprint_cost = wood:10
+texture = square
+color = 141, 78, 47, 255
+sprite_size = 32, 32
+

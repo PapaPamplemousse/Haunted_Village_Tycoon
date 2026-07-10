@@ -1,0 +1,11 @@
+[WOOD_WALL]
+name = Wooden Wall
+is_wall = true
+is_door = false
+blueprint_cost = wood:5
+
+[WOOD_DOOR]
+name = Wooden Door
+is_wall = true
+is_door = true
+blueprint_cost = wood:3, rope:1
