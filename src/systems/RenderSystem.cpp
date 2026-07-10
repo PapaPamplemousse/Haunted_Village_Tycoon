@@ -76,7 +76,7 @@ void RenderSystem::Render(const EntityManager& em, const Camera2D& camera, bool 
             if (drawPos.x < topLeft.x || drawPos.x > bottomRight.x || drawPos.y < topLeft.y || drawPos.y > bottomRight.y)
                 continue;
 
-            const char* name = em.tags[i].name.c_str();
+            const char* name = em.tags[i].firstName.c_str();
             int fontSize = 20; // Plus grand !
             int textWidth = MeasureText(name, fontSize);
             int padding = 4;

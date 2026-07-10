@@ -113,8 +113,8 @@ Application::Application()
     EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry, m_behaviorRegistry);
 
     // --- : Cheat code d'inventaire ---
-    m_entityManager.inventories[vId].items["wood"] = 500; // Il a 500 de bois !
-    m_entityManager.inventories[vId].items["rope"] = 50;  // Et 50 cordes !
+    m_entityManager.inventories[vId].items["wood"] = 100;
+    m_entityManager.inventories[vId].items["rope"] = 50;
     const WeaponDef* axeDef = m_weaponRegistry.GetWeaponDef("IRON_AXE");
     if (axeDef) {
         m_entityManager.hasEquipment[vId] = true;
@@ -146,30 +146,23 @@ void Application::Run() {
 }
 
 void Application::Update(float deltaTime) {
-    // 1. Toujours mettre à jour l'UI (pour écouter le bouton E)
+    // 1. Toujours mettre à jour l'UI
     m_uiManager.Update();
 
-    // 2. Si le menu est ouvert, on bloque TOUT LE RESTE (Pause + Pas de mouvement de caméra)
+    // 2. Si le menu est ouvert, on bloque le jeu
     if (m_uiManager.IsMenuOpen()) {
         return;
     }
 
-    // --- LE JEU NORMAL REPREND ---
     m_inputManager.Update(m_camera);
     m_camera.Update(deltaTime);
 
-    m_timeSystem.Update(deltaTime, m_entityManager);
-    m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
-    m_professionSystem.Update(m_entityManager, m_professionRegistry, m_behaviorRegistry);
-    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_roomSystem);
     // ==========================================
     // LOGIQUE DE PLACEMENT ET SUPPRESSION
     // ==========================================
     std::string prefabToPlace = m_uiManager.GetSelectedPrefab();
 
-    // CLIC GAUCHE : Placer l'objet
     if (m_inputManager.IsInteractPressed() && !prefabToPlace.empty()) {
-        // Centrer l'objet sur la tuile visée
         Vector2 spawnPos = {m_inputManager.GetMouseGridX() * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f),
                             m_inputManager.GetMouseGridY() * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f)};
 
@@ -184,34 +177,50 @@ void Application::Update(float deltaTime) {
         }
     }
 
-    // CLIC DROIT : Supprimer l'entité sous la souris
     if (m_inputManager.IsDeletePressed()) {
         int targetX = m_inputManager.GetMouseGridX();
         int targetY = m_inputManager.GetMouseGridY();
 
         for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
-            if (m_entityManager.active[i] && m_entityManager.hasTransform[i]) {
-                int entityGridX = static_cast<int>(m_entityManager.transforms[i].position.x / Config::TILE_SIZE);
-                int entityGridY = static_cast<int>(m_entityManager.transforms[i].position.y / Config::TILE_SIZE);
-
-                if (entityGridX == targetX && entityGridY == targetY) {
-                    // Si c'est un blueprint (projet non commencé), on l'annule instantanément
-                    if (m_entityManager.hasBlueprint[i] && !m_entityManager.blueprints[i].isFinished) {
-                        m_entityManager.DestroyEntity(i);
-                    }
-                    // Si c'est un objet réel, on place un Ordre de Démolition !
-                    else if (!m_entityManager.hasDeconstruct[i] && !m_entityManager.hasBehavior[i]) {
-                        m_entityManager.hasDeconstruct[i] = true;
-                        m_entityManager.deconstructs[i] = {true};
-                    }
-                    break;
-                }
+            if (!m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
+                continue;
             }
+
+            int entityGridX = static_cast<int>(m_entityManager.transforms[i].position.x / Config::TILE_SIZE);
+
+            int entityGridY = static_cast<int>(m_entityManager.transforms[i].position.y / Config::TILE_SIZE);
+
+            if (entityGridX != targetX || entityGridY != targetY) {
+                continue;
+            }
+
+            if (m_entityManager.hasBlueprint[i] && !m_entityManager.blueprints[i].isFinished) {
+                m_entityManager.DestroyEntity(i);
+            } else if (!m_entityManager.hasDeconstruct[i] && !m_entityManager.hasBehavior[i]) {
+                m_entityManager.hasDeconstruct[i] = true;
+                m_entityManager.deconstructs[i] = {true};
+            }
+
+            break;
         }
     }
-    m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
-}
 
+    // ==========================================
+    // SIMULATION
+    // ==========================================
+    m_timeSystem.Update(deltaTime, m_entityManager);
+
+    // Update des pièces AVANT l'attribution des professions.
+    // Important: ne pas rappeler RoomSystem après ProfessionSystem,
+    // sinon les slots peuvent être reconstruits/réinitialisés.
+    m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
+
+    // Assigne les travailleurs aux workplaces détectés par le RoomSystem.
+    m_professionSystem.Update(m_entityManager, m_professionRegistry, m_behaviorRegistry);
+
+    // L'IA utilise ensuite les professions/comportements à jour.
+    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_roomSystem);
+}
 void Application::Render() {
     BeginDrawing();
     ClearBackground(BLACK);
@@ -407,8 +416,6 @@ void Application::Render() {
                 } else {
                     lines.push_back(tag.name);
                 }
-
-                lines.push_back("Prefab: " + tag.prefabId);
 
                 if (!tag.species.empty()) {
                     lines.push_back("Species: " + tag.species);
