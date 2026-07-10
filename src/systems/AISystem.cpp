@@ -1,7 +1,6 @@
 #include "systems/AISystem.hpp"
 
 #include "core/Config.hpp"
-#include "systems/RoomSystem.hpp"
 
 #include <cmath>
 #include <raymath.h>
@@ -12,167 +11,191 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
             continue;
 
         auto& behavior = em.behaviors[i];
-        auto& transform = em.transforms[i];
-        const auto& stats = em.stats[i];
 
+        // 1. Gestion du temps de pause
         if (behavior.stateTimer > 0.0f) {
             behavior.stateTimer -= deltaTime;
             continue;
         }
 
-        // ==========================================
-        // 1. RECHERCHE DE TÂCHE
-        // ==========================================
+        // 2. Routage vers le bon État
         if (behavior.currentTask == "idle") {
-            bool canBuild = false;
-            bool canDismantle = false;
-            bool canWander = false;
+            HandleIdleState(i, em, map, tileReg);
+        } else if (behavior.isMoving) {
+            HandleMovingState(i, deltaTime, em);
+        } else {
+            // Si on ne fait rien, qu'on ne bouge pas, c'est qu'on est en train d'exécuter une action
+            HandleTaskCompletion(i, em, roomSys);
+        }
+    }
+}
 
-            for (const auto& cap : behavior.innateCapabilities) {
-                if (cap == "build")
-                    canBuild = true;
-                if (cap == "dismantle")
-                    canDismantle = true;
-                if (cap == "wander")
-                    canWander = true;
-            }
+// ============================================================================
+// STATE HANDLERS
+// ============================================================================
 
-            // A. Priorité 1 : Chercher un Blueprint à construire
-            if (canBuild) {
-                for (size_t j = 0; j < em.active.size(); ++j) {
-                    // Si on trouve un Blueprint non terminé
-                    if (em.active[j] && em.hasBlueprint[j] && !em.blueprints[j].isFinished && em.hasTransform[j]) {
-                        // VERIFICATION DES RESSOURCES (Inventaire du PNJ)
-                        bool canAfford = true;
-                        if (em.hasInventory[i]) {
-                            for (const auto& req : em.blueprints[j].requiredMaterials) {
-                                if (em.inventories[i].items[req.first] < req.second) {
-                                    canAfford = false;
-                                    break;
-                                }
-                            }
-                        }
+void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
+    auto& behavior = em.behaviors[i];
 
-                        // Si on a les ressources, on prend le job !
-                        if (canAfford) {
-                            behavior.currentTask = "moving_to_build";
-                            behavior.currentJobTarget = j;
-                            behavior.hasJob = true;
-                            behavior.currentTarget = em.transforms[j].position;
-                            behavior.isMoving = true;
-                            break; // On arrête de chercher
-                        }
-                    }
+    // On extrait les capacités de l'entité
+    bool canBuild = false, canDismantle = false, canWander = false;
+    for (const auto& cap : behavior.innateCapabilities) {
+        if (cap == "build")
+            canBuild = true;
+        if (cap == "dismantle")
+            canDismantle = true;
+        if (cap == "wander")
+            canWander = true;
+    }
+
+    // Chaîne de priorité des Jobs (On s'arrête dès qu'on en trouve un)
+    if (canBuild && TryFindBuildJob(i, em))
+        return;
+    if (canDismantle && TryFindDismantleJob(i, em))
+        return;
+    if (canWander && TryFindWanderJob(i, em, map, tileReg))
+        return;
+}
+
+void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em) {
+    auto& behavior = em.behaviors[i];
+    auto& transform = em.transforms[i];
+    float speed = em.stats[i].maxSpeed;
+
+    Vector2 dir = Vector2Subtract(behavior.currentTarget, transform.position);
+    float distanceToTarget = Vector2Length(dir);
+
+    // Arrivé à destination ?
+    if (distanceToTarget < Config::TILE_SIZE * 0.8f) {
+        behavior.isMoving = false;
+
+        // Transition vers l'action
+        if (behavior.currentTask == "moving_to_build") {
+            behavior.currentTask = "building";
+            behavior.stateTimer = 2.0f; // Temps de construction
+        } else if (behavior.currentTask == "moving_to_dismantle") {
+            behavior.currentTask = "dismantling";
+            behavior.stateTimer = 2.0f; // Temps de démolition
+        } else if (behavior.currentTask == "wandering") {
+            behavior.currentTask = "idle";
+            behavior.stateTimer = GetRandomValue(10, 40) / 10.0f; // Pause avant de repartir
+        }
+    } else {
+        // Avancer
+        Vector2 normalizedDir = Vector2Scale(dir, 1.0f / distanceToTarget);
+        transform.position.x += normalizedDir.x * speed * deltaTime;
+        transform.position.y += normalizedDir.y * speed * deltaTime;
+    }
+}
+
+void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& roomSys) {
+    auto& behavior = em.behaviors[i];
+
+    if (behavior.currentTask == "building") {
+        EntityID target = behavior.currentJobTarget;
+        if (em.active[target] && em.hasBlueprint[target]) {
+            // Consommer les ressources
+            if (em.hasInventory[i]) {
+                for (const auto& req : em.blueprints[target].requiredMaterials) {
+                    em.inventories[i].items[req.first] -= req.second;
                 }
             }
+            // Finaliser
+            em.blueprints[target].isFinished = true;
+            em.hasBlueprint[target] = false;
 
-            // B. Priorité 2 : Chercher un objet à démolir
-            if (!behavior.hasJob && canDismantle) {
-                for (size_t j = 0; j < em.active.size(); ++j) {
-                    if (em.active[j] && em.hasDeconstruct[j] && em.hasTransform[j]) {
-                        behavior.currentTask = "moving_to_dismantle";
-                        behavior.currentJobTarget = j;
-                        behavior.hasJob = true;
-                        behavior.currentTarget = em.transforms[j].position;
-                        behavior.isMoving = true;
+            // --- MISE A JOUR DES PIECES DEMANDEE ---
+            if (em.hasConstruction[target] || (em.hasTag[target] && !em.hasBehavior[target])) {
+                roomSys.MarkDirty();
+            }
+        }
+    } else if (behavior.currentTask == "dismantling") {
+        EntityID target = behavior.currentJobTarget;
+        if (em.active[target] && em.hasDeconstruct[target]) {
+            // Rembourser
+            if (em.hasCost[target] && em.hasInventory[i]) {
+                for (const auto& req : em.costs[target].materials) {
+                    int refund = std::max(1, req.second / 2);
+                    em.inventories[i].items[req.first] += refund;
+                }
+            }
+            // Mise à jour des pièces et destruction
+            if (em.hasConstruction[target] || (em.hasTag[target] && !em.hasBehavior[target])) {
+                roomSys.MarkDirty();
+            }
+            em.DestroyEntity(target);
+        }
+    }
+
+    // Retour à zéro
+    behavior.currentTask = "idle";
+    behavior.hasJob = false;
+}
+
+// ============================================================================
+// JOB SEARCHERS
+// ============================================================================
+
+bool AISystem::TryFindBuildJob(EntityID i, EntityManager& em) {
+    for (size_t j = 0; j < em.active.size(); ++j) {
+        if (em.active[j] && em.hasBlueprint[j] && !em.blueprints[j].isFinished && em.hasTransform[j]) {
+            bool canAfford = true;
+            if (em.hasInventory[i]) {
+                for (const auto& req : em.blueprints[j].requiredMaterials) {
+                    if (em.inventories[i].items[req.first] < req.second) {
+                        canAfford = false;
                         break;
                     }
                 }
             }
-
-            // C. Priorité 3 : Si aucun job trouvé, on flâne
-            if (!behavior.hasJob && canWander) {
-                float angle = GetRandomValue(0, 360) * DEG2RAD;
-                float distance = GetRandomValue(Config::TILE_SIZE * 2, Config::TILE_SIZE * 8);
-                Vector2 proposedTarget = {transform.position.x + std::cos(angle) * distance,
-                                          transform.position.y + std::sin(angle) * distance};
-
-                int gridX = static_cast<int>(proposedTarget.x / Config::TILE_SIZE);
-                int gridY = static_cast<int>(proposedTarget.y / Config::TILE_SIZE);
-
-                const TileDef* tileDef = tileReg.GetTileDef(map.GetTile(gridX, gridY));
-                if (tileDef && tileDef->walkable) {
-                    behavior.currentTask = "wandering";
-                    behavior.currentTarget = proposedTarget;
-                    behavior.isMoving = true;
-                } else {
-                    behavior.stateTimer = 1.0f; // On attend avant de réessayer
-                }
+            if (canAfford) {
+                auto& behavior = em.behaviors[i];
+                behavior.currentTask = "moving_to_build";
+                behavior.currentJobTarget = j;
+                behavior.hasJob = true;
+                behavior.currentTarget = em.transforms[j].position;
+                behavior.isMoving = true;
+                return true;
             }
         }
+    }
+    return false;
+}
 
-        // ==========================================
-        // 2. EXÉCUTION DE LA TÂCHE
-        // ==========================================
-        if (behavior.isMoving) {
-            Vector2 dir = Vector2Subtract(behavior.currentTarget, transform.position);
-            float distanceToTarget = Vector2Length(dir);
-
-            // On s'arrête quand on est sur la case adjacente (Marge d'erreur de TILE_SIZE/2)
-            if (distanceToTarget < Config::TILE_SIZE * 0.8f) {
-                behavior.isMoving = false;
-
-                if (behavior.currentTask == "moving_to_build") {
-                    behavior.currentTask = "building";
-                    behavior.stateTimer = 2.0f; // Il met 2 secondes à construire
-                } else if (behavior.currentTask == "moving_to_dismantle") {
-                    behavior.currentTask = "dismantling";
-                    behavior.stateTimer = 2.0f; // Il met 2 secondes à détruire !
-                } else if (behavior.currentTask == "wandering") {
-                    behavior.currentTask = "idle";
-                    behavior.stateTimer = GetRandomValue(10, 40) / 10.0f;
-                }
-            } else {
-                Vector2 normalizedDir = Vector2Scale(dir, 1.0f / distanceToTarget);
-                transform.position.x += normalizedDir.x * stats.maxSpeed * deltaTime;
-                transform.position.y += normalizedDir.y * stats.maxSpeed * deltaTime;
-            }
+bool AISystem::TryFindDismantleJob(EntityID i, EntityManager& em) {
+    for (size_t j = 0; j < em.active.size(); ++j) {
+        if (em.active[j] && em.hasDeconstruct[j] && em.hasTransform[j]) {
+            auto& behavior = em.behaviors[i];
+            behavior.currentTask = "moving_to_dismantle";
+            behavior.currentJobTarget = j;
+            behavior.hasJob = true;
+            behavior.currentTarget = em.transforms[j].position;
+            behavior.isMoving = true;
+            return true;
         }
+    }
+    return false;
+}
 
-        // ==========================================
-        // 3. FINALISATION (Fin du délai de travail)
-        // ==========================================
-        else if (behavior.currentTask == "building") {
-            EntityID target = behavior.currentJobTarget;
+bool AISystem::TryFindWanderJob(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
+    auto& behavior = em.behaviors[i];
+    float angle = GetRandomValue(0, 360) * DEG2RAD;
+    float distance = GetRandomValue(Config::TILE_SIZE * 2, Config::TILE_SIZE * 8);
 
-            // On vérifie que le blueprint existe toujours
-            if (em.active[target] && em.hasBlueprint[target]) {
-                // Consommer les ressources de l'inventaire du PNJ
-                if (em.hasInventory[i]) {
-                    for (const auto& req : em.blueprints[target].requiredMaterials) {
-                        em.inventories[i].items[req.first] -= req.second;
-                    }
-                }
+    Vector2 proposedTarget = {em.transforms[i].position.x + std::cos(angle) * distance,
+                              em.transforms[i].position.y + std::sin(angle) * distance};
 
-                // Finaliser la construction !
-                em.blueprints[target].isFinished = true;
-                em.hasBlueprint[target] = false; // Ce n'est plus un fantôme !
-            }
-            // Retour à la vie normale
-            behavior.currentTask = "idle";
-            behavior.hasJob = false;
-        } else if (behavior.currentTask == "dismantling") {
-            EntityID target = behavior.currentJobTarget;
+    int gridX = static_cast<int>(proposedTarget.x / Config::TILE_SIZE);
+    int gridY = static_cast<int>(proposedTarget.y / Config::TILE_SIZE);
 
-            if (em.active[target] && em.hasDeconstruct[target]) {
-                // 1. Rembourser la moitié du coût !
-                if (em.hasCost[target] && em.hasInventory[i]) {
-                    for (const auto& req : em.costs[target].materials) {
-                        int refund = std::max(1, req.second / 2); // Au moins 1 de récupéré
-                        em.inventories[i].items[req.first] += refund;
-                    }
-                }
-
-                // 2. Notifier le RoomSystem si c'était un mur ou un meuble
-                if (em.hasConstruction[target] || (em.hasTag[target] && !em.hasBehavior[target])) {
-                    roomSys.MarkDirty();
-                }
-
-                // 3. Destruction pure et simple !
-                em.DestroyEntity(target);
-            }
-            behavior.currentTask = "idle";
-            behavior.hasJob = false;
-        }
+    const TileDef* tileDef = tileReg.GetTileDef(map.GetTile(gridX, gridY));
+    if (tileDef && tileDef->walkable) {
+        behavior.currentTask = "wandering";
+        behavior.currentTarget = proposedTarget;
+        behavior.isMoving = true;
+        return true;
+    } else {
+        behavior.stateTimer = 1.0f;
+        return false;
     }
 }

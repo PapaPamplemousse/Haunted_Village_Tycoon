@@ -98,15 +98,12 @@ void Application::Update(float deltaTime) {
 
         if (m_uiManager.GetSelectedCategory() == BuildCategory::Entities) {
             m_entityRegistry.SpawnEntity(m_entityManager, prefabToPlace, spawnPos, m_nameRegistry);
-            // Les entités (PNJ) ne changent pas les pièces, pas besoin de MarkDirty
 
         } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Furniture) {
             m_furnitureRegistry.SpawnFurniture(m_entityManager, prefabToPlace, spawnPos, true);
-            m_roomSystem.MarkDirty();
 
         } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Constructions) {
             m_constructionRegistry.SpawnConstruction(m_entityManager, prefabToPlace, spawnPos, true);
-            m_roomSystem.MarkDirty();
         }
     }
 
