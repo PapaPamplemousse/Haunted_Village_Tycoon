@@ -60,6 +60,7 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
     auto& behavior = em.behaviors[i];
 
     const bool canHunt = HasCapability(behavior, "hunt");
+    const bool canHarvest = HasCapability(behavior, "harvest");
     const bool canBuild = HasCapability(behavior, "build");
     const bool canDismantle = HasCapability(behavior, "dismantle");
     const bool canWander = HasCapability(behavior, "wander");
@@ -75,6 +76,10 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
     }
 
     if (canDismantle && TryFindDismantleJob(i, em, map, tileReg)) {
+        return;
+    }
+
+    if (canHarvest && TryFindHarvestJob(i, em, map, tileReg)) {
         return;
     }
 
@@ -163,6 +168,9 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
         } else if (behavior.currentTask == "moving_to_dismantle") {
             behavior.currentTask = "dismantling";
             behavior.stateTimer = 2.0f;
+        } else if (behavior.currentTask == "moving_to_harvest") {
+            behavior.currentTask = "harvesting";
+            behavior.stateTimer = 3.0f;
         } else if (behavior.currentTask == "moving_to_hunt") {
             behavior.currentTask = "attacking";
             behavior.stateTimer = ATTACK_DURATION;
@@ -219,6 +227,26 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& r
                 roomSys.MarkDirty();
             }
 
+            em.DestroyEntity(target);
+        }
+    } else if (behavior.currentTask == "harvesting") {
+        EntityID target = behavior.currentJobTarget;
+
+        if (target < em.active.size() && em.active[target] && em.hasHarvestable[target]) {
+            const auto& harvestable = em.harvestables[target];
+
+            if (em.hasInventory[i]) {
+                float roll = (float)GetRandomValue(0, 100) / 100.0f;
+                if (roll <= harvestable.dropChance) {
+                    em.inventories[i].items[harvestable.dropItemId] += harvestable.dropAmount;
+                }
+            }
+
+            if (em.hasConstruction[target]) {
+                roomSys.MarkDirty();
+            }
+
+            // 3. Destruction de l'arbre/buisson
             em.DestroyEntity(target);
         }
     } else if (behavior.currentTask == "attacking") {
@@ -485,4 +513,81 @@ bool AISystem::TryFindWanderJob(EntityID i, EntityManager& em, const WorldMap& m
 
     behavior.stateTimer = 1.0f;
     return false;
+}
+
+bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
+    if (worker >= em.active.size() || !em.active[worker] || !em.hasBehavior[worker] || !em.hasTransform[worker]) {
+        return false;
+    }
+
+    BehaviorComponent& behavior = em.behaviors[worker];
+    const BehaviorRule* harvestRule = FindBehaviorRule(behavior, "harvest");
+
+    if (harvestRule == nullptr || harvestRule->arguments.empty()) {
+        return false;
+    }
+
+    EntityID bestTarget = static_cast<EntityID>(-1);
+    float bestDistanceSq = std::numeric_limits<float>::infinity();
+    const Vector2 workerPosition = em.transforms[worker].position;
+
+    for (size_t target = 0; target < em.active.size(); ++target) {
+        if (target == worker || !em.active[target] || !em.hasHarvestable[target] || !em.hasTransform[target] || !em.hasTag[target]) {
+            continue;
+        }
+
+        // On vérifie si la cible fait partie de ce qu'on a le droit de récolter (ex: TREE_OAK)
+        const std::string& targetPrefab = em.tags[target].prefabId;
+        bool isTargeted = false;
+        for (const std::string& arg : harvestRule->arguments) {
+            if (arg == targetPrefab) {
+                isTargeted = true;
+                break;
+            }
+        }
+
+        if (!isTargeted) {
+            continue;
+        }
+
+        const float distanceSq = SquaredDistance(workerPosition, em.transforms[target].position);
+        if (distanceSq < bestDistanceSq) {
+            bestDistanceSq = distanceSq;
+            bestTarget = target;
+        }
+    }
+
+    if (bestTarget == static_cast<EntityID>(-1)) {
+        return false;
+    }
+
+    // Si on est déjà à côté, on tape !
+    if (AreEntitiesAdjacent(worker, bestTarget, em)) {
+        behavior.currentTask = "harvesting";
+        behavior.currentJobTarget = bestTarget;
+        behavior.hasJob = true;
+        behavior.isMoving = false;
+        behavior.currentPath.clear();
+        behavior.currentPathIndex = 0;
+        behavior.stateTimer = 3.0f;
+        return true;
+    }
+
+    // Sinon, on calcule le chemin
+    std::vector<Vector2> path =
+        Pathfinder::FindPathToAdjacentTile(workerPosition, em.transforms[bestTarget].position, map, tileReg, em, worker);
+
+    if (path.empty()) {
+        return false;
+    }
+
+    behavior.currentTask = "moving_to_harvest";
+    behavior.currentJobTarget = bestTarget;
+    behavior.hasJob = true;
+    behavior.currentPath = std::move(path);
+    behavior.currentPathIndex = 0;
+    behavior.currentTarget = behavior.currentPath[0];
+    behavior.isMoving = true;
+
+    return true;
 }

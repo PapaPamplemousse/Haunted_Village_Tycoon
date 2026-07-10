@@ -68,6 +68,17 @@ struct BlueprintComponent {
 };
 
 /**
+ * @struct HarvestableComponent
+ * @brief Identifies natural resources that can be chopped, mined, or gathered.
+ */
+struct HarvestableComponent {
+    std::string requiredTool = "none"; // e.g., "axe", "pickaxe", "none"
+    std::string dropItemId = "";       // e.g., "wood"
+    int dropAmount = 1;
+    float dropChance = 1.0f;
+};
+
+/**
  * @struct ConstructionComponent
  * @brief Identifies walls, doors, and fences. Used for room detection and pathfinding.
  */

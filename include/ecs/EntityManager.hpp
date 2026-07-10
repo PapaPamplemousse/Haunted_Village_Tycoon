@@ -76,6 +76,9 @@ public:
     std::vector<bool> hasDoor;
     std::vector<DoorComponent> doors;
 
+    std::vector<bool> hasHarvestable;
+    std::vector<HarvestableComponent> harvestables;
+
 private:
     const size_t INITIAL_CAPACITY = 10000; // Pre-allocate memory for 10,000 entities
 };

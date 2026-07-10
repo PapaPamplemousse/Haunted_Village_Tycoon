@@ -43,6 +43,22 @@ bool BiomeRegistry::LoadFromSTV(const std::string& filepath, const TileRegistry&
         std::getline(ssTemp, tToken, ',');
         def.maxTemp = std::stof(tToken);
 
+        if (block.properties.count("flora")) {
+            std::stringstream ss(block.properties.at("flora"));
+            std::string token;
+            while (std::getline(ss, token, ',')) {
+                std::stringstream pairSS(token);
+                std::string prefabId, thresholdStr;
+                if (std::getline(pairSS, prefabId, ':') && std::getline(pairSS, thresholdStr)) {
+                    prefabId.erase(0, prefabId.find_first_not_of(" \t")); // Trim
+                    FloraSpawnDef fDef;
+                    fDef.prefabId = prefabId;
+                    fDef.noiseThreshold = std::stof(thresholdStr);
+                    def.flora.push_back(fDef);
+                }
+            }
+        }
+
         std::stringstream ssHum(block.properties.at("humidity_range"));
         std::string hToken;
         std::getline(ssHum, hToken, ',');

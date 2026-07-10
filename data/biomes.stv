@@ -14,6 +14,7 @@ type = climate
 temperature_range = 20, 40
 humidity_range = 30, 60
 base_tile = GRASS_DRY
+flora = TREE_OAK:0.75
 
 [FOREST]
 name = Lush Forest
@@ -21,6 +22,7 @@ type = climate
 temperature_range = 10, 25
 humidity_range = 60, 100
 base_tile = GRASS_LUSH
+flora = TREE_OAK:0.65, BUSH_BERRY:0.55
 
 [SWAMP]
 name = Fetid Swamp
@@ -41,6 +43,7 @@ radius_range = 3, 6
 temperature_range = 30, 50
 humidity_range = 0, 30
 base_tile = GRASS_LUSH
+flora = TREE_OAK:0.70, BUSH_BERRY:0.50
 
 [VOLCANO]
 name = Active Volcano

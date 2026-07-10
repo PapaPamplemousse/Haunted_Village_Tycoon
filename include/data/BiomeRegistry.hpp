@@ -10,6 +10,11 @@ class TileRegistry; // Forward declaration
  */
 enum class BiomeType { Climate, Patch };
 
+struct FloraSpawnDef {
+    std::string prefabId;
+    float noiseThreshold;
+};
+
 /**
  * @struct BiomeDef
  * @brief Blueprint of a biome, defining spawn conditions.
@@ -18,6 +23,7 @@ struct BiomeDef {
     std::string id;
     std::string name;
     BiomeType type;
+    std::string base_tile;
 
     // Constraints for Patch biomes
     int minInstances = 0;
@@ -29,6 +35,8 @@ struct BiomeDef {
     float minTemp, maxTemp;
     float minHum, maxHum;
     int baseTileId;
+
+    std::vector<FloraSpawnDef> flora;
 };
 
 /**
@@ -42,6 +50,10 @@ public:
     bool LoadFromSTV(const std::string& filepath, const TileRegistry& tileReg);
 
     const BiomeDef* GetClimateBiome(float temperature, float humidity) const;
+
+    const std::vector<BiomeDef>& GetClimateBiomes() const {
+        return m_climateBiomes;
+    }
     const std::vector<BiomeDef>& GetPatchBiomes() const {
         return m_patchBiomes;
     }

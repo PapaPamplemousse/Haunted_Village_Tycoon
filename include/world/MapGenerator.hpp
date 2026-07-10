@@ -4,6 +4,8 @@
 /* Forward declaration */
 class TileRegistry;
 class BiomeRegistry;
+class EnvironmentRegistry;
+class EntityManager;
 
 /**
  * @class MapGenerator
@@ -16,5 +18,6 @@ public:
      * @param map The WorldMap instance to populate.
      * @param seed The random seed for generation.
      */
-    static void GenerateIsland(WorldMap& map, const TileRegistry& tileReg, const BiomeRegistry& biomeReg, unsigned int seed);
+    static void GenerateIsland(WorldMap& map, EntityManager& em, const TileRegistry& tileReg, const BiomeRegistry& biomeReg,
+                               const EnvironmentRegistry& envReg, unsigned int seed);
 };

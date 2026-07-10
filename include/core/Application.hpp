@@ -4,6 +4,7 @@
 #include "data/BiomeRegistry.hpp"
 #include "data/ConstructionRegistry.hpp"
 #include "data/EntityRegistry.hpp"
+#include "data/EnvironmentRegistry.hpp"
 #include "data/FurnitureRegistry.hpp"
 #include "data/NameRegistry.hpp"
 #include "data/StructureRegistry.hpp"
@@ -74,4 +75,5 @@ private:
     StructureRegistry m_structureRegistry;
     RoomSystem m_roomSystem;
     NameRegistry m_nameRegistry;
+    EnvironmentRegistry m_environmentRegistry;
 };

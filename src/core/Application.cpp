@@ -88,9 +88,12 @@ Application::Application()
     if (!m_nameRegistry.LoadFromSTV("data/names.stv")) {
         std::cerr << "Failed to load names!" << std::endl;
     }
+    if (!m_environmentRegistry.LoadFromSTV("data/environment.stv")) {
+        std::cerr << "Failed to load environment!" << std::endl;
+    }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
-    MapGenerator::GenerateIsland(m_worldMap, m_tileRegistry, m_biomeRegistry, 42);
+    MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
 
     m_uiManager.Initialize(m_entityRegistry, m_furnitureRegistry, m_constructionRegistry);
 
@@ -100,11 +103,15 @@ Application::Application()
     // Cherche la ligne où tu spawn ton villageois :
     EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry);
 
-    // --- NOUVEAU : Cheat code d'inventaire ---
+    // --- : Cheat code d'inventaire ---
     m_entityManager.inventories[vId].items["wood"] = 500; // Il a 500 de bois !
     m_entityManager.inventories[vId].items["rope"] = 50;  // Et 50 cordes !
 
-    m_camera.GetRaylibCamera();
+    m_camera.SetTarget({midX, midY});
+    // Assign offset components individually to avoid brace-init issues
+    Camera2D& rayCamera = const_cast<Camera2D&>(m_camera.GetRaylibCamera());
+    rayCamera.offset.x = Config::WINDOW_WIDTH / 2.0f;
+    rayCamera.offset.y = Config::WINDOW_HEIGHT / 2.0f;
 }
 
 Application::~Application() {
@@ -376,17 +383,33 @@ void Application::Render() {
                 lines.push_back(TextFormat("Hunger: %.0f / %.0f", m_entityManager.needs[i].hunger, m_entityManager.needs[i].maxHunger));
             }
 
-            if (m_entityManager.hasInventory[i]) {
-                const auto& inventory = m_entityManager.inventories[i];
+            bool hasInv = m_entityManager.hasInventory[i];
+            bool hasHarv = m_entityManager.hasHarvestable[i];
 
+            if (hasInv || hasHarv) {
                 lines.push_back("--- Inventory ---");
+                bool isEmpty = true;
 
-                if (inventory.items.empty()) {
-                    lines.push_back("Empty");
-                } else {
-                    for (const auto& item : inventory.items) {
+                // 1. On affiche le vrai inventaire s'il existe
+                if (hasInv && !m_entityManager.inventories[i].items.empty()) {
+                    for (const auto& item : m_entityManager.inventories[i].items) {
                         lines.push_back(item.first + ": " + std::to_string(item.second));
                     }
+                    isEmpty = false;
+                }
+
+                // 2. On affiche le contenu récoltable comme si c'était dans l'inventaire
+                if (hasHarv) {
+                    const auto& harvestable = m_entityManager.harvestables[i];
+                    if (harvestable.dropAmount > 0 && !harvestable.dropItemId.empty()) {
+                        // On précise que c'est un "Yield" (Rendement) pour que ça soit clair
+                        lines.push_back(harvestable.dropItemId + ": " + std::to_string(harvestable.dropAmount) + " (Yield)");
+                        isEmpty = false;
+                    }
+                }
+
+                if (isEmpty) {
+                    lines.push_back("Empty");
                 }
             }
 

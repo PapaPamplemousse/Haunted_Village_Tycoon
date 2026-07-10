@@ -12,8 +12,8 @@ constexpr int WINDOW_HEIGHT = 720;
 constexpr int TARGET_FPS = 60;
 
 // --- World & Grid Settings ---
-constexpr int MAP_WIDTH = 200;
-constexpr int MAP_HEIGHT = 200;
+constexpr int MAP_WIDTH = 500;
+constexpr int MAP_HEIGHT = 500;
 constexpr float TILE_SIZE = 32.0f;
 
 // --- Camera Settings ---
@@ -23,5 +23,6 @@ constexpr float CAMERA_MIN_ZOOM = 0.1f;
 constexpr float CAMERA_MAX_ZOOM = 10.0f;
 
 // --- Simulation Settings ---
+constexpr int SEED = 100;           // Default seed for procedural generation
 constexpr float TIME_SCALE = 20.0f; // 1 real second = 20 in-game minutes
 } // namespace Config

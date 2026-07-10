@@ -1,13 +1,17 @@
 #include "world/MapGenerator.hpp"
 
+#include "core/Config.hpp"
 #include "data/BiomeRegistry.hpp"
+#include "data/EnvironmentRegistry.hpp"
 #include "data/TileRegistry.hpp"
+#include "ecs/EntityManager.hpp"
 #include "world/PerlinNoise.hpp"
 
 #include <cmath>
 #include <raylib.h> // Pour GetRandomValue
 
-void MapGenerator::GenerateIsland(WorldMap& map, const TileRegistry& tileReg, const BiomeRegistry& biomeReg, unsigned int seed) {
+void MapGenerator::GenerateIsland(WorldMap& map, EntityManager& em, const TileRegistry& tileReg, const BiomeRegistry& biomeReg,
+                                  const EnvironmentRegistry& envReg, unsigned int seed) {
     PerlinNoise elevationNoise(seed);
     PerlinNoise temperatureNoise(seed + 100);
     PerlinNoise humidityNoise(seed + 200);
@@ -104,6 +108,54 @@ void MapGenerator::GenerateIsland(WorldMap& map, const TileRegistry& tileReg, co
                     placed = true;
                 }
                 attempts++;
+            }
+        }
+    }
+
+    // ==========================================
+    // PASS 3 : VÉGÉTATION DATA-DRIVEN
+    // ==========================================
+    PerlinNoise vegetationNoise(seed + 300);
+
+    // On met en cache la correspondance (Tile ID -> BiomeDef) pour aller très vite
+    std::unordered_map<int, const BiomeDef*> tileToBiome;
+
+    // On lit tes biomes climatiques
+    for (const auto& biome : biomeReg.GetClimateBiomes()) {
+        tileToBiome[biome.baseTileId] = &biome;
+    }
+    // On lit tes biomes patch (Oasis, Volcans...)
+    for (const auto& biome : biomeReg.GetPatchBiomes()) {
+        tileToBiome[biome.baseTileId] = &biome;
+    }
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int tileId = map.GetTile(x, y);
+
+            // Si cette tuile appartient à un biome qu'on connaît
+            auto it = tileToBiome.find(tileId);
+            if (it != tileToBiome.end()) {
+                const BiomeDef* biome = it->second;
+
+                // S'il n'y a pas de flore dans ce biome, on passe
+                if (biome->flora.empty())
+                    continue;
+
+                float nx = (float)x / 15.0f;
+                float ny = (float)y / 15.0f;
+                float vegValue = (vegetationNoise.GetNoise(nx, ny) + 1.0f) / 2.0f; // [0.0 à 1.0]
+
+                Vector2 worldPos = {(float)x * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f),
+                                    (float)y * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f)};
+
+                // On vérifie la flore (dans l'ordre du .stv : le plus rare en premier)
+                for (const auto& fDef : biome->flora) {
+                    if (vegValue > fDef.noiseThreshold) {
+                        envReg.SpawnEnvironment(em, fDef.prefabId, worldPos);
+                        break; // On ne fait pousser qu'une seule chose par case !
+                    }
+                }
             }
         }
     }

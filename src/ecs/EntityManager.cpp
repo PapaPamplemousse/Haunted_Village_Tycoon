@@ -48,6 +48,9 @@ EntityManager::EntityManager() {
 
     hasDoor.reserve(INITIAL_CAPACITY);
     doors.reserve(INITIAL_CAPACITY);
+
+    hasHarvestable.reserve(INITIAL_CAPACITY);
+    harvestables.reserve(INITIAL_CAPACITY);
 }
 
 EntityID EntityManager::CreateEntity() {
@@ -98,6 +101,8 @@ EntityID EntityManager::CreateEntity() {
         deconstructs.push_back({});
         hasDoor.push_back(false);
         doors.push_back({});
+        hasHarvestable.push_back(false);
+        harvestables.push_back({});
     }
 
     // 3. Initialize the new entity
@@ -119,6 +124,7 @@ EntityID EntityManager::CreateEntity() {
     hasCost[id] = false;
     hasDeconstruct[id] = false;
     hasDoor[id] = false;
+    hasHarvestable[id] = false;
 
     return id;
 }

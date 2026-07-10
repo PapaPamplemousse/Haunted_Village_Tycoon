@@ -46,4 +46,6 @@ private:
     bool TryFindDismantleJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 
     bool TryFindWanderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+
+    bool TryFindHarvestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 };

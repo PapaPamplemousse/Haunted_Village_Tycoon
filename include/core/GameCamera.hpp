@@ -29,6 +29,10 @@ public:
         return m_camera;
     }
 
+    void SetTarget(Vector2 targetPos) {
+        m_camera.target = targetPos;
+    }
+
 private:
     Camera2D m_camera;
     const float PAN_SPEED = 800.0f; // Base speed in pixels per second
