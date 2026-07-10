@@ -94,6 +94,9 @@ Application::Application()
     if (!m_behaviorRegistry.LoadFromSTV("data/behaviors.stv")) {
         std::cerr << "Failed to load behaviors!" << std::endl;
     }
+    if (!m_weaponRegistry.LoadFromSTV("data/weapons.stv")) {
+        std::cerr << "Failed to load weapons!" << std::endl;
+    }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
@@ -109,8 +112,11 @@ Application::Application()
     // --- : Cheat code d'inventaire ---
     m_entityManager.inventories[vId].items["wood"] = 500; // Il a 500 de bois !
     m_entityManager.inventories[vId].items["rope"] = 50;  // Et 50 cordes !
-    m_entityManager.hasEquipment[vId] = true;
-    m_entityManager.equipments[vId] = {"axe", 12.0f};
+    const WeaponDef* axeDef = m_weaponRegistry.GetWeaponDef("IRON_AXE");
+    if (axeDef) {
+        m_entityManager.hasEquipment[vId] = true;
+        m_entityManager.equipments[vId] = {axeDef->toolType, axeDef->damage};
+    }
 
     m_camera.SetTarget({midX, midY});
     // Assign offset components individually to avoid brace-init issues

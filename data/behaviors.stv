@@ -18,6 +18,10 @@ professions = gatherer
 rule = harvest(TREE_OAK)
 professions = lumberjack
 
+[FIND_WEAPON_LUMBERJACK]
+rule = find(axe)
+professions = lumberjack
+
 [BUILD_HUMAN]
 rule = build
 species = human

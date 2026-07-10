@@ -10,6 +10,7 @@
 #include "data/NameRegistry.hpp"
 #include "data/StructureRegistry.hpp"
 #include "data/TileRegistry.hpp"
+#include "data/WeaponRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/RenderSystem.hpp"
@@ -78,4 +79,5 @@ private:
     NameRegistry m_nameRegistry;
     EnvironmentRegistry m_environmentRegistry;
     BehaviorRegistry m_behaviorRegistry;
+    WeaponRegistry m_weaponRegistry;
 };
