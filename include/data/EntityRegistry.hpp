@@ -57,6 +57,10 @@ public:
      */
     const EntityDef* GetEntityDef(const std::string& prefabId) const;
 
+    const std::unordered_map<std::string, EntityDef>& GetAllEntities() const {
+        return m_templates;
+    }
+
 private:
     std::unordered_map<std::string, EntityDef> m_templates;
 };

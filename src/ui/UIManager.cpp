@@ -1,12 +1,30 @@
 #include "ui/UIManager.hpp"
 
 #include "core/Config.hpp"
+#include "data/ConstructionRegistry.hpp"
+#include "data/EntityRegistry.hpp"
+#include "data/FurnitureRegistry.hpp"
 
-UIManager::UIManager() {
-    // Initialisation temporaire des listes (Data-Driven plus tard)
-    m_entities = {"VILLAGER", "CANNIBAL"};
-    m_furniture = {"CAMPFIRE", "WOOD_CHEST"};
-    m_constructions = {"WOOD_WALL", "WOOD_DOOR"};
+#include <algorithm> // Pour std::sort
+
+void UIManager::Initialize(const EntityRegistry& entReg, const FurnitureRegistry& furReg, const ConstructionRegistry& conReg) {
+    // 1. Vider les listes (au cas où)
+    m_entities.clear();
+    m_furniture.clear();
+    m_constructions.clear();
+
+    // 2. Peupler depuis les registres (.stv)
+    for (const auto& pair : entReg.GetAllEntities())
+        m_entities.push_back(pair.first);
+    for (const auto& pair : furReg.GetAllFurniture())
+        m_furniture.push_back(pair.first);
+    for (const auto& pair : conReg.GetAllConstructions())
+        m_constructions.push_back(pair.first);
+
+    // 3. Trier alphabétiquement pour que le menu soit agréable à utiliser
+    std::sort(m_entities.begin(), m_entities.end());
+    std::sort(m_furniture.begin(), m_furniture.end());
+    std::sort(m_constructions.begin(), m_constructions.end());
 }
 
 const std::vector<std::string>& UIManager::GetCurrentList() const {

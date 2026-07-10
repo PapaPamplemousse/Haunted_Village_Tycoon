@@ -18,5 +18,5 @@ public:
      * @param em Constant reference to the EntityManager.
      * @param camera Constant reference to the Camera2D for view transformations.
      */
-    void Render(const EntityManager& em, const Camera2D& camera) const;
+    void Render(const EntityManager& em, const Camera2D& camera, bool showNames) const;
 };

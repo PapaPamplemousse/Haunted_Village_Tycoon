@@ -25,19 +25,19 @@ Application::Application()
     if (!m_furnitureRegistry.LoadFromSTV("data/furniture.stv")) {
         std::cerr << "Failed to load furniture!" << std::endl;
     }
+    if (!m_constructionRegistry.LoadFromSTV("data/constructions.stv")) {
+        std::cerr << "Failed to load constructions!" << std::endl;
+    }
+    if (!m_structureRegistry.LoadFromSTV("data/structures.stv")) {
+        std::cerr << "Failed to load structures!" << std::endl;
+    }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
     MapGenerator::GenerateIsland(m_worldMap, m_tileRegistry, m_biomeRegistry, 42);
 
-    float midX = (Config::MAP_WIDTH / 2) * (float)Config::TILE_SIZE;
-    float midY = (Config::MAP_HEIGHT / 2) * (float)Config::TILE_SIZE;
+    m_uiManager.Initialize(m_entityRegistry, m_furnitureRegistry, m_constructionRegistry);
 
-    m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY});
-    m_entityRegistry.SpawnEntity(m_entityManager, "CANNIBAL", {midX + 50, midY});
-    m_furnitureRegistry.SpawnFurniture(m_entityManager, "CAMPFIRE", {midX, midY + 80}, false);
-    m_furnitureRegistry.SpawnFurniture(m_entityManager, "CAMPFIRE", {midX + 100, midY + 80}, true);
-
-    m_camera.GetRaylibCamera(); // Just to access it
+    m_camera.GetRaylibCamera();
 }
 
 Application::~Application() {
@@ -86,12 +86,15 @@ void Application::Update(float deltaTime) {
 
         if (m_uiManager.GetSelectedCategory() == BuildCategory::Entities) {
             m_entityRegistry.SpawnEntity(m_entityManager, prefabToPlace, spawnPos);
+            // Les entités (PNJ) ne changent pas les pièces, pas besoin de MarkDirty
+
         } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Furniture) {
-            // Note: Si asBlueprint est true, ça spawne un fantôme. On va dire 'false' pour tester directement
             m_furnitureRegistry.SpawnFurniture(m_entityManager, prefabToPlace, spawnPos, false);
-        } else {
-            // TODO: Créer un ConstructionRegistry plus tard pour WOOD_WALL
-            std::cout << "Constructions not yet implemented in Registry!" << std::endl;
+            m_roomSystem.MarkDirty();
+
+        } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Constructions) {
+            m_constructionRegistry.SpawnConstruction(m_entityManager, prefabToPlace, spawnPos, false);
+            m_roomSystem.MarkDirty();
         }
     }
 
@@ -107,6 +110,9 @@ void Application::Update(float deltaTime) {
                 int entityGridY = static_cast<int>(m_entityManager.transforms[i].position.y / Config::TILE_SIZE);
 
                 if (entityGridX == targetX && entityGridY == targetY) {
+                    if (m_entityManager.hasConstruction[i] || (m_entityManager.hasTag[i] && !m_entityManager.hasBehavior[i])) {
+                        m_roomSystem.MarkDirty();
+                    }
                     m_entityManager.DestroyEntity(i);
                     std::cout << "[GAME] Entity deleted at " << targetX << ", " << targetY << std::endl;
                     break; // On n'en supprime qu'une par clic
@@ -114,6 +120,7 @@ void Application::Update(float deltaTime) {
             }
         }
     }
+    m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
 }
 
 void Application::Render() {
@@ -147,7 +154,56 @@ void Application::Render() {
         DrawRectangle(hoverX * Config::TILE_SIZE, hoverY * Config::TILE_SIZE, Config::TILE_SIZE, Config::TILE_SIZE,
                       ColorAlpha(WHITE, 0.3f));
     }
-    m_renderSystem.Render(m_entityManager, m_camera.GetRaylibCamera());
+
+    bool showNames = m_inputManager.IsShowNamesPressed();
+
+    // --- 1. DESSIN DU SOL DES PIÈCES ---
+    for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
+        if (m_entityManager.active[i] && m_entityManager.hasRoom[i]) {
+            const auto& room = m_entityManager.rooms[i];
+            Color roomTint = (room.structureId == "EMPTY_ROOM") ? ColorAlpha(GRAY, 0.3f) : ColorAlpha(BLUE, 0.3f);
+
+            for (const Vector2& tile : room.floorTiles) {
+                DrawRectangle(tile.x * Config::TILE_SIZE, tile.y * Config::TILE_SIZE, Config::TILE_SIZE, Config::TILE_SIZE, roomTint);
+            }
+        }
+    }
+
+    // --- 2. DESSIN DES ENTITÉS ---
+    m_renderSystem.Render(m_entityManager, m_camera.GetRaylibCamera(), showNames);
+
+    // --- 3. DESSIN DU NOM DES PIÈCES (Au-dessus de tout) ---
+    if (showNames) {
+        for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
+            if (m_entityManager.active[i] && m_entityManager.hasRoom[i]) {
+                const auto& room = m_entityManager.rooms[i];
+                if (room.floorTiles.empty())
+                    continue;
+
+                // Calcul du centre de la pièce
+                float sumX = 0, sumY = 0;
+                for (const Vector2& tile : room.floorTiles) {
+                    sumX += tile.x;
+                    sumY += tile.y;
+                }
+                float centerX = (sumX / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
+                float centerY = (sumY / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
+
+                const char* name = room.name.c_str();
+                int fontSize = 30; // Très grand pour les pièces !
+                int textWidth = MeasureText(name, fontSize);
+                int padding = 6;
+
+                float textX = centerX - textWidth / 2.0f;
+                float textY = centerY - fontSize / 2.0f;
+
+                // Fond sombre et texte doré/gris
+                Color textCol = (room.structureId == "EMPTY_ROOM") ? LIGHTGRAY : GOLD;
+                DrawRectangle(textX - padding, textY - padding, textWidth + padding * 2, fontSize + padding * 2, ColorAlpha(BLACK, 0.8f));
+                DrawText(name, textX, textY, fontSize, textCol);
+            }
+        }
+    }
     EndMode2D();
 
     DrawText("Engine Foundation V5.0 - Input Manager", 10, 10, 20, WHITE);

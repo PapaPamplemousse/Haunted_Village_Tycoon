@@ -3,9 +3,15 @@ name = Wooden Wall
 is_wall = true
 is_door = false
 blueprint_cost = wood:5
+texture = square
+color = 120, 70, 40, 255
+sprite_size = 32, 32
 
 [WOOD_DOOR]
 name = Wooden Door
 is_wall = true
 is_door = true
 blueprint_cost = wood:3, rope:1
+texture = square
+color = 160, 100, 60, 255
+sprite_size = 32, 32

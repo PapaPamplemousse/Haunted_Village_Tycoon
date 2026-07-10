@@ -85,6 +85,15 @@ build CMakeFiles/HauntedVillageTycoon.dir/src/data/BiomeRegistry.cpp.o: CXX_COMP
   OBJECT_DIR = CMakeFiles/HauntedVillageTycoon.dir
   OBJECT_FILE_DIR = CMakeFiles/HauntedVillageTycoon.dir/src/data
 
+build CMakeFiles/HauntedVillageTycoon.dir/src/data/ConstructionRegistry.cpp.o: CXX_COMPILER__HauntedVillageTycoon_unscanned_Debug /home/hreiffau/github/Haunted_Village_Tycoon/src/data/ConstructionRegistry.cpp || cmake_object_order_depends_target_HauntedVillageTycoon
+  DEFINES = -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP
+  DEP_FILE = CMakeFiles/HauntedVillageTycoon.dir/src/data/ConstructionRegistry.cpp.o.d
+  FLAGS = -g -std=gnu++20
+  INCLUDES = -I/home/hreiffau/github/Haunted_Village_Tycoon/include -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src/external/glfw/include
+  LAUNCHER = /usr/bin/ccache 
+  OBJECT_DIR = CMakeFiles/HauntedVillageTycoon.dir
+  OBJECT_FILE_DIR = CMakeFiles/HauntedVillageTycoon.dir/src/data
+
 build CMakeFiles/HauntedVillageTycoon.dir/src/data/EntityRegistry.cpp.o: CXX_COMPILER__HauntedVillageTycoon_unscanned_Debug /home/hreiffau/github/Haunted_Village_Tycoon/src/data/EntityRegistry.cpp || cmake_object_order_depends_target_HauntedVillageTycoon
   DEFINES = -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP
   DEP_FILE = CMakeFiles/HauntedVillageTycoon.dir/src/data/EntityRegistry.cpp.o.d
@@ -106,6 +115,15 @@ build CMakeFiles/HauntedVillageTycoon.dir/src/data/FurnitureRegistry.cpp.o: CXX_
 build CMakeFiles/HauntedVillageTycoon.dir/src/data/STVParser.cpp.o: CXX_COMPILER__HauntedVillageTycoon_unscanned_Debug /home/hreiffau/github/Haunted_Village_Tycoon/src/data/STVParser.cpp || cmake_object_order_depends_target_HauntedVillageTycoon
   DEFINES = -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP
   DEP_FILE = CMakeFiles/HauntedVillageTycoon.dir/src/data/STVParser.cpp.o.d
+  FLAGS = -g -std=gnu++20
+  INCLUDES = -I/home/hreiffau/github/Haunted_Village_Tycoon/include -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src/external/glfw/include
+  LAUNCHER = /usr/bin/ccache 
+  OBJECT_DIR = CMakeFiles/HauntedVillageTycoon.dir
+  OBJECT_FILE_DIR = CMakeFiles/HauntedVillageTycoon.dir/src/data
+
+build CMakeFiles/HauntedVillageTycoon.dir/src/data/StructureRegistry.cpp.o: CXX_COMPILER__HauntedVillageTycoon_unscanned_Debug /home/hreiffau/github/Haunted_Village_Tycoon/src/data/StructureRegistry.cpp || cmake_object_order_depends_target_HauntedVillageTycoon
+  DEFINES = -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP
+  DEP_FILE = CMakeFiles/HauntedVillageTycoon.dir/src/data/StructureRegistry.cpp.o.d
   FLAGS = -g -std=gnu++20
   INCLUDES = -I/home/hreiffau/github/Haunted_Village_Tycoon/include -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src/external/glfw/include
   LAUNCHER = /usr/bin/ccache 
@@ -157,6 +175,15 @@ build CMakeFiles/HauntedVillageTycoon.dir/src/systems/RenderSystem.cpp.o: CXX_CO
   OBJECT_DIR = CMakeFiles/HauntedVillageTycoon.dir
   OBJECT_FILE_DIR = CMakeFiles/HauntedVillageTycoon.dir/src/systems
 
+build CMakeFiles/HauntedVillageTycoon.dir/src/systems/RoomSystem.cpp.o: CXX_COMPILER__HauntedVillageTycoon_unscanned_Debug /home/hreiffau/github/Haunted_Village_Tycoon/src/systems/RoomSystem.cpp || cmake_object_order_depends_target_HauntedVillageTycoon
+  DEFINES = -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP
+  DEP_FILE = CMakeFiles/HauntedVillageTycoon.dir/src/systems/RoomSystem.cpp.o.d
+  FLAGS = -g -std=gnu++20
+  INCLUDES = -I/home/hreiffau/github/Haunted_Village_Tycoon/include -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src -I/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-src/src/external/glfw/include
+  LAUNCHER = /usr/bin/ccache 
+  OBJECT_DIR = CMakeFiles/HauntedVillageTycoon.dir
+  OBJECT_FILE_DIR = CMakeFiles/HauntedVillageTycoon.dir/src/systems
+
 build CMakeFiles/HauntedVillageTycoon.dir/src/systems/TimeSystem.cpp.o: CXX_COMPILER__HauntedVillageTycoon_unscanned_Debug /home/hreiffau/github/Haunted_Village_Tycoon/src/systems/TimeSystem.cpp || cmake_object_order_depends_target_HauntedVillageTycoon
   DEFINES = -DGRAPHICS_API_OPENGL_33 -DPLATFORM_DESKTOP
   DEP_FILE = CMakeFiles/HauntedVillageTycoon.dir/src/systems/TimeSystem.cpp.o.d
@@ -201,7 +228,7 @@ build CMakeFiles/HauntedVillageTycoon.dir/src/world/WorldMap.cpp.o: CXX_COMPILER
 #############################################
 # Link the executable /home/hreiffau/github/Haunted_Village_Tycoon/bin/HauntedVillageTycoon
 
-build /home/hreiffau/github/Haunted_Village_Tycoon/bin/HauntedVillageTycoon: CXX_EXECUTABLE_LINKER__HauntedVillageTycoon_Debug CMakeFiles/HauntedVillageTycoon.dir/src/core/Application.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/core/GameCamera.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/core/InputManager.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/BiomeRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/EntityRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/FurnitureRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/STVParser.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/TileRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/ecs/EntityManager.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/main.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/systems/AISystem.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/systems/RenderSystem.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/systems/TimeSystem.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/ui/UIManager.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/world/MapGenerator.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/world/WorldMap.cpp.o | _deps/raylib-build/raylib/libraylib.a /usr/lib/x86_64-linux-gnu/libOpenGL.so /usr/lib/x86_64-linux-gnu/libGLX.so _deps/raylib-build/raylib/external/glfw/src/libglfw3.a /usr/lib/x86_64-linux-gnu/librt.a /usr/lib/x86_64-linux-gnu/libm.so || _deps/raylib-build/raylib/external/glfw/src/libglfw3.a _deps/raylib-build/raylib/libraylib.a
+build /home/hreiffau/github/Haunted_Village_Tycoon/bin/HauntedVillageTycoon: CXX_EXECUTABLE_LINKER__HauntedVillageTycoon_Debug CMakeFiles/HauntedVillageTycoon.dir/src/core/Application.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/core/GameCamera.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/core/InputManager.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/BiomeRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/ConstructionRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/EntityRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/FurnitureRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/STVParser.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/StructureRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/data/TileRegistry.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/ecs/EntityManager.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/main.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/systems/AISystem.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/systems/RenderSystem.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/systems/RoomSystem.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/systems/TimeSystem.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/ui/UIManager.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/world/MapGenerator.cpp.o CMakeFiles/HauntedVillageTycoon.dir/src/world/WorldMap.cpp.o | _deps/raylib-build/raylib/libraylib.a /usr/lib/x86_64-linux-gnu/libOpenGL.so /usr/lib/x86_64-linux-gnu/libGLX.so _deps/raylib-build/raylib/external/glfw/src/libglfw3.a /usr/lib/x86_64-linux-gnu/librt.a /usr/lib/x86_64-linux-gnu/libm.so || _deps/raylib-build/raylib/external/glfw/src/libglfw3.a _deps/raylib-build/raylib/libraylib.a
   FLAGS = -g
   LINK_LIBRARIES = _deps/raylib-build/raylib/libraylib.a  -lm  -lpthread  /usr/lib/x86_64-linux-gnu/libOpenGL.so  /usr/lib/x86_64-linux-gnu/libGLX.so  _deps/raylib-build/raylib/external/glfw/src/libglfw3.a  /usr/lib/x86_64-linux-gnu/librt.a  -lm  -ldl
   OBJECT_DIR = CMakeFiles/HauntedVillageTycoon.dir

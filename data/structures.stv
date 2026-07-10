@@ -1,11 +1,20 @@
+[FORSAKEN_RUIN]
+name = Forsaken Ruin
+min_area = 2
+max_area = 50
+requirements = CAMPFIRE:1
+granted_buffs = none
+
 [TENT_CANNIBAL]
 name = Cannibal Tent
 min_area = 4
-requirements = CAMPFIRE:1
+max_area = 25
+requirements = CAMPFIRE:1, WOOD_CHEST:1
 granted_buffs = warmth
 
 [WORKSHOP_WOOD]
 name = Carpenter Workshop
 min_area = 9
+max_area = 100
 requirements = WOOD_CHEST:1
 granted_buffs = craft_speed

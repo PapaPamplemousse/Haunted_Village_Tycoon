@@ -55,6 +55,10 @@ public:
 
     const FurnitureDef* GetFurnitureDef(const std::string& prefabId) const;
 
+    const std::unordered_map<std::string, FurnitureDef>& GetAllFurniture() const {
+        return m_templates;
+    }
+
 private:
     std::unordered_map<std::string, FurnitureDef> m_templates;
 };

@@ -3,20 +3,19 @@
 #include <string>
 #include <vector>
 
-/**
- * @enum BuildCategory
- * @brief Represents the tabs in the build menu.
- */
+// Forward declarations pour éviter d'inclure les gros headers ici
+class EntityRegistry;
+class FurnitureRegistry;
+class ConstructionRegistry;
+
 enum class BuildCategory { Entities, Furniture, Constructions };
 
-/**
- * @class UIManager
- * @brief Handles the in-game UI, specifically the Build Menu overlay.
- */
 class UIManager {
 public:
-    UIManager();
+    UIManager() = default;
     ~UIManager() = default;
+
+    void Initialize(const EntityRegistry& entReg, const FurnitureRegistry& furReg, const ConstructionRegistry& conReg);
 
     void Update();
     void Render() const;
@@ -36,10 +35,8 @@ private:
     BuildCategory m_currentCategory = BuildCategory::Entities;
     int m_selectedIndex = 0;
 
-    // L'objet actuellement "en main" prêt à être placé
     std::string m_selectedPrefab = "";
 
-    // Listes des objets disponibles (Hardcodées pour l'instant, on les liera aux Registres plus tard)
     std::vector<std::string> m_entities;
     std::vector<std::string> m_furniture;
     std::vector<std::string> m_constructions;

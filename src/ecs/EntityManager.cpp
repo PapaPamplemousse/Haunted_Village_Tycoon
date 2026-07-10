@@ -33,6 +33,12 @@ EntityManager::EntityManager() {
 
     hasStats.reserve(INITIAL_CAPACITY);
     stats.reserve(INITIAL_CAPACITY);
+
+    hasConstruction.reserve(INITIAL_CAPACITY);
+    constructions.reserve(INITIAL_CAPACITY);
+
+    hasRoom.reserve(INITIAL_CAPACITY);
+    rooms.reserve(INITIAL_CAPACITY);
 }
 
 EntityID EntityManager::CreateEntity() {
@@ -73,6 +79,10 @@ EntityID EntityManager::CreateEntity() {
         sprites.push_back({});
         hasStats.push_back(false);
         stats.push_back({});
+        hasConstruction.push_back(false);
+        constructions.push_back({});
+        hasRoom.push_back(false);
+        rooms.push_back({});
     }
 
     // 3. Initialize the new entity
@@ -89,6 +99,8 @@ EntityID EntityManager::CreateEntity() {
     hasBehavior[id] = false;
     hasSprite[id] = false;
     hasStats[id] = false;
+    hasConstruction[id] = false;
+    hasRoom[id] = false;
 
     return id;
 }

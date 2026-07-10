@@ -61,6 +61,12 @@ public:
     std::vector<bool> hasStats;
     std::vector<StatsComponent> stats;
 
+    std::vector<bool> hasConstruction;
+    std::vector<ConstructionComponent> constructions;
+
+    std::vector<bool> hasRoom;
+    std::vector<RoomComponent> rooms;
+
 private:
     const size_t INITIAL_CAPACITY = 10000; // Pre-allocate memory for 10,000 entities
 };

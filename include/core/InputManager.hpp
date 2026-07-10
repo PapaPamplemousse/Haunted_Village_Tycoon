@@ -38,6 +38,11 @@ public:
         return IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
     }
 
+    // Check if player is holding the "Show Names" key (Tab)
+    bool IsShowNamesPressed() const {
+        return IsKeyDown(KEY_TAB);
+    }
+
 private:
     Vector2 m_mouseWorldPos = {0.0f, 0.0f};
     int m_mouseGridX = 0;

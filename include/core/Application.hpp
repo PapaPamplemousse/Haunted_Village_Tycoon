@@ -2,12 +2,15 @@
 #include "core/GameCamera.hpp"
 #include "core/InputManager.hpp"
 #include "data/BiomeRegistry.hpp"
+#include "data/ConstructionRegistry.hpp"
 #include "data/EntityRegistry.hpp"
 #include "data/FurnitureRegistry.hpp"
+#include "data/StructureRegistry.hpp"
 #include "data/TileRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/RenderSystem.hpp"
+#include "systems/RoomSystem.hpp"
 #include "systems/TimeSystem.hpp"
 #include "ui/UIManager.hpp"
 #include "world/WorldMap.hpp"
@@ -66,4 +69,7 @@ private:
     GameCamera m_camera;
     InputManager m_inputManager;
     UIManager m_uiManager;
+    ConstructionRegistry m_constructionRegistry;
+    StructureRegistry m_structureRegistry;
+    RoomSystem m_roomSystem;
 };
