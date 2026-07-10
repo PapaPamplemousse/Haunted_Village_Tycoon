@@ -6,6 +6,10 @@ categories = humanoid
 rule = flee
 species = human
 
+[SEEK_FOOD_HUMANOID]
+rule = seek_food
+categories = humanoid
+
 [HUNT_CANNIBAL]
 rule = hunt(human)
 species = cannibal

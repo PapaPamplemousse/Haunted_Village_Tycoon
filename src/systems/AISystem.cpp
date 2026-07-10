@@ -13,9 +13,13 @@
 
 namespace {
 
-constexpr float ATTACK_DAMAGE = 10.0f;
 constexpr float ATTACK_DURATION = 0.45f;
 constexpr float ATTACK_COOLDOWN = 0.6f;
+
+constexpr float HUNGER_DECAY_PER_SECOND = 0.05f;
+constexpr float SEEK_FOOD_THRESHOLD_RATIO = 0.5f;
+constexpr float FOOD_RESTORE_AMOUNT = 35.0f;
+constexpr float EAT_DURATION = 0.8f;
 
 int ToTileCoord(float worldCoord) {
     return static_cast<int>(std::floor(worldCoord / Config::TILE_SIZE));
@@ -27,11 +31,37 @@ float SquaredDistance(Vector2 a, Vector2 b) {
     return dx * dx + dy * dy;
 }
 
+bool IsFoodItem(const std::string& itemId) {
+    return itemId == "food" || itemId == "berry" || itemId == "berries" || itemId == "meat" || itemId == "mushroom";
+}
+
 } // namespace
 
 void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, RoomSystem& roomSys) {
     for (size_t i = 0; i < em.active.size(); ++i) {
-        if (!em.active[i] || !em.hasBehavior[i] || !em.hasTransform[i] || !em.hasStats[i]) {
+        if (!em.active[i]) {
+            continue;
+        }
+
+        // =========================================================
+        // NEEDS UPDATE
+        // =========================================================
+        if (em.hasNeeds[i]) {
+            auto& needs = em.needs[i];
+
+            needs.hunger -= HUNGER_DECAY_PER_SECOND * deltaTime;
+
+            if (needs.hunger < 0.0f) {
+                needs.hunger = 0.0f;
+            }
+
+            if (needs.hunger <= 0.0f) {
+                em.DestroyEntity(i);
+                continue;
+            }
+        }
+
+        if (!em.hasBehavior[i] || !em.hasTransform[i] || !em.hasStats[i]) {
             continue;
         }
 
@@ -64,6 +94,12 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
     const bool canBuild = HasCapability(behavior, "build");
     const bool canDismantle = HasCapability(behavior, "dismantle");
     const bool canWander = HasCapability(behavior, "wander");
+    const bool canSeekFood = HasCapability(behavior, "seek_food");
+
+    // Survival behavior first
+    if (canSeekFood && TryFindSeekFoodJob(i, em)) {
+        return;
+    }
 
     // Combat / hostile behavior first.
     if (canHunt && TryFindHuntJob(i, em, map, tileReg)) {
@@ -286,7 +322,22 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& r
 
         if (target < em.active.size() && em.active[target] && em.hasHealth[target] && em.hasTransform[target] &&
             AreEntitiesAdjacent(i, target, em)) {
-            em.healths[target].current -= ATTACK_DAMAGE;
+            float damage = 0.0f;
+
+            if (em.hasStats[i]) {
+                damage += em.stats[i].baseAttack;
+            }
+
+            if (em.hasEquipment[i]) {
+                damage += em.equipments[i].rightHandDamage;
+            }
+
+            // Safety fallback: avoid zero-damage attacks if an entity has no stats/equipment.
+            if (damage <= 0.0f) {
+                damage = 1.0f;
+            }
+
+            em.healths[target].current -= damage;
             attackSucceeded = true;
 
             if (em.healths[target].current <= 0.0f) {
@@ -296,6 +347,27 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& r
 
         if (attackSucceeded) {
             behavior.stateTimer = ATTACK_COOLDOWN;
+        }
+    } else if (behavior.currentTask == "eating") {
+        if (em.hasNeeds[i] && em.hasInventory[i] && !behavior.currentItemTarget.empty()) {
+            auto& inventory = em.inventories[i];
+            auto& needs = em.needs[i];
+
+            auto it = inventory.items.find(behavior.currentItemTarget);
+
+            if (it != inventory.items.end() && it->second > 0) {
+                it->second--;
+
+                if (it->second <= 0) {
+                    inventory.items.erase(it);
+                }
+
+                needs.hunger += FOOD_RESTORE_AMOUNT;
+
+                if (needs.hunger > needs.maxHunger) {
+                    needs.hunger = needs.maxHunger;
+                }
+            }
         }
     }
 
@@ -352,6 +424,7 @@ void AISystem::ResetBehaviorState(BehaviorComponent& behavior) {
     behavior.currentTask = "idle";
     behavior.hasJob = false;
     behavior.currentJobTarget = 0;
+    behavior.currentItemTarget.clear();
     behavior.currentPath.clear();
     behavior.currentPathIndex = 0;
     behavior.isMoving = false;
@@ -620,4 +693,47 @@ bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const World
     behavior.isMoving = true;
 
     return true;
+}
+
+bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity] || !em.hasInventory[entity] || !em.hasBehavior[entity]) {
+        return false;
+    }
+
+    auto& needs = em.needs[entity];
+
+    const float hungerThreshold = needs.maxHunger * SEEK_FOOD_THRESHOLD_RATIO;
+
+    if (needs.hunger >= hungerThreshold) {
+        return false;
+    }
+
+    auto& inventory = em.inventories[entity];
+
+    for (const auto& item : inventory.items) {
+        const std::string& itemId = item.first;
+        const int count = item.second;
+
+        if (count <= 0) {
+            continue;
+        }
+
+        if (!IsFoodItem(itemId)) {
+            continue;
+        }
+
+        auto& behavior = em.behaviors[entity];
+
+        behavior.currentTask = "eating";
+        behavior.currentItemTarget = itemId;
+        behavior.hasJob = true;
+        behavior.isMoving = false;
+        behavior.currentPath.clear();
+        behavior.currentPathIndex = 0;
+        behavior.stateTimer = EAT_DURATION;
+
+        return true;
+    }
+
+    return false;
 }

@@ -193,17 +193,19 @@ struct BehaviorComponent {
 
     Vector2 currentTarget = {0.0f, 0.0f};
     bool isMoving = false;
-    float stateTimer = 0.0f; // Used to wait between actions
+    float stateTimer = 0.0f;
     float actionAccumulator = 0.0f;
 
-    std::string currentTask = "idle"; // "idle", "wandering", "moving_to_build", "building"
+    std::string currentTask = "idle";
     EntityID currentJobTarget = 0;
     bool hasJob = false;
+
+    // Used by simple item-based AI actions such as eating.
+    std::string currentItemTarget = "";
 
     std::vector<Vector2> currentPath;
     size_t currentPathIndex = 0;
 };
-
 struct JobSlot {
     std::string profession;
     EntityID workerId = static_cast<EntityID>(-1); // -1 signifie "Poste vacant"
