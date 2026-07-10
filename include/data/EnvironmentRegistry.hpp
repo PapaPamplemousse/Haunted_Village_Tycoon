@@ -10,6 +10,7 @@ class EntityManager;
 struct EnvironmentDef {
     std::string id;
     std::string name;
+    float maxHp = 80.0f;
     bool isObstacle = false;
     std::string harvestTool;
 

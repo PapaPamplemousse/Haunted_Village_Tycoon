@@ -139,6 +139,7 @@ struct DoorComponent {
  */
 struct StatsComponent {
     float maxSpeed = 30.0f;
+    float baseAttack = 1.0f;
 };
 
 /**
@@ -148,6 +149,11 @@ struct StatsComponent {
 struct HealthComponent {
     float current = 100.0f;
     float max = 100.0f;
+};
+
+struct EquipmentComponent {
+    std::string rightHandToolType = "none";
+    float rightHandDamage = 0.0f;
 };
 
 /**
@@ -185,6 +191,7 @@ struct BehaviorComponent {
     Vector2 currentTarget = {0.0f, 0.0f};
     bool isMoving = false;
     float stateTimer = 0.0f; // Used to wait between actions
+    float actionAccumulator = 0.0f;
 
     std::string currentTask = "idle"; // "idle", "wandering", "moving_to_build", "building"
     EntityID currentJobTarget = 0;

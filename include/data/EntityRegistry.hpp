@@ -19,6 +19,7 @@ struct EntityDef {
     std::string id;
     std::string name;
     float maxHp = 100.0f;
+    float baseAtk = 1.0f;
     float maxSpeed = 30.0f;
     std::string category;
     std::string species;

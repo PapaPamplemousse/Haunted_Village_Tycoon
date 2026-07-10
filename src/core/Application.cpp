@@ -109,6 +109,8 @@ Application::Application()
     // --- : Cheat code d'inventaire ---
     m_entityManager.inventories[vId].items["wood"] = 500; // Il a 500 de bois !
     m_entityManager.inventories[vId].items["rope"] = 50;  // Et 50 cordes !
+    m_entityManager.hasEquipment[vId] = true;
+    m_entityManager.equipments[vId] = {"axe", 12.0f};
 
     m_camera.SetTarget({midX, midY});
     // Assign offset components individually to avoid brace-init issues
@@ -386,6 +388,12 @@ void Application::Render() {
                 lines.push_back(TextFormat("Hunger: %.0f / %.0f", m_entityManager.needs[i].hunger, m_entityManager.needs[i].maxHunger));
             }
 
+            if (m_entityManager.hasEquipment[i]) {
+                const auto& equip = m_entityManager.equipments[i];
+                lines.push_back("--- Equipment ---");
+                lines.push_back("Tool: " + equip.rightHandToolType);
+            }
+
             bool hasInv = m_entityManager.hasInventory[i];
             bool hasHarv = m_entityManager.hasHarvestable[i];
 
@@ -452,7 +460,7 @@ void Application::Render() {
 
                     if (l == 0) {
                         c = GOLD;
-                    } else if (lines[l] == "--- AI ---" || lines[l] == "--- Inventory ---") {
+                    } else if (lines[l] == "--- AI ---" || lines[l] == "--- Inventory ---" || lines[l] == "--- Equipment ---") {
                         c = SKYBLUE;
                     }
 

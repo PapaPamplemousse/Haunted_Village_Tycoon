@@ -152,6 +152,10 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
             def.maxHp = std::stof(block.properties.at("max_hp"));
         }
 
+        if (block.properties.count("base_atk")) {
+            def.baseAtk = std::stof(block.properties.at("base_atk"));
+        }
+
         if (block.properties.count("max_speed")) {
             def.maxSpeed = std::stof(block.properties.at("max_speed"));
         }
@@ -249,7 +253,7 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
 
     // 6. Stats
     em.hasStats[id] = true;
-    em.stats[id] = {def.maxSpeed};
+    em.stats[id] = {def.maxSpeed, def.baseAtk};
 
     std::cout << "[ECS] Spawned Entity: " << def.name << " at Position (" << position.x << ", " << position.y << ")" << std::endl;
 

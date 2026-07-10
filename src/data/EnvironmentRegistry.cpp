@@ -17,6 +17,8 @@ bool EnvironmentRegistry::LoadFromSTV(const std::string& filepath) {
 
         if (block.properties.count("name"))
             def.name = block.properties.at("name");
+        if (block.properties.count("max_hp"))
+            def.maxHp = std::stof(block.properties.at("max_hp"));
         if (block.properties.count("is_obstacle"))
             def.isObstacle = (block.properties.at("is_obstacle") == "true");
         if (block.properties.count("harvest_tool"))
@@ -50,6 +52,9 @@ EntityID EnvironmentRegistry::SpawnEnvironment(EntityManager& em, const std::str
 
     em.hasTag[id] = true;
     em.tags[id] = {def.name, def.id, "", "", 0};
+
+    em.hasHealth[id] = true;
+    em.healths[id] = {def.maxHp, def.maxHp};
 
     em.hasTransform[id] = true;
     em.transforms[id] = {position};

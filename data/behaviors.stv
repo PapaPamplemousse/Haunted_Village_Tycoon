@@ -10,9 +10,9 @@ species = human
 rule = hunt(human)
 species = cannibal
 
-[HARVEST_BUSH_HUMAN]
+[HARVEST_BUSH_GATHERER]
 rule = harvest(BUSH_BERRY)
-species = human
+professions = gatherer
 
 [HARVEST_OAK_LUMBERJACK]
 rule = harvest(TREE_OAK)

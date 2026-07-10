@@ -2,6 +2,7 @@
 name = Villager
 max_hp = 100
 max_speed = 30
+base_atk = 1
 category = humanoid
 species = human
 texture = circle
@@ -12,6 +13,7 @@ sprite_size = 24, 24
 name = Cannibal Raider
 max_hp = 80
 max_speed = 45
+base_atk = 5
 category = humanoid
 species = cannibal
 texture = triangle

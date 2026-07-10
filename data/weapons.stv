@@ -9,3 +9,10 @@ name = Wooden Bow
 equipment_slot = both_hands
 damage = 8.0
 tool_type = none
+
+
+[IRON_SICKLE]
+name = Iron Sickle
+equipment_slot = right_hand
+damage = 5.0
+tool_type = sickle

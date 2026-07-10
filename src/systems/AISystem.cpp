@@ -170,7 +170,8 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
             behavior.stateTimer = 2.0f;
         } else if (behavior.currentTask == "moving_to_harvest") {
             behavior.currentTask = "harvesting";
-            behavior.stateTimer = 3.0f;
+            behavior.stateTimer = 1.0f;
+            behavior.actionAccumulator = 0.0f;
         } else if (behavior.currentTask == "moving_to_hunt") {
             behavior.currentTask = "attacking";
             behavior.stateTimer = ATTACK_DURATION;
@@ -232,22 +233,51 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, RoomSystem& r
     } else if (behavior.currentTask == "harvesting") {
         EntityID target = behavior.currentJobTarget;
 
-        if (target < em.active.size() && em.active[target] && em.hasHarvestable[target]) {
+        // On vérifie que la cible existe, qu'elle est récoltable, et qu'elle a des PV
+        if (target < em.active.size() && em.active[target] && em.hasHarvestable[target] && em.hasHealth[target]) {
             const auto& harvestable = em.harvestables[target];
 
-            if (em.hasInventory[i]) {
-                float roll = (float)GetRandomValue(0, 100) / 100.0f;
-                if (roll <= harvestable.dropChance) {
-                    em.inventories[i].items[harvestable.dropItemId] += harvestable.dropAmount;
+            // 1. Calcul des dégâts (Stats de base + Arme)
+            float damage = em.stats[i].baseAttack;
+            std::string toolType = "none";
+
+            if (em.hasEquipment[i]) {
+                damage += em.equipments[i].rightHandDamage;
+                toolType = em.equipments[i].rightHandToolType;
+            }
+
+            // 2. Application des dégâts
+            em.healths[target].current -= damage;
+            behavior.actionAccumulator += 1.0f; // +1 seconde de passée
+
+            // 3. Récupération des ressources (Toutes les 3 secondes)
+            if (behavior.actionAccumulator >= 3.0f) {
+                behavior.actionAccumulator = 0.0f; // Reset du timer de loot
+
+                // Vérification de l'outil requis
+                if (harvestable.requiredTool == "none" || harvestable.requiredTool == toolType) {
+                    if (em.hasInventory[i]) {
+                        float roll = (float)GetRandomValue(0, 100) / 100.0f;
+                        if (roll <= harvestable.dropChance) {
+                            em.inventories[i].items[harvestable.dropItemId] += harvestable.dropAmount;
+                        }
+                    }
                 }
             }
 
-            if (em.hasConstruction[target]) {
-                roomSys.MarkDirty();
+            // 4. L'arbre est-il détruit ?
+            if (em.healths[target].current <= 0.0f) {
+                if (em.hasConstruction[target]) {
+                    roomSys.MarkDirty();
+                }
+                em.DestroyEntity(target);
+                // L'arbre est mort. Le code va descendre naturellement et atteindre
+                // le ResetBehaviorState(behavior); global situé à la fin de la fonction !
+            } else {
+                // 5. L'arbre est encore en vie ! On boucle.
+                behavior.stateTimer = 1.0f; // Prochain coup de hache dans 1 seconde
+                return;                     // TRÈS IMPORTANT : On sort pour NE PAS appeler le ResetBehaviorState() global !
             }
-
-            // 3. Destruction de l'arbre/buisson
-            em.DestroyEntity(target);
         }
     } else if (behavior.currentTask == "attacking") {
         EntityID target = behavior.currentJobTarget;
