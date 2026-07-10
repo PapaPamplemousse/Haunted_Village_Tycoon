@@ -6,6 +6,21 @@
 
 #include <iostream>
 
+namespace {
+static const char* DoorStateToString(DoorState state) {
+    switch (state) {
+        case DoorState::OPEN:
+            return "OPEN";
+        case DoorState::CLOSED:
+            return "CLOSED";
+        case DoorState::LOCKED:
+            return "LOCKED";
+        default:
+            return "UNKNOWN";
+    }
+}
+} // namespace
+
 Application::Application()
     : m_isRunning(true)
     , m_camera(Config::WINDOW_WIDTH, Config::WINDOW_HEIGHT) {
@@ -259,6 +274,20 @@ void Application::Render() {
                     lines.push_back(tag.firstName + " the " + tag.name);
                     lines.push_back("Species: " + tag.species);
                     lines.push_back("Age: " + std::to_string(tag.age));
+                } else if (m_entityManager.hasDoor[i]) {
+                    const auto& door = m_entityManager.doors[i];
+
+                    lines.push_back("Type: Door");
+                    lines.push_back(std::string("Door state: ") + DoorStateToString(door.state));
+                    lines.push_back("Owner ID: " + std::to_string(door.ownerId));
+
+                    if (door.state == DoorState::LOCKED) {
+                        lines.push_back("Passable: no, unless owner");
+                    } else if (door.state == DoorState::CLOSED) {
+                        lines.push_back("Passable: yes, AI should open it");
+                    } else if (door.state == DoorState::OPEN) {
+                        lines.push_back("Passable: yes");
+                    }
                 } else {
                     lines.push_back(tag.name); // Pour les Murs, Meubles, etc.
                 }

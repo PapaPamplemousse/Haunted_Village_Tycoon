@@ -19,9 +19,10 @@ private:
     void HandleIdleState(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
     void HandleMovingState(EntityID entity, float deltaTime, EntityManager& em);
     void HandleTaskCompletion(EntityID entity, EntityManager& em, RoomSystem& roomSys);
-
+    // --- Helper Functions ---
+    void InteractWithDoorIfPresent(EntityID entity, int targetX, int targetY, EntityManager& em);
     // --- Job Searchers ---
-    bool TryFindBuildJob(EntityID entity, EntityManager& em);
-    bool TryFindDismantleJob(EntityID entity, EntityManager& em);
+    bool TryFindBuildJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+    bool TryFindDismantleJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
     bool TryFindWanderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 };

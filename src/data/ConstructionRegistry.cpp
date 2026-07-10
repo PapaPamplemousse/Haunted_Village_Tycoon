@@ -78,8 +78,9 @@ bool ConstructionRegistry::LoadFromSTV(const std::string& filepath) {
 
 EntityID ConstructionRegistry::SpawnConstruction(EntityManager& em, const std::string& prefabId, Vector2 position, bool asBlueprint) {
     auto it = m_templates.find(prefabId);
-    if (it == m_templates.end())
+    if (it == m_templates.end()) {
         return 0;
+    }
 
     const ConstructionDef& def = it->second;
     EntityID id = em.CreateEntity();
@@ -99,6 +100,16 @@ EntityID ConstructionRegistry::SpawnConstruction(EntityManager& em, const std::s
     if (asBlueprint) {
         em.hasBlueprint[id] = true;
         em.blueprints[id] = {def.blueprintCost, false};
+    }
+
+    // IMPORTANT:
+    // A construction marked as a door must also receive a DoorComponent.
+    // Otherwise the pathfinder and AISystem cannot identify/open it.
+    if (def.isDoor) {
+        em.hasDoor[id] = true;
+        em.doors[id] = {};
+        em.doors[id].state = DoorState::CLOSED;
+        em.doors[id].ownerId = 0;
     }
 
     em.hasSprite[id] = true;

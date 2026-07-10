@@ -103,6 +103,21 @@ struct DeconstructComponent {
     bool marked = true;
 };
 
+enum class DoorState { OPEN, CLOSED, LOCKED };
+
+struct DoorComponent {
+    DoorState state = DoorState::CLOSED;
+    EntityID ownerId = 0; // ID du PNJ qui possède la clé/est propriétaire
+
+    bool CanPass(EntityID actorId) {
+        if (state == DoorState::OPEN)
+            return true;
+        if (state == DoorState::LOCKED)
+            return (ownerId == actorId);
+        return false; // CLOSED (il faut l'ouvrir avant)
+    }
+};
+
 // =========================================================
 // LIFE, AI & JOBS
 // =========================================================
@@ -155,4 +170,7 @@ struct BehaviorComponent {
     std::string currentTask = "idle"; // "idle", "wandering", "moving_to_build", "building"
     EntityID currentJobTarget = 0;
     bool hasJob = false;
+
+    std::vector<Vector2> currentPath;
+    size_t currentPathIndex = 0;
 };
