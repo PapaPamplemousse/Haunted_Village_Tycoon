@@ -1,3 +1,0 @@
-/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-subbuild/CMakeFiles/raylib-populate.dir
-/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-subbuild/CMakeFiles/edit_cache.dir
-/home/hreiffau/github/Haunted_Village_Tycoon/build/_deps/raylib-subbuild/CMakeFiles/rebuild_cache.dir
