@@ -168,6 +168,17 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
             def.species = block.properties.at("species");
         }
 
+        if (block.properties.count("gender")) {
+            def.genderModel = block.properties.at("gender");
+
+            if (def.genderModel != "undefined" && def.genderModel != "binary") {
+                std::cerr << "[WARNING] Invalid gender model for entity " << def.id << ": " << def.genderModel
+                          << ". Falling back to undefined." << std::endl;
+
+                def.genderModel = "undefined";
+            }
+        }
+
         if (block.properties.count("default_profession")) {
             def.defaultProfession = block.properties.at("default_profession");
         }
@@ -215,7 +226,11 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
 
     // 1. Identity and location
     em.hasTag[id] = true;
-    em.tags[id] = {def.name, def.id, nameReg.GetRandomName(def.species), def.species, def.category, GetRandomValue(10, 50)};
+    std::string generatedGender = "undefined";
+    if (def.genderModel == "binary") {
+        generatedGender = (GetRandomValue(0, 1) == 0) ? "male" : "female";
+    }
+    em.tags[id] = {def.name, def.id, nameReg.GetRandomName(def.species), def.species, def.category, def.genderModel, generatedGender, 0};
 
     em.hasTransform[id] = true;
     em.transforms[id] = {position};

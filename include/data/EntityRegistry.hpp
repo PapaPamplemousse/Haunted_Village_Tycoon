@@ -23,6 +23,7 @@ struct EntityDef {
     float maxSpeed = 30.0f;
     std::string category;
     std::string species;
+    std::string genderModel = "undefined";
     std::string defaultProfession = "none";
     std::vector<std::string> innateBehaviors;
     std::vector<BehaviorRule> innateBehaviorRules;

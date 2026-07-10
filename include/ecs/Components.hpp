@@ -24,6 +24,8 @@ struct TagComponent {
     std::string firstName = "";
     std::string species = "";
     std::string category = "";
+    std::string genderModel = "undefined";
+    std::string gender = "undefined";
     int age = 0;
 };
 

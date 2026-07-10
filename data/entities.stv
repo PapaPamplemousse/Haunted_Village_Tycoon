@@ -5,6 +5,7 @@ max_speed = 30
 base_atk = 1
 category = humanoid
 species = human
+gender = binary
 texture = circle
 color = 200, 200, 255, 255
 sprite_size = 24, 24
@@ -16,6 +17,19 @@ max_speed = 45
 base_atk = 5
 category = humanoid
 species = cannibal
+gender = binary
 texture = triangle
 color = 255, 50, 50, 255
 sprite_size = 28, 28
+
+[ELDRITCH_HORROR]
+name = Eldritch Horror
+max_hp = 500
+max_speed = 20
+base_atk = 25
+category = monster
+species = eldritch
+gender = undefined
+texture = triangle
+color = 80, 0, 120, 255
+sprite_size = 48, 48

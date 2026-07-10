@@ -420,6 +420,9 @@ void Application::Render() {
                 if (!tag.species.empty()) {
                     lines.push_back("Species: " + tag.species);
                 }
+                if (!tag.gender.empty() && tag.gender != "undefined") {
+                    lines.push_back("Gender: " + tag.gender);
+                }
                 lines.push_back(TextFormat("Age: %d", tag.age));
             }
             if (m_entityManager.hasProfession[i]) {
