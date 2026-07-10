@@ -18,3 +18,11 @@ min_area = 9
 max_area = 100
 requirements = WOOD_CHEST:1
 granted_buffs = craft_speed
+
+[SAWMILL_ROOM]
+name = Lumberjack Sawmill
+min_area = 4
+max_area = 50
+requirements = SAWMILL_BENCH:1
+granted_buffs = none
+job_slots = lumberjack:2

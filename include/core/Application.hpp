@@ -8,11 +8,13 @@
 #include "data/EnvironmentRegistry.hpp"
 #include "data/FurnitureRegistry.hpp"
 #include "data/NameRegistry.hpp"
+#include "data/ProfessionRegistry.hpp"
 #include "data/StructureRegistry.hpp"
 #include "data/TileRegistry.hpp"
 #include "data/WeaponRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/AISystem.hpp"
+#include "systems/ProfessionSystem.hpp"
 #include "systems/RenderSystem.hpp"
 #include "systems/RoomSystem.hpp"
 #include "systems/TimeSystem.hpp"
@@ -80,4 +82,6 @@ private:
     EnvironmentRegistry m_environmentRegistry;
     BehaviorRegistry m_behaviorRegistry;
     WeaponRegistry m_weaponRegistry;
+    ProfessionRegistry m_professionRegistry;
+    ProfessionSystem m_professionSystem;
 };

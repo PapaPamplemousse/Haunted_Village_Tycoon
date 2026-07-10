@@ -51,7 +51,7 @@ EntityID EnvironmentRegistry::SpawnEnvironment(EntityManager& em, const std::str
     EntityID id = em.CreateEntity();
 
     em.hasTag[id] = true;
-    em.tags[id] = {def.name, def.id, "", "", 0};
+    em.tags[id] = {def.name, def.id};
 
     em.hasHealth[id] = true;
     em.healths[id] = {def.maxHp, def.maxHp};

@@ -142,6 +142,15 @@ void RoomSystem::Update(EntityManager& em, const WorldMap& map, const StructureR
                     EntityID roomId = em.CreateEntity();
                     em.hasRoom[roomId] = true;
                     em.rooms[roomId] = {bestMatch->id, bestMatch->name, area, roomTiles};
+                    if (!bestMatch->jobSlots.empty()) {
+                        em.hasWorkplace[roomId] = true;
+                        em.workplaces[roomId] = {};
+                        for (const auto& job : bestMatch->jobSlots) {
+                            for (int k = 0; k < job.second; ++k) {
+                                em.workplaces[roomId].slots.push_back({job.first, static_cast<EntityID>(-1)});
+                            }
+                        }
+                    }
                     std::cout << "[ROOM] Detected: " << bestMatch->name << " (Area: " << area << ")" << std::endl;
                 } else {
                     // C'est une pièce fermée, mais elle ne valide aucune recette

@@ -97,6 +97,9 @@ Application::Application()
     if (!m_weaponRegistry.LoadFromSTV("data/weapons.stv")) {
         std::cerr << "Failed to load weapons!" << std::endl;
     }
+    if (!m_professionRegistry.LoadFromSTV("data/professions.stv")) {
+        std::cerr << "Failed to load professions!" << std::endl;
+    }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
@@ -156,6 +159,8 @@ void Application::Update(float deltaTime) {
     m_camera.Update(deltaTime);
 
     m_timeSystem.Update(deltaTime, m_entityManager);
+    m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
+    m_professionSystem.Update(m_entityManager, m_professionRegistry, m_behaviorRegistry);
     m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_roomSystem);
     // ==========================================
     // LOGIQUE DE PLACEMENT ET SUPPRESSION
@@ -273,18 +278,60 @@ void Application::Render() {
                 float centerX = (sumX / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
                 float centerY = (sumY / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
 
-                const char* name = room.name.c_str();
-                int fontSize = 30; // Très grand pour les pièces !
-                int textWidth = MeasureText(name, fontSize);
+                std::string roomName = room.name;
+                int nameFontSize = 30;
+                int jobFontSize = 20; // Police plus petite pour les emplois
                 int padding = 6;
+                int lineSpacing = 4;
 
-                float textX = centerX - textWidth / 2.0f;
-                float textY = centerY - fontSize / 2.0f;
+                int maxWidth = MeasureText(roomName.c_str(), nameFontSize);
+                int totalHeight = nameFontSize;
 
-                // Fond sombre et texte doré/gris
+                // Préparation des lignes d'emplois
+                std::vector<std::string> jobLines;
+                if (m_entityManager.hasWorkplace[i]) {
+                    const auto& workplace = m_entityManager.workplaces[i];
+                    std::unordered_map<std::string, std::pair<int, int>> slots;
+
+                    for (const auto& slot : workplace.slots) {
+                        slots[slot.profession].second++; // Total
+                        if (slot.workerId != static_cast<EntityID>(-1)) {
+                            slots[slot.profession].first++; // Pris
+                        }
+                    }
+
+                    for (const auto& pair : slots) {
+                        std::string jobStr =
+                            pair.first + " : " + std::to_string(pair.second.first) + " / " + std::to_string(pair.second.second);
+                        jobLines.push_back(jobStr);
+
+                        int jWidth = MeasureText(jobStr.c_str(), jobFontSize);
+                        if (jWidth > maxWidth)
+                            maxWidth = jWidth; // Adapte la boîte au texte le plus long
+                        totalHeight += jobFontSize + lineSpacing;
+                    }
+                }
+
+                float startX = centerX - maxWidth / 2.0f;
+                float startY = centerY - totalHeight / 2.0f;
+
                 Color textCol = (room.structureId == "EMPTY_ROOM") ? LIGHTGRAY : GOLD;
-                DrawRectangle(textX - padding, textY - padding, textWidth + padding * 2, fontSize + padding * 2, ColorAlpha(BLACK, 0.8f));
-                DrawText(name, textX, textY, fontSize, textCol);
+
+                // Dessin du fond sombre englobant tout le texte
+                DrawRectangle(startX - padding, startY - padding, maxWidth + padding * 2, totalHeight + padding * 2,
+                              ColorAlpha(BLACK, 0.8f));
+
+                // Dessin du nom de la pièce (centré)
+                int nameWidth = MeasureText(roomName.c_str(), nameFontSize);
+                DrawText(roomName.c_str(), startX + (maxWidth - nameWidth) / 2.0f, startY, nameFontSize, textCol);
+
+                // Dessin des lignes d'emplois (centrées en dessous)
+                float currentY = startY + nameFontSize + lineSpacing;
+                for (const std::string& jobStr : jobLines) {
+                    int jWidth = MeasureText(jobStr.c_str(), jobFontSize);
+                    DrawText(jobStr.c_str(), startX + (maxWidth - jWidth) / 2.0f, currentY, jobFontSize, LIGHTGRAY);
+                    currentY += jobFontSize + lineSpacing;
+                }
             }
         }
     }
@@ -366,6 +413,15 @@ void Application::Render() {
                 if (!tag.species.empty()) {
                     lines.push_back("Species: " + tag.species);
                 }
+                lines.push_back(TextFormat("Age: %d", tag.age));
+            }
+            if (m_entityManager.hasProfession[i]) {
+                const auto& prof = m_entityManager.professions[i];
+                std::string profName = prof.currentProfession;
+                if (!profName.empty() && profName != "none") {
+                    profName[0] = std::toupper(profName[0]);
+                }
+                lines.push_back("Profession: " + profName);
             }
 
             if (m_entityManager.hasTransform[i]) {

@@ -23,6 +23,7 @@ struct TagComponent {
     std::string prefabId;
     std::string firstName = "";
     std::string species = "";
+    std::string category = "";
     int age = 0;
 };
 
@@ -199,4 +200,13 @@ struct BehaviorComponent {
 
     std::vector<Vector2> currentPath;
     size_t currentPathIndex = 0;
+};
+
+struct JobSlot {
+    std::string profession;
+    EntityID workerId = static_cast<EntityID>(-1); // -1 signifie "Poste vacant"
+};
+
+struct WorkplaceComponent {
+    std::vector<JobSlot> slots;
 };

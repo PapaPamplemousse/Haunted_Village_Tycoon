@@ -10,6 +10,7 @@ struct StructureDef {
     int maxArea = 999999;
     std::unordered_map<std::string, int> requirements; // Ex: {"CAMPFIRE": 1}
     std::vector<std::string> grantedBuffs;
+    std::unordered_map<std::string, int> jobSlots;
 };
 
 class StructureRegistry {

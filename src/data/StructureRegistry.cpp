@@ -45,6 +45,20 @@ bool StructureRegistry::LoadFromSTV(const std::string& filepath) {
             }
         }
 
+        if (block.properties.count("job_slots")) {
+            std::stringstream ss(block.properties.at("job_slots"));
+            std::string jobToken;
+            while (std::getline(ss, jobToken, ',')) {
+                std::stringstream pairSS(jobToken);
+                std::string jobId, jobCount;
+                if (std::getline(pairSS, jobId, ':') && std::getline(pairSS, jobCount)) {
+                    jobId.erase(0, jobId.find_first_not_of(" \t"));
+                    jobId.erase(jobId.find_last_not_of(" \t") + 1);
+                    def.jobSlots[jobId] = std::stoi(jobCount);
+                }
+            }
+        }
+
         m_templates[block.id] = def;
     }
     std::cout << "[INFO] Loaded " << m_templates.size() << " structure definitions." << std::endl;

@@ -20,3 +20,12 @@ texture = square
 color = 141, 78, 47, 255
 sprite_size = 32, 32
 
+[SAWMILL_BENCH]
+name = Sawmill Bench
+max_hp = 50
+grid_size = 1, 1
+interaction_type = work
+blueprint_cost = wood:10
+texture = square
+color = 180, 100, 50, 255
+sprite_size = 32, 32

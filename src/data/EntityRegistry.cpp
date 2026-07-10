@@ -215,7 +215,7 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
 
     // 1. Identity and location
     em.hasTag[id] = true;
-    em.tags[id] = {def.name, def.id, nameReg.GetRandomName(def.species), def.species, 0};
+    em.tags[id] = {def.name, def.id, nameReg.GetRandomName(def.species), def.species, def.category, GetRandomValue(10, 50)};
 
     em.hasTransform[id] = true;
     em.transforms[id] = {position};
