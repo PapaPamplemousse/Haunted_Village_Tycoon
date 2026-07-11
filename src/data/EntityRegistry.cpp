@@ -192,6 +192,22 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
             def.actionRadiusTiles = std::stof(block.properties.at("action_radius"));
         }
 
+        if (block.properties.count("activity_period")) {
+            def.activityPeriod = Trim(block.properties.at("activity_period"));
+        }
+
+        if (block.properties.count("work_start_hour")) {
+            def.workStartHour = std::stof(Trim(block.properties.at("work_start_hour")));
+        }
+
+        if (block.properties.count("work_end_hour")) {
+            def.workEndHour = std::stof(Trim(block.properties.at("work_end_hour")));
+        }
+
+        if (block.properties.count("store_threshold")) {
+            def.storeThreshold = std::stoi(Trim(block.properties.at("store_threshold")));
+        }
+
         if (block.properties.count("category")) {
             def.category = block.properties.at("category");
         }
@@ -293,6 +309,10 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
     em.behaviors[id] = {};
     em.behaviors[id].innateCapabilities = capabilities;
     em.behaviors[id].innateBehaviorRules = rules;
+    em.behaviors[id].activityPeriod = def.activityPeriod;
+    em.behaviors[id].workStartHour = def.workStartHour;
+    em.behaviors[id].workEndHour = def.workEndHour;
+    em.behaviors[id].storeThreshold = def.storeThreshold;
 
     // 4. Inventory
     em.hasInventory[id] = true;

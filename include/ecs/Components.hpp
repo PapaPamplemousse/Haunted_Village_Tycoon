@@ -62,6 +62,18 @@ struct InventoryComponent {
 };
 
 /**
+ * @struct StorageComponent
+ * @brief Marks an entity as a storage container.
+ *
+ * If acceptedItems is empty, the storage accepts every item.
+ * Otherwise, only listed item IDs are accepted.
+ */
+struct StorageComponent {
+    int capacity = 0;
+    std::vector<std::string> acceptedItems;
+};
+
+/**
  * @struct BlueprintComponent
  * @brief Represents an unfinished structure. Requires materials to become active.
  */
@@ -212,9 +224,19 @@ struct BehaviorComponent {
     // Used by simple item-based AI actions such as eating.
     std::string currentItemTarget = "";
 
+    // Daily activity rules.
+    // activityPeriod: "any", "diurnal", "nocturnal"
+    std::string activityPeriod = "any";
+    float workStartHour = 0.0f;
+    float workEndHour = 24.0f;
+
+    // Minimum number of carried items before trying to deposit into storage.
+    int storeThreshold = 10;
+
     std::vector<Vector2> currentPath;
     size_t currentPathIndex = 0;
 };
+
 struct JobSlot {
     std::string profession;
     EntityID workerId = static_cast<EntityID>(-1); // -1 signifie "Poste vacant"

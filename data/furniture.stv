@@ -20,12 +20,25 @@ texture = square
 color = 141, 78, 47, 255
 sprite_size = 32, 32
 
+[GATHERING_BASKET]
+name = Gathering Basket
+max_hp = 40
+grid_size = 1, 1
+interaction_type = store
+storage_capacity = 200
+filter = BUSH_BERRY, MUSHROOM
+blueprint_cost = WOOD:4, ROPE:1
+texture = square
+color = 160, 120, 60, 255
+sprite_size = 32, 32
+
 [SAWMILL_BENCH]
 name = Sawmill Bench
 max_hp = 50
 grid_size = 1, 1
 interaction_type = work, store
 storage_capacity = 1000
+filter = WOOD
 blueprint_cost = WOOD:10
 texture = square
 color = 180, 100, 50, 255

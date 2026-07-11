@@ -13,6 +13,9 @@ EntityManager::EntityManager() {
     hasInventory.reserve(INITIAL_CAPACITY);
     inventories.reserve(INITIAL_CAPACITY);
 
+    hasStorage.reserve(INITIAL_CAPACITY);
+    storages.reserve(INITIAL_CAPACITY);
+
     hasBlueprint.reserve(INITIAL_CAPACITY);
     blueprints.reserve(INITIAL_CAPACITY);
 
@@ -85,6 +88,8 @@ EntityID EntityManager::CreateEntity() {
         transforms.push_back({});
         hasInventory.push_back(false);
         inventories.push_back({});
+        hasStorage.push_back(false);
+        storages.push_back({});
         hasBlueprint.push_back(false);
         blueprints.push_back({});
         hasHealth.push_back(false);
@@ -126,6 +131,7 @@ EntityID EntityManager::CreateEntity() {
     hasTag[id] = false;
     hasTransform[id] = false;
     hasInventory[id] = false;
+    hasStorage[id] = false;
     hasBlueprint[id] = false;
     hasHealth[id] = false;
     hasNeeds[id] = false;

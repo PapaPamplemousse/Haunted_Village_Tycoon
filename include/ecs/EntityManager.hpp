@@ -40,6 +40,9 @@ public:
     std::vector<bool> hasInventory;
     std::vector<InventoryComponent> inventories;
 
+    std::vector<bool> hasStorage;
+    std::vector<StorageComponent> storages;
+
     std::vector<bool> hasBlueprint;
     std::vector<BlueprintComponent> blueprints;
 

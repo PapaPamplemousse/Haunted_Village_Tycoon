@@ -7,6 +7,7 @@ type = climate
 temperature_range = 30, 50
 humidity_range = 0, 30
 base_tile = SAND
+flora = BUSH_BERRY:0.85
 
 [SAVANNA]
 name = Dry Savanna

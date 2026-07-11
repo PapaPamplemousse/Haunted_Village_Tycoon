@@ -1,9 +1,10 @@
 #pragma once
+
 #include "ecs/EntityManager.hpp"
 
 /**
  * @class TimeSystem
- * @brief Manages the global game clock and passive over-time mechanics (like hunger decay).
+ * @brief Manages the global game clock, seasons and passive over-time mechanics.
  */
 class TimeSystem {
 public:
@@ -14,12 +15,21 @@ public:
     int GetDay() const {
         return m_day;
     }
+
     float GetHour() const {
         return m_hour;
     }
 
+    int GetSeasonIndex() const;
+    int GetDayInSeason() const;
+    const char* GetSeasonName() const;
+
 private:
+    static constexpr int DAYS_PER_SEASON = 5;
+    static constexpr int SEASON_COUNT = 4;
+
     int m_day = 1;
-    float m_hour = 8.0f;            // Start the game at 08:00 AM
-    const float TIME_SCALE = 20.0f; // 1 real second = 20 in-game minutes
+    float m_hour = 8.0f;
+
+    void ApplySeasonAging(EntityManager& em);
 };

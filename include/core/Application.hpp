@@ -15,6 +15,7 @@
 #include "data/WeaponRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/AISystem.hpp"
+#include "systems/LightingSystem.hpp"
 #include "systems/ProfessionSystem.hpp"
 #include "systems/RenderSystem.hpp"
 #include "systems/RoomSystem.hpp"
@@ -88,4 +89,5 @@ private:
     ProfessionSystem m_professionSystem;
     ResourceRegistry m_resourceRegistry;
     EntitySpatialGrid m_spatialGrid;
+    LightingSystem m_lightingSystem;
 };

@@ -144,11 +144,168 @@ bool HasRequiredHarvestTool(EntityID worker, const HarvestableComponent& harvest
     return em.equipments[worker].rightHandToolType == harvestable.requiredTool;
 }
 
+bool StorageAcceptsItem(const StorageComponent& storage, const std::string& itemId) {
+    if (storage.acceptedItems.empty()) {
+        return true;
+    }
+
+    return std::find(storage.acceptedItems.begin(), storage.acceptedItems.end(), itemId) != storage.acceptedItems.end();
+}
+
+int GetInventoryItemCount(const InventoryComponent& inventory) {
+    int total = 0;
+
+    for (const auto& item : inventory.items) {
+        if (item.second > 0) {
+            total += item.second;
+        }
+    }
+
+    return total;
+}
+
+bool HasAnyInventoryItem(const InventoryComponent& inventory) {
+    for (const auto& item : inventory.items) {
+        if (item.second > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool HasAnyItemAcceptedByStorage(const InventoryComponent& sourceInventory, const StorageComponent& storage) {
+    for (const auto& item : sourceInventory.items) {
+        if (item.second <= 0) {
+            continue;
+        }
+
+        if (StorageAcceptsItem(storage, item.first)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool HasAvailableStorageCapacity(EntityID storageEntity, const EntityManager& em) {
+    if (storageEntity >= em.active.size() || !em.active[storageEntity] || !em.hasStorage[storageEntity] ||
+        !em.hasInventory[storageEntity]) {
+        return false;
+    }
+
+    const int usedCapacity = GetInventoryItemCount(em.inventories[storageEntity]);
+    return usedCapacity < em.storages[storageEntity].capacity;
+}
+
+bool StorageCanAcceptFromInventory(EntityID storageEntity, const InventoryComponent& sourceInventory, const EntityManager& em) {
+    if (storageEntity >= em.active.size() || !em.active[storageEntity] || !em.hasStorage[storageEntity] ||
+        !em.hasInventory[storageEntity]) {
+        return false;
+    }
+
+    if (!HasAvailableStorageCapacity(storageEntity, em)) {
+        return false;
+    }
+
+    return HasAnyItemAcceptedByStorage(sourceInventory, em.storages[storageEntity]);
+}
+
+void DepositInventoryIntoStorage(InventoryComponent& sourceInventory, InventoryComponent& storageInventory,
+                                 const StorageComponent& storage) {
+    int usedCapacity = GetInventoryItemCount(storageInventory);
+    int remainingCapacity = storage.capacity - usedCapacity;
+
+    if (remainingCapacity <= 0) {
+        return;
+    }
+
+    std::vector<std::string> emptyItems;
+
+    for (auto& item : sourceInventory.items) {
+        if (remainingCapacity <= 0) {
+            break;
+        }
+
+        const std::string& itemId = item.first;
+        int& sourceCount = item.second;
+
+        if (sourceCount <= 0) {
+            emptyItems.push_back(itemId);
+            continue;
+        }
+
+        if (!StorageAcceptsItem(storage, itemId)) {
+            continue;
+        }
+
+        const int movedAmount = std::min(sourceCount, remainingCapacity);
+
+        storageInventory.items[itemId] += movedAmount;
+        sourceCount -= movedAmount;
+        remainingCapacity -= movedAmount;
+
+        if (sourceCount <= 0) {
+            emptyItems.push_back(itemId);
+        }
+    }
+
+    for (const std::string& itemId : emptyItems) {
+        sourceInventory.items.erase(itemId);
+    }
+}
+
+bool IsHourInRange(float hour, float startHour, float endHour) {
+    if (startHour == endHour) {
+        return true;
+    }
+
+    if (startHour < endHour) {
+        return hour >= startHour && hour < endHour;
+    }
+
+    // Range wraps around midnight.
+    return hour >= startHour || hour < endHour;
+}
+
+bool CanStartWorkNow(const BehaviorComponent& behavior, float currentHour) {
+    if (behavior.activityPeriod == "any") {
+        return true;
+    }
+
+    return IsHourInRange(currentHour, behavior.workStartHour, behavior.workEndHour);
+}
+
+bool ShouldDepositInventory(EntityID entity, const EntityManager& em, const BehaviorComponent& behavior, float currentHour) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasInventory[entity]) {
+        return false;
+    }
+
+    const InventoryComponent& inventory = em.inventories[entity];
+
+    if (!HasAnyInventoryItem(inventory)) {
+        return false;
+    }
+
+    const int itemCount = GetInventoryItemCount(inventory);
+
+    if (itemCount >= behavior.storeThreshold) {
+        return true;
+    }
+
+    // End of work day: deposit even below threshold.
+    if (!CanStartWorkNow(behavior, currentHour)) {
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace
 
 void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                       const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, const Vector2& simulationCenter,
-                      float activeRadiusTiles, RoomSystem& roomSys) {
+                      float activeRadiusTiles, float currentHour, RoomSystem& roomSys) {
     for (size_t i = 0; i < em.active.size(); ++i) {
         if (!em.active[i]) {
             continue;
@@ -170,7 +327,7 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
         }
 
         if (behavior.currentTask == "idle") {
-            HandleIdleState(i, em, map, tileReg, resourceReg, spatialGrid);
+            HandleIdleState(i, em, map, tileReg, resourceReg, spatialGrid, currentHour);
         } else if (behavior.isMoving) {
             HandleMovingState(i, deltaTime, em);
         } else {
@@ -184,7 +341,7 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
 // ============================================================================
 
 void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                               const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid) {
+                               const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour) {
     auto& behavior = em.behaviors[i];
 
     const bool canHunt = HasCapability(behavior, "hunt");
@@ -193,8 +350,31 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
     const bool canDismantle = HasCapability(behavior, "dismantle");
     const bool canWander = HasCapability(behavior, "wander");
     const bool canSeekFood = HasCapability(behavior, "seek_food");
+    const bool canStore = HasCapability(behavior, "store");
 
+    const bool canStartWork = CanStartWorkNow(behavior, currentHour);
+
+    // Survival behavior is always allowed.
     if (canSeekFood && TryFindSeekFoodJob(i, em, map, tileReg, resourceReg, spatialGrid)) {
+        return;
+    }
+
+    // Deposit if threshold is reached or if the work day is over.
+    if (canStore && ShouldDepositInventory(i, em, behavior, currentHour)) {
+        if (TryFindStoreJob(i, em, map, tileReg, spatialGrid)) {
+            return;
+        }
+    }
+
+    // Outside work hours:
+    // - do not start new productive jobs.
+    // - only wander/idle for now. Fatigue/rest will come later.
+    if (!canStartWork) {
+        if (canWander && TryFindWanderJob(i, em, map, tileReg)) {
+            return;
+        }
+
+        behavior.stateTimer = 1.0f;
         return;
     }
 
@@ -298,6 +478,9 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
         } else if (behavior.currentTask == "moving_to_dismantle") {
             behavior.currentTask = "dismantling";
             behavior.stateTimer = 2.0f;
+        } else if (behavior.currentTask == "moving_to_storage") {
+            behavior.currentTask = "depositing";
+            behavior.stateTimer = 0.8f;
         } else if (behavior.currentTask == "moving_to_food_storage") {
             behavior.currentTask = "eating_from_storage";
             behavior.stateTimer = EAT_DURATION;
@@ -413,6 +596,15 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
                 // 5. L'arbre est encore en vie ! On boucle.
                 behavior.stateTimer = 1.0f; // Prochain coup de hache dans 1 seconde
                 return;                     // TRÈS IMPORTANT : On sort pour NE PAS appeler le ResetBehaviorState() global !
+            }
+        }
+    } else if (behavior.currentTask == "depositing") {
+        EntityID storage = behavior.currentJobTarget;
+
+        if (storage < em.active.size() && em.active[storage] && em.hasInventory[i] && em.hasInventory[storage] && em.hasStorage[storage]) {
+            // Do not deposit into unfinished blueprints.
+            if (!(em.hasBlueprint[storage] && !em.blueprints[storage].isFinished)) {
+                DepositInventoryIntoStorage(em.inventories[i], em.inventories[storage], em.storages[storage]);
             }
         }
     } else if (behavior.currentTask == "attacking") {
@@ -987,6 +1179,89 @@ bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em, const Worl
 
     behavior.currentTask = "moving_to_harvest";
     behavior.currentJobTarget = bestFoodSource;
+    behavior.hasJob = true;
+    behavior.currentPath = std::move(path);
+    behavior.currentPathIndex = 0;
+    behavior.currentTarget = behavior.currentPath[0];
+    behavior.isMoving = true;
+
+    return true;
+}
+
+bool AISystem::TryFindStoreJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                               const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasInventory[entity] || !em.hasBehavior[entity] ||
+        !em.hasTransform[entity]) {
+        return false;
+    }
+
+    InventoryComponent& inventory = em.inventories[entity];
+
+    if (!HasAnyInventoryItem(inventory)) {
+        return false;
+    }
+
+    const float searchRadius = GetActionRadiusWorld(entity, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    EntityID bestStorage = static_cast<EntityID>(-1);
+    float bestDistanceSq = std::numeric_limits<float>::infinity();
+
+    for (EntityID candidate : candidates) {
+        if (candidate == entity || candidate >= em.active.size() || !em.active[candidate] || !em.hasTransform[candidate] ||
+            !em.hasInventory[candidate] || !em.hasStorage[candidate]) {
+            continue;
+        }
+
+        // Do not store into unfinished blueprints.
+        if (em.hasBlueprint[candidate] && !em.blueprints[candidate].isFinished) {
+            continue;
+        }
+
+        // Avoid depositing into another creature inventory.
+        if (em.hasBehavior[candidate]) {
+            continue;
+        }
+
+        if (!StorageCanAcceptFromInventory(candidate, inventory, em)) {
+            continue;
+        }
+        const float distanceSq = SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        if (distanceSq < bestDistanceSq) {
+            bestDistanceSq = distanceSq;
+            bestStorage = candidate;
+        }
+    }
+
+    if (bestStorage == static_cast<EntityID>(-1)) {
+        return false;
+    }
+
+    BehaviorComponent& behavior = em.behaviors[entity];
+
+    if (AreEntitiesAdjacent(entity, bestStorage, em)) {
+        behavior.currentTask = "depositing";
+        behavior.currentJobTarget = bestStorage;
+        behavior.hasJob = true;
+        behavior.isMoving = false;
+        behavior.currentPath.clear();
+        behavior.currentPathIndex = 0;
+        behavior.stateTimer = 0.8f;
+
+        return true;
+    }
+
+    std::vector<Vector2> path =
+        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestStorage].position, map, tileReg, em, entity);
+
+    if (path.empty()) {
+        return false;
+    }
+
+    behavior.currentTask = "moving_to_storage";
+    behavior.currentJobTarget = bestStorage;
     behavior.hasJob = true;
     behavior.currentPath = std::move(path);
     behavior.currentPathIndex = 0;

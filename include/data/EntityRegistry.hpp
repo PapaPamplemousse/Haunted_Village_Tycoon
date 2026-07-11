@@ -28,6 +28,11 @@ struct EntityDef {
     std::string genderModel = "undefined";
     std::string defaultProfession = "none";
 
+    std::string activityPeriod = "any";
+    float workStartHour = 0.0f;
+    float workEndHour = 24.0f;
+    int storeThreshold = 10;
+
     std::vector<DropEntry> drops;
 
     std::vector<std::string> innateBehaviors;

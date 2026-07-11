@@ -26,3 +26,11 @@ max_area = 50
 requirements = SAWMILL_BENCH:1
 granted_buffs = none
 job_slots = lumberjack:2
+
+[GATHERING_TENT]
+name = Gathering Tent
+min_area = 4
+max_area = 50
+requirements = GATHERING_BASKET:1
+granted_buffs = none
+job_slots = gatherer:1

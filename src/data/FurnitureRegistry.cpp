@@ -5,6 +5,35 @@
 
 #include <iostream>
 #include <sstream>
+#include <vector>
+
+static std::string Trim(const std::string& value) {
+    const size_t first = value.find_first_not_of(" \t\r\n");
+
+    if (first == std::string::npos) {
+        return "";
+    }
+
+    const size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+static std::vector<std::string> ParseStringList(const std::string& value) {
+    std::vector<std::string> result;
+
+    std::stringstream ss(value);
+    std::string token;
+
+    while (std::getline(ss, token, ',')) {
+        token = Trim(token);
+
+        if (!token.empty()) {
+            result.push_back(token);
+        }
+    }
+
+    return result;
+}
 
 static Color ParseColor(const std::string& value) {
     Color c = {255, 255, 255, 255};
@@ -42,6 +71,9 @@ bool FurnitureRegistry::LoadFromSTV(const std::string& filepath) {
             def.interactionType = block.properties.at("interaction_type");
         if (block.properties.count("storage_capacity"))
             def.storageCapacity = std::stoi(block.properties.at("storage_capacity"));
+        if (block.properties.count("filter")) {
+            def.storageFilter = ParseStringList(block.properties.at("filter"));
+        }
 
         // Parse grid_size (e.g., "1, 2")
         if (block.properties.count("grid_size")) {
@@ -122,6 +154,9 @@ EntityID FurnitureRegistry::SpawnFurniture(EntityManager& em, const std::string&
     if (def.storageCapacity > 0) {
         em.hasInventory[id] = true;
         em.inventories[id] = {};
+
+        em.hasStorage[id] = true;
+        em.storages[id] = {def.storageCapacity, def.storageFilter};
     }
 
     // 5. Visual Representation

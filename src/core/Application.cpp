@@ -230,7 +230,7 @@ void Application::Update(float deltaTime) {
     m_spatialGrid.Rebuild(m_entityManager);
 
     m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, m_spatialGrid, simulationCenter,
-                      static_cast<float>(Config::SIMULATION_ACTIVE_RADIUS_TILES), m_roomSystem);
+                      static_cast<float>(Config::SIMULATION_ACTIVE_RADIUS_TILES), m_timeSystem.GetHour(), m_roomSystem);
 
     m_spatialGrid.Rebuild(m_entityManager);
 }
@@ -368,8 +368,16 @@ void Application::Render() {
     }
     EndMode2D();
 
-    DrawText("Engine Foundation V5.0 - Input Manager", 10, 10, 20, WHITE);
-    DrawText(TextFormat("Day %d - %02d:00", m_timeSystem.GetDay(), (int)m_timeSystem.GetHour()), 10, 40, 20, GOLD);
+    // ==========================================================
+    // DAY / NIGHT VISUAL FILTER
+    // ==========================================================
+    m_lightingSystem.RenderOverlay(m_timeSystem.GetHour(), m_timeSystem.GetSeasonIndex());
+
+    DrawText(TextFormat("Day %d - %s %d/5 - %s - %02d:00", m_timeSystem.GetDay(), m_timeSystem.GetSeasonName(),
+                        m_timeSystem.GetDayInSeason(),
+                        m_lightingSystem.GetDayPhaseName(m_timeSystem.GetHour(), m_timeSystem.GetSeasonIndex()),
+                        static_cast<int>(m_timeSystem.GetHour())),
+             10, 40, 20, GOLD);
     DrawFPS(GetScreenWidth() - 100, 10);
     int screenH = GetScreenHeight();
     const char* coordsText = TextFormat("Grid: [ X: %d | Y: %d ]", hoverX, hoverY);
@@ -389,32 +397,6 @@ void Application::Render() {
         EntityID doorEntityOnTile = static_cast<EntityID>(-1);
         EntityID behaviorEntityOnTile = static_cast<EntityID>(-1);
 
-        // On cherche les entités sur cette case.
-        // Priorité: PNJ/AI > Porte > autre entité.
-        // for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
-        //     if (!m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
-        //         continue;
-        //     }
-
-        //     int ex = WorldToTile(m_entityManager.transforms[i].position.x);
-        //     int ey = WorldToTile(m_entityManager.transforms[i].position.y);
-
-        //     if (ex != hoverX || ey != hoverY) {
-        //         continue;
-        //     }
-
-        //     if (firstEntityOnTile == static_cast<EntityID>(-1)) {
-        //         firstEntityOnTile = i;
-        //     }
-
-        //     if (m_entityManager.hasDoor[i]) {
-        //         doorEntityOnTile = i;
-        //     }
-
-        //     if (m_entityManager.hasBehavior[i]) {
-        //         behaviorEntityOnTile = i;
-        //     }
-        // }
         const std::vector<EntityID> hoveredEntities = m_spatialGrid.GetEntitiesAtTile(hoverX, hoverY, m_entityManager);
 
         for (EntityID i : hoveredEntities) {
