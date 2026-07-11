@@ -1,4 +1,5 @@
 #pragma once
+
 #include "core/GameCamera.hpp"
 #include "core/InputManager.hpp"
 #include "data/BehaviorRegistry.hpp"
@@ -13,13 +14,16 @@
 #include "data/StructureRegistry.hpp"
 #include "data/TileRegistry.hpp"
 #include "data/WeaponRegistry.hpp"
+#include "debug/InspectionSystem.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/AISystem.hpp"
+#include "systems/BuildPlacementSystem.hpp"
 #include "systems/LightingSystem.hpp"
 #include "systems/ProfessionSystem.hpp"
 #include "systems/RenderSystem.hpp"
 #include "systems/RoomSystem.hpp"
 #include "systems/TimeSystem.hpp"
+#include "systems/WorldRenderSystem.hpp"
 #include "ui/UIManager.hpp"
 #include "world/EntitySpatialGrid.hpp"
 #include "world/WorldMap.hpp"
@@ -28,66 +32,55 @@
 
 /**
  * @class Application
- * @brief The core engine class responsible for the main game loop, window management, and module routing.
- * * The Application class owns the highest level of the game architecture. It initializes Raylib,
- * calculates the delta time, and delegates the logic to the respective Systems.
+ * @brief Main game application.
+ *
+ * Owns high-level systems and registries, and orchestrates update/render order.
  */
 class Application {
 public:
-    /**
-     * @brief Constructs the Application and initializes the window.
-     */
     Application();
-
-    /**
-     * @brief Destroys the Application and safely closes the window.
-     */
     ~Application();
 
-    /**
-     * @brief Starts the main infinite game loop.
-     * Blocks execution until the user requests to close the window.
-     */
     void Run();
 
 private:
-    /**
-     * @brief Updates the game logic.
-     * @param deltaTime Time elapsed since the last frame in seconds.
-     */
     void Update(float deltaTime);
-
-    /**
-     * @brief Renders the game state to the screen.
-     */
     void Render();
 
-    const int WINDOW_WIDTH = 1280;
-    const int WINDOW_HEIGHT = 720;
+    bool m_isRunning = true;
 
-    bool m_isRunning;
+    // Data registries
     TileRegistry m_tileRegistry;
     BiomeRegistry m_biomeRegistry;
-    WorldMap m_worldMap;
-    EntityManager m_entityManager;
     EntityRegistry m_entityRegistry;
     FurnitureRegistry m_furnitureRegistry;
-    RenderSystem m_renderSystem;
-    TimeSystem m_timeSystem;
-    AISystem m_aiSystem;
-    GameCamera m_camera;
-    InputManager m_inputManager;
-    UIManager m_uiManager;
     ConstructionRegistry m_constructionRegistry;
     StructureRegistry m_structureRegistry;
-    RoomSystem m_roomSystem;
     NameRegistry m_nameRegistry;
     EnvironmentRegistry m_environmentRegistry;
     BehaviorRegistry m_behaviorRegistry;
     WeaponRegistry m_weaponRegistry;
     ProfessionRegistry m_professionRegistry;
-    ProfessionSystem m_professionSystem;
     ResourceRegistry m_resourceRegistry;
+
+    // World state
+    WorldMap m_worldMap;
+    EntityManager m_entityManager;
     EntitySpatialGrid m_spatialGrid;
+
+    // Systems
+    BuildPlacementSystem m_buildPlacementSystem;
+    WorldRenderSystem m_worldRenderSystem;
+    RenderSystem m_renderSystem;
     LightingSystem m_lightingSystem;
+    TimeSystem m_timeSystem;
+    AISystem m_aiSystem;
+    RoomSystem m_roomSystem;
+    ProfessionSystem m_professionSystem;
+    InspectionSystem m_inspectionSystem;
+
+    // Core services
+    GameCamera m_camera;
+    InputManager m_inputManager;
+    UIManager m_uiManager;
 };

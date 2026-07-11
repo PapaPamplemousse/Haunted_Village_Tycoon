@@ -2,63 +2,8 @@
 
 #include "core/Config.hpp"
 #include "world/MapGenerator.hpp"
-#include "world/WorldMap.hpp"
 
-#include <algorithm>
-#include <cmath>
 #include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
-
-namespace {
-
-static constexpr EntityID INVALID_ENTITY = static_cast<EntityID>(-1);
-
-static const char* DoorStateToString(DoorState state) {
-    switch (state) {
-        case DoorState::OPEN:
-            return "OPEN";
-        case DoorState::CLOSED:
-            return "CLOSED";
-        case DoorState::LOCKED:
-            return "LOCKED";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-static const char* BoolToString(bool value) {
-    return value ? "true" : "false";
-}
-
-static int WorldToTile(float value) {
-    return static_cast<int>(std::floor(value / Config::TILE_SIZE));
-}
-
-static std::string JoinStrings(const std::vector<std::string>& values, const std::string& separator) {
-    std::string result;
-
-    for (size_t i = 0; i < values.size(); ++i) {
-        if (i > 0) {
-            result += separator;
-        }
-
-        result += values[i];
-    }
-
-    return result;
-}
-
-static std::string BehaviorRuleToString(const BehaviorRule& rule) {
-    if (rule.arguments.empty()) {
-        return rule.name;
-    }
-
-    return rule.name + "(" + JoinStrings(rule.arguments, ",") + ")";
-}
-
-} // namespace
 
 Application::Application()
     : m_isRunning(true)
@@ -70,92 +15,103 @@ Application::Application()
     if (!m_tileRegistry.LoadFromSTV("data/tiles.stv")) {
         std::cerr << "Failed to load tiles!" << std::endl;
     }
+
     if (!m_biomeRegistry.LoadFromSTV("data/biomes.stv", m_tileRegistry)) {
         std::cerr << "Failed to load biomes!" << std::endl;
     }
+
     if (!m_entityRegistry.LoadFromSTV("data/entities.stv")) {
         std::cerr << "Failed to load entities!" << std::endl;
     }
+
     if (!m_furnitureRegistry.LoadFromSTV("data/furniture.stv")) {
         std::cerr << "Failed to load furniture!" << std::endl;
     }
+
     if (!m_constructionRegistry.LoadFromSTV("data/constructions.stv")) {
         std::cerr << "Failed to load constructions!" << std::endl;
     }
+
     if (!m_structureRegistry.LoadFromSTV("data/structures.stv")) {
         std::cerr << "Failed to load structures!" << std::endl;
     }
+
     if (!m_nameRegistry.LoadFromSTV("data/names.stv")) {
         std::cerr << "Failed to load names!" << std::endl;
     }
+
     if (!m_environmentRegistry.LoadFromSTV("data/environment.stv")) {
         std::cerr << "Failed to load environment!" << std::endl;
     }
+
     if (!m_behaviorRegistry.LoadFromSTV("data/behaviors.stv")) {
         std::cerr << "Failed to load behaviors!" << std::endl;
     }
+
     if (!m_weaponRegistry.LoadFromSTV("data/weapons.stv")) {
         std::cerr << "Failed to load weapons!" << std::endl;
     }
+
     if (!m_professionRegistry.LoadFromSTV("data/professions.stv")) {
         std::cerr << "Failed to load professions!" << std::endl;
     }
+
     if (!m_resourceRegistry.LoadFromSTV("data/resources.stv")) {
         std::cerr << "Failed to load resources!" << std::endl;
     }
 
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
+
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
 
     m_uiManager.Initialize(m_entityRegistry, m_furnitureRegistry, m_constructionRegistry);
 
-    float midX = (Config::MAP_WIDTH / 2) * (float)Config::TILE_SIZE;
-    float midY = (Config::MAP_HEIGHT / 2) * (float)Config::TILE_SIZE;
+    const float midX = (Config::MAP_WIDTH / 2.0f) * Config::TILE_SIZE;
+    const float midY = (Config::MAP_HEIGHT / 2.0f) * Config::TILE_SIZE;
 
-    // Cherche la ligne où tu spawn ton villageois :
-    EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry, m_behaviorRegistry);
+    EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50.0f, midY}, m_nameRegistry, m_behaviorRegistry);
 
-    // --- : Cheat code d'inventaire ---
-    m_entityManager.tags[vId].age = 20;
-    m_entityManager.inventories[vId].items["WOOD"] = 100;
-    m_entityManager.inventories[vId].items["ROPE"] = 50;
-    const WeaponDef* axeDef = m_weaponRegistry.GetWeaponDef("IRON_AXE");
-    if (axeDef) {
-        m_entityManager.hasEquipment[vId] = true;
-        m_entityManager.equipments[vId] = {axeDef->toolType, axeDef->damage};
+    // Debug starter inventory.
+    if (vId < m_entityManager.active.size() && m_entityManager.active[vId]) {
+        m_entityManager.tags[vId].age = 20;
+        m_entityManager.inventories[vId].items["WOOD"] = 100;
+        m_entityManager.inventories[vId].items["ROPE"] = 50;
+
+        const WeaponDef* axeDef = m_weaponRegistry.GetWeaponDef("IRON_AXE");
+
+        if (axeDef) {
+            m_entityManager.hasEquipment[vId] = true;
+            m_entityManager.equipments[vId] = {axeDef->toolType, axeDef->damage};
+        }
     }
 
     m_spatialGrid.Rebuild(m_entityManager);
 
     m_camera.SetTarget({midX, midY});
-    // Assign offset components individually to avoid brace-init issues
+
     Camera2D& rayCamera = const_cast<Camera2D&>(m_camera.GetRaylibCamera());
+
     rayCamera.offset.x = Config::WINDOW_WIDTH / 2.0f;
     rayCamera.offset.y = Config::WINDOW_HEIGHT / 2.0f;
 }
 
 Application::~Application() {
-    // Clean up Raylib resources
     CloseAudioDevice();
     CloseWindow();
 }
 
 void Application::Run() {
     while (m_isRunning && !WindowShouldClose()) {
-        // Calculate time elapsed since last frame
-        float deltaTime = GetFrameTime();
+        const float deltaTime = GetFrameTime();
 
-        // Core Loop
         Update(deltaTime);
         Render();
     }
 }
 
 void Application::Update(float deltaTime) {
-    // 1. Toujours mettre à jour l'UI
     m_uiManager.Update();
 
-    // 2. Si le menu est ouvert, on bloque le jeu
     if (m_uiManager.IsMenuOpen()) {
         return;
     }
@@ -163,68 +119,15 @@ void Application::Update(float deltaTime) {
     m_inputManager.Update(m_camera);
     m_camera.Update(deltaTime);
 
-    // ==========================================
-    // LOGIQUE DE PLACEMENT ET SUPPRESSION
-    // ==========================================
-    std::string prefabToPlace = m_uiManager.GetSelectedPrefab();
+    m_buildPlacementSystem.Update(m_inputManager, m_uiManager, m_entityManager, m_entityRegistry, m_furnitureRegistry,
+                                  m_constructionRegistry, m_nameRegistry, m_behaviorRegistry);
 
-    if (m_inputManager.IsInteractPressed() && !prefabToPlace.empty()) {
-        Vector2 spawnPos = {m_inputManager.GetMouseGridX() * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f),
-                            m_inputManager.GetMouseGridY() * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f)};
-
-        if (m_uiManager.GetSelectedCategory() == BuildCategory::Entities) {
-            m_entityRegistry.SpawnEntity(m_entityManager, prefabToPlace, spawnPos, m_nameRegistry, m_behaviorRegistry);
-
-        } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Furniture) {
-            m_furnitureRegistry.SpawnFurniture(m_entityManager, prefabToPlace, spawnPos, true);
-
-        } else if (m_uiManager.GetSelectedCategory() == BuildCategory::Constructions) {
-            m_constructionRegistry.SpawnConstruction(m_entityManager, prefabToPlace, spawnPos, true);
-        }
-    }
-
-    if (m_inputManager.IsDeletePressed()) {
-        int targetX = m_inputManager.GetMouseGridX();
-        int targetY = m_inputManager.GetMouseGridY();
-
-        for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
-            if (!m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
-                continue;
-            }
-
-            int entityGridX = static_cast<int>(m_entityManager.transforms[i].position.x / Config::TILE_SIZE);
-
-            int entityGridY = static_cast<int>(m_entityManager.transforms[i].position.y / Config::TILE_SIZE);
-
-            if (entityGridX != targetX || entityGridY != targetY) {
-                continue;
-            }
-
-            if (m_entityManager.hasBlueprint[i] && !m_entityManager.blueprints[i].isFinished) {
-                m_entityManager.DestroyEntity(i);
-            } else if (!m_entityManager.hasDeconstruct[i] && !m_entityManager.hasBehavior[i]) {
-                m_entityManager.hasDeconstruct[i] = true;
-                m_entityManager.deconstructs[i] = {true};
-            }
-
-            break;
-        }
-    }
-
-    // ==========================================
-    // SIMULATION
-    // ==========================================
     m_timeSystem.Update(deltaTime, m_entityManager);
 
-    // Update des pièces AVANT l'attribution des professions.
-    // Important: ne pas rappeler RoomSystem après ProfessionSystem,
-    // sinon les slots peuvent être reconstruits/réinitialisés.
     m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
 
-    // Assigne les travailleurs aux workplaces détectés par le RoomSystem.
     m_professionSystem.Update(deltaTime, m_entityManager, m_professionRegistry, m_behaviorRegistry);
 
-    // L'IA utilise ensuite les professions/comportements à jour.
     const Vector2 simulationCenter = m_camera.GetRaylibCamera().target;
 
     m_spatialGrid.Rebuild(m_entityManager);
@@ -234,143 +137,25 @@ void Application::Update(float deltaTime) {
 
     m_spatialGrid.Rebuild(m_entityManager);
 }
+
 void Application::Render() {
     BeginDrawing();
     ClearBackground(BLACK);
 
-    BeginMode2D(m_camera.GetRaylibCamera());
+    const Camera2D& camera = m_camera.GetRaylibCamera();
 
-    Vector2 topLeft = GetScreenToWorld2D({0, 0}, m_camera.GetRaylibCamera());
-    Vector2 bottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, m_camera.GetRaylibCamera());
+    const int hoverX = m_inputManager.GetMouseGridX();
+    const int hoverY = m_inputManager.GetMouseGridY();
+    const bool showNames = m_inputManager.IsShowNamesPressed();
 
-    int startX = std::max(0, (int)(topLeft.x / Config::TILE_SIZE) - 1);
-    int startY = std::max(0, (int)(topLeft.y / Config::TILE_SIZE) - 1);
-    int endX = std::min(m_worldMap.GetWidth(), (int)(bottomRight.x / Config::TILE_SIZE) + 1);
-    int endY = std::min(m_worldMap.GetHeight(), (int)(bottomRight.y / Config::TILE_SIZE) + 1);
+    BeginMode2D(camera);
 
-    for (int y = startY; y < endY; ++y) {
-        for (int x = startX; x < endX; ++x) {
-            int tileId = m_worldMap.GetTile(x, y);
-            const TileDef* def = m_tileRegistry.GetTileDef(tileId);
-            Color color = def ? def->color : MAGENTA;
+    m_worldRenderSystem.Render(m_entityManager, m_worldMap, m_tileRegistry, camera, hoverX, hoverY, showNames);
 
-            DrawRectangle(x * Config::TILE_SIZE, y * Config::TILE_SIZE, Config::TILE_SIZE - 1, Config::TILE_SIZE - 1, color);
-        }
-    }
+    m_renderSystem.Render(m_entityManager, m_spatialGrid, camera, showNames);
 
-    int hoverX = m_inputManager.GetMouseGridX();
-    int hoverY = m_inputManager.GetMouseGridY();
-
-    if (hoverX >= 0 && hoverX < m_worldMap.GetWidth() && hoverY >= 0 && hoverY < m_worldMap.GetHeight()) {
-        DrawRectangle(hoverX * Config::TILE_SIZE, hoverY * Config::TILE_SIZE, Config::TILE_SIZE, Config::TILE_SIZE,
-                      ColorAlpha(WHITE, 0.3f));
-    }
-
-    bool showNames = m_inputManager.IsShowNamesPressed();
-
-    // --- 1. DESSIN DU SOL DES PIÈCES ---
-    for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
-        if (m_entityManager.active[i] && m_entityManager.hasRoom[i]) {
-            const auto& room = m_entityManager.rooms[i];
-            Color roomTint = (room.structureId == "EMPTY_ROOM") ? ColorAlpha(GRAY, 0.3f) : ColorAlpha(BLUE, 0.3f);
-
-            for (const Vector2& tile : room.floorTiles) {
-                if (tile.x < startX || tile.x > endX || tile.y < startY || tile.y > endY) {
-                    continue;
-                }
-
-                DrawRectangle(static_cast<int>(tile.x * Config::TILE_SIZE), static_cast<int>(tile.y * Config::TILE_SIZE), Config::TILE_SIZE,
-                              Config::TILE_SIZE, roomTint);
-            }
-        }
-    }
-
-    // --- 2. DESSIN DES ENTITÉS ---
-    m_renderSystem.Render(m_entityManager, m_spatialGrid, m_camera.GetRaylibCamera(), showNames);
-
-    // --- 3. DESSIN DU NOM DES PIÈCES (Au-dessus de tout) ---
-    if (showNames) {
-        for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
-            if (m_entityManager.active[i] && m_entityManager.hasRoom[i]) {
-                const auto& room = m_entityManager.rooms[i];
-                if (room.floorTiles.empty())
-                    continue;
-
-                // Calcul du centre de la pièce
-                float sumX = 0, sumY = 0;
-                for (const Vector2& tile : room.floorTiles) {
-                    sumX += tile.x;
-                    sumY += tile.y;
-                }
-                float centerX = (sumX / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
-                float centerY = (sumY / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
-
-                if (centerX < topLeft.x || centerX > bottomRight.x || centerY < topLeft.y || centerY > bottomRight.y) {
-                    continue;
-                }
-
-                std::string roomName = room.name;
-                int nameFontSize = 30;
-                int jobFontSize = 20; // Police plus petite pour les emplois
-                int padding = 6;
-                int lineSpacing = 4;
-
-                int maxWidth = MeasureText(roomName.c_str(), nameFontSize);
-                int totalHeight = nameFontSize;
-
-                // Préparation des lignes d'emplois
-                std::vector<std::string> jobLines;
-                if (m_entityManager.hasWorkplace[i]) {
-                    const auto& workplace = m_entityManager.workplaces[i];
-                    std::unordered_map<std::string, std::pair<int, int>> slots;
-
-                    for (const auto& slot : workplace.slots) {
-                        slots[slot.profession].second++; // Total
-                        if (slot.workerId != static_cast<EntityID>(-1)) {
-                            slots[slot.profession].first++; // Pris
-                        }
-                    }
-
-                    for (const auto& pair : slots) {
-                        std::string jobStr =
-                            pair.first + " : " + std::to_string(pair.second.first) + " / " + std::to_string(pair.second.second);
-                        jobLines.push_back(jobStr);
-
-                        int jWidth = MeasureText(jobStr.c_str(), jobFontSize);
-                        if (jWidth > maxWidth)
-                            maxWidth = jWidth; // Adapte la boîte au texte le plus long
-                        totalHeight += jobFontSize + lineSpacing;
-                    }
-                }
-
-                float startX = centerX - maxWidth / 2.0f;
-                float startY = centerY - totalHeight / 2.0f;
-
-                Color textCol = (room.structureId == "EMPTY_ROOM") ? LIGHTGRAY : GOLD;
-
-                // Dessin du fond sombre englobant tout le texte
-                DrawRectangle(startX - padding, startY - padding, maxWidth + padding * 2, totalHeight + padding * 2,
-                              ColorAlpha(BLACK, 0.8f));
-
-                // Dessin du nom de la pièce (centré)
-                int nameWidth = MeasureText(roomName.c_str(), nameFontSize);
-                DrawText(roomName.c_str(), startX + (maxWidth - nameWidth) / 2.0f, startY, nameFontSize, textCol);
-
-                // Dessin des lignes d'emplois (centrées en dessous)
-                float currentY = startY + nameFontSize + lineSpacing;
-                for (const std::string& jobStr : jobLines) {
-                    int jWidth = MeasureText(jobStr.c_str(), jobFontSize);
-                    DrawText(jobStr.c_str(), startX + (maxWidth - jWidth) / 2.0f, currentY, jobFontSize, LIGHTGRAY);
-                    currentY += jobFontSize + lineSpacing;
-                }
-            }
-        }
-    }
     EndMode2D();
 
-    // ==========================================================
-    // DAY / NIGHT VISUAL FILTER
-    // ==========================================================
     m_lightingSystem.RenderOverlay(m_timeSystem.GetHour(), m_timeSystem.GetSeasonIndex());
 
     DrawText(TextFormat("Day %d - %s %d/5 - %s - %02d:00", m_timeSystem.GetDay(), m_timeSystem.GetSeasonName(),
@@ -378,194 +163,16 @@ void Application::Render() {
                         m_lightingSystem.GetDayPhaseName(m_timeSystem.GetHour(), m_timeSystem.GetSeasonIndex()),
                         static_cast<int>(m_timeSystem.GetHour())),
              10, 40, 20, GOLD);
+
     DrawFPS(GetScreenWidth() - 100, 10);
-    int screenH = GetScreenHeight();
-    const char* coordsText = TextFormat("Grid: [ X: %d | Y: %d ]", hoverX, hoverY);
-    DrawText(coordsText, 10, screenH - 30, 20, LIGHTGRAY);
+
+    const int screenH = GetScreenHeight();
+
+    DrawText(TextFormat("Grid: [ X: %d | Y: %d ]", hoverX, hoverY), 10, screenH - 30, 20, LIGHTGRAY);
 
     m_uiManager.Render();
 
-    // ==========================================================
-    // 3. INSPECTION (CTRL + Hover)
-    // ==========================================================
-    if (m_inputManager.IsInspectPressed()) {
-        int hoverX = m_inputManager.GetMouseGridX();
-        int hoverY = m_inputManager.GetMouseGridY();
+    m_inspectionSystem.Render(m_inputManager, m_entityManager, m_spatialGrid);
 
-        EntityID hoveredEntity = static_cast<EntityID>(-1);
-        EntityID firstEntityOnTile = static_cast<EntityID>(-1);
-        EntityID doorEntityOnTile = static_cast<EntityID>(-1);
-        EntityID behaviorEntityOnTile = static_cast<EntityID>(-1);
-
-        const std::vector<EntityID> hoveredEntities = m_spatialGrid.GetEntitiesAtTile(hoverX, hoverY, m_entityManager);
-
-        for (EntityID i : hoveredEntities) {
-            if (i >= m_entityManager.active.size() || !m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
-                continue;
-            }
-
-            if (firstEntityOnTile == static_cast<EntityID>(-1)) {
-                firstEntityOnTile = i;
-            }
-
-            if (m_entityManager.hasDoor[i]) {
-                doorEntityOnTile = i;
-            }
-
-            if (m_entityManager.hasBehavior[i]) {
-                behaviorEntityOnTile = i;
-            }
-        }
-
-        if (behaviorEntityOnTile != static_cast<EntityID>(-1)) {
-            hoveredEntity = behaviorEntityOnTile;
-        } else if (doorEntityOnTile != static_cast<EntityID>(-1)) {
-            hoveredEntity = doorEntityOnTile;
-        } else {
-            hoveredEntity = firstEntityOnTile;
-        }
-
-        if (hoveredEntity != static_cast<EntityID>(-1)) {
-            std::vector<std::string> lines;
-            EntityID i = hoveredEntity;
-
-            lines.push_back("Entity ID: " + std::to_string(i));
-
-            if (m_entityManager.hasTag[i]) {
-                const auto& tag = m_entityManager.tags[i];
-
-                if (!tag.firstName.empty()) {
-                    lines.push_back(tag.firstName + " the " + tag.name);
-                } else {
-                    lines.push_back(tag.name);
-                }
-
-                if (!tag.species.empty()) {
-                    lines.push_back("Species: " + tag.species);
-                }
-                if (!tag.gender.empty() && tag.gender != "undefined") {
-                    lines.push_back("Gender: " + tag.gender);
-                }
-                lines.push_back(TextFormat("Age: %d", tag.age));
-            }
-            if (m_entityManager.hasProfession[i]) {
-                const auto& prof = m_entityManager.professions[i];
-                std::string profName = prof.currentProfession;
-                if (!profName.empty() && profName != "none") {
-                    profName[0] = std::toupper(profName[0]);
-                }
-                lines.push_back("Profession: " + profName);
-            }
-
-            if (m_entityManager.hasTransform[i]) {
-                int tileX = WorldToTile(m_entityManager.transforms[i].position.x);
-                int tileY = WorldToTile(m_entityManager.transforms[i].position.y);
-
-                lines.push_back("Tile: " + std::to_string(tileX) + ", " + std::to_string(tileY));
-            }
-
-            if (m_entityManager.hasDoor[i]) {
-                const auto& door = m_entityManager.doors[i];
-
-                lines.push_back("Door state: " + std::string(DoorStateToString(door.state)));
-                lines.push_back("Owner ID: " + std::to_string(door.ownerId));
-            }
-
-            if (m_entityManager.hasHealth[i]) {
-                lines.push_back(TextFormat("HP: %.0f / %.0f", m_entityManager.healths[i].current, m_entityManager.healths[i].max));
-            }
-
-            if (m_entityManager.hasStats[i]) {
-                lines.push_back(TextFormat("Speed: %.0f", m_entityManager.stats[i].maxSpeed));
-            }
-
-            if (m_entityManager.hasNeeds[i]) {
-                lines.push_back(TextFormat("Hunger: %.0f / %.0f", m_entityManager.needs[i].hunger, m_entityManager.needs[i].maxHunger));
-            }
-
-            if (m_entityManager.hasEquipment[i]) {
-                const auto& equip = m_entityManager.equipments[i];
-                lines.push_back("--- Equipment ---");
-                lines.push_back("Tool: " + equip.rightHandToolType);
-            }
-
-            bool hasInv = m_entityManager.hasInventory[i];
-            bool hasHarv = m_entityManager.hasHarvestable[i];
-
-            if (hasInv || hasHarv) {
-                lines.push_back("--- Inventory ---");
-                bool isEmpty = true;
-
-                // 1. On affiche le vrai inventaire s'il existe
-                if (hasInv && !m_entityManager.inventories[i].items.empty()) {
-                    for (const auto& item : m_entityManager.inventories[i].items) {
-                        lines.push_back(item.first + ": " + std::to_string(item.second));
-                    }
-                    isEmpty = false;
-                }
-
-                // 2. On affiche le contenu récoltable comme si c'était dans l'inventaire
-                if (hasHarv) {
-                    const auto& harvestable = m_entityManager.harvestables[i];
-
-                    for (const DropEntry& drop : harvestable.drops) {
-                        if (drop.amount > 0 && !drop.itemId.empty()) {
-                            lines.push_back(drop.itemId + ": " + std::to_string(drop.amount) + " (Yield)");
-
-                            isEmpty = false;
-                        }
-                    }
-                }
-
-                if (isEmpty) {
-                    lines.push_back("Empty");
-                }
-            }
-
-            if (m_entityManager.hasBehavior[i]) {
-                const auto& behavior = m_entityManager.behaviors[i];
-
-                lines.push_back("--- AI ---");
-                lines.push_back("Task: " + behavior.currentTask);
-            }
-
-            if (!lines.empty()) {
-                Vector2 mousePos = GetMousePosition();
-
-                float boxWidth = 300.0f;
-                float lineHeight = 22.0f;
-                float boxHeight = lines.size() * lineHeight + 12.0f;
-
-                float boxX = mousePos.x + 15.0f;
-                float boxY = mousePos.y + 15.0f;
-
-                if (boxX + boxWidth > GetScreenWidth()) {
-                    boxX = mousePos.x - boxWidth - 15.0f;
-                }
-
-                if (boxY + boxHeight > GetScreenHeight()) {
-                    boxY = mousePos.y - boxHeight - 15.0f;
-                }
-
-                DrawRectangle(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(boxHeight),
-                              ColorAlpha(BLACK, 0.9f));
-
-                DrawRectangleLines(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(boxHeight),
-                                   DARKGRAY);
-
-                for (size_t l = 0; l < lines.size(); ++l) {
-                    Color c = LIGHTGRAY;
-
-                    if (l == 0) {
-                        c = GOLD;
-                    } else if (lines[l] == "--- AI ---" || lines[l] == "--- Inventory ---" || lines[l] == "--- Equipment ---") {
-                        c = SKYBLUE;
-                    }
-
-                    DrawText(lines[l].c_str(), static_cast<int>(boxX + 10.0f), static_cast<int>(boxY + 8.0f + l * lineHeight), 18, c);
-                }
-            }
-        }
-    }
     EndDrawing();
 }

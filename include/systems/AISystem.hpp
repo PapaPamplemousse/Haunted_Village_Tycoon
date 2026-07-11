@@ -10,10 +10,6 @@
 #include <raylib.h>
 #include <string>
 
-/**
- * @class AISystem
- * @brief Processes AI decision making, job searching, and movement using a State Machine approach.
- */
 class AISystem {
 public:
     AISystem() = default;
@@ -31,7 +27,7 @@ private:
 
     void HandleTaskCompletion(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg, RoomSystem& roomSys);
 
-    // --- Helper Functions ---
+    // --- Helpers ---
     void InteractWithDoorIfPresent(EntityID entity, int targetX, int targetY, EntityManager& em);
 
     bool HasCapability(const BehaviorComponent& behavior, const std::string& capability) const;
@@ -44,8 +40,9 @@ private:
 
     void ResetBehaviorState(BehaviorComponent& behavior);
 
-    // --- Job Searchers ---
-    bool TryFindWanderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+    // --- Jobs ---
+    bool TryFindHuntJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                        const EntitySpatialGrid& spatialGrid);
 
     bool TryFindBuildJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                          const EntitySpatialGrid& spatialGrid);
@@ -53,8 +50,7 @@ private:
     bool TryFindDismantleJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                              const EntitySpatialGrid& spatialGrid);
 
-    bool TryFindHuntJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                        const EntitySpatialGrid& spatialGrid);
+    bool TryFindWanderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 
     bool TryFindHarvestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                            const EntitySpatialGrid& spatialGrid);
