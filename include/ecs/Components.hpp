@@ -150,6 +150,8 @@ struct LootComponent {
 struct StatsComponent {
     float maxSpeed = 30.0f;
     float baseAttack = 1.0f;
+    // Maximum range, in tiles, where this entity can look for jobs/targets.
+    float actionRadiusTiles = 40.0f;
 };
 
 /**

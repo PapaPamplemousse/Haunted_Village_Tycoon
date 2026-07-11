@@ -111,15 +111,17 @@ EntityID FurnitureRegistry::SpawnFurniture(EntityManager& em, const std::string&
 
     // 2. Logic Dispatcher based on blueprint status
     if (asBlueprint) {
-        // Spawns as an un-interactable project frame
+        // Spawns as an un-interactable project frame.
+        // It may already have storage data, but AI must ignore it while blueprint is unfinished.
         em.hasBlueprint[id] = true;
         em.blueprints[id] = {def.blueprintCost, false};
-    } else {
-        // Spawns immediately complete and fully functional
-        if (def.storageCapacity > 0) {
-            em.hasInventory[id] = true;
-            em.inventories[id] = {}; // Allocated empty container chest
-        }
+    }
+
+    // Storage-capable furniture always owns an inventory.
+    // If it is still a blueprint, systems must check hasBlueprint before using it.
+    if (def.storageCapacity > 0) {
+        em.hasInventory[id] = true;
+        em.inventories[id] = {};
     }
 
     // 5. Visual Representation

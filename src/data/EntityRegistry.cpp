@@ -188,6 +188,10 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
             def.maxSpeed = std::stof(block.properties.at("max_speed"));
         }
 
+        if (block.properties.count("action_radius")) {
+            def.actionRadiusTiles = std::stof(block.properties.at("action_radius"));
+        }
+
         if (block.properties.count("category")) {
             def.category = block.properties.at("category");
         }
@@ -305,7 +309,7 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
 
     // 6. Stats
     em.hasStats[id] = true;
-    em.stats[id] = {def.maxSpeed, def.baseAtk};
+    em.stats[id] = {def.maxSpeed, def.baseAtk, def.actionRadiusTiles};
 
     std::cout << "[ECS] Spawned Entity: " << def.name << " at Position (" << position.x << ", " << position.y << ")" << std::endl;
 

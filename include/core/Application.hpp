@@ -20,6 +20,7 @@
 #include "systems/RoomSystem.hpp"
 #include "systems/TimeSystem.hpp"
 #include "ui/UIManager.hpp"
+#include "world/EntitySpatialGrid.hpp"
 #include "world/WorldMap.hpp"
 
 #include <raylib.h>
@@ -86,4 +87,5 @@ private:
     ProfessionRegistry m_professionRegistry;
     ProfessionSystem m_professionSystem;
     ResourceRegistry m_resourceRegistry;
+    EntitySpatialGrid m_spatialGrid;
 };

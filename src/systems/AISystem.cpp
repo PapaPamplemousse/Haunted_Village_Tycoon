@@ -43,20 +43,112 @@ void GiveLootToInventory(EntityID receiver, EntityID source, EntityManager& em) 
         }
     }
 }
+
 bool IsWithinActiveSimulationRadius(Vector2 entityPosition, Vector2 simulationCenter, float activeRadiusTiles) {
-    const float activeRadiusWorld = activeRadiusTiles * Config::TILE_SIZE;
-    const float activeRadiusSq = activeRadiusWorld * activeRadiusWorld;
+    const float radiusWorld = activeRadiusTiles * Config::TILE_SIZE;
+    const float radiusSq = radiusWorld * radiusWorld;
 
     const float dx = entityPosition.x - simulationCenter.x;
     const float dy = entityPosition.y - simulationCenter.y;
 
-    return dx * dx + dy * dy <= activeRadiusSq;
+    return dx * dx + dy * dy <= radiusSq;
+}
+
+float GetActionRadiusWorld(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.hasStats[entity]) {
+        return static_cast<float>(Config::AI_SEARCH_RADIUS_TILES) * Config::TILE_SIZE;
+    }
+
+    return em.stats[entity].actionRadiusTiles * Config::TILE_SIZE;
+}
+
+bool IsConsumableFoodItem(const ResourceRegistry& resourceReg, const std::string& itemId) {
+    const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
+
+    if (resource == nullptr) {
+        return false;
+    }
+
+    return resource->isConsumable && resource->nutrition > 0.0f;
+}
+
+std::string FindFirstFoodItemInInventory(const InventoryComponent& inventory, const ResourceRegistry& resourceReg) {
+    for (const auto& item : inventory.items) {
+        const std::string& itemId = item.first;
+        const int count = item.second;
+
+        if (count <= 0) {
+            continue;
+        }
+
+        if (IsConsumableFoodItem(resourceReg, itemId)) {
+            return itemId;
+        }
+    }
+
+    return "";
+}
+
+bool ConsumeFoodFromInventory(InventoryComponent& inventory, NeedsComponent& needs, const std::string& itemId,
+                              const ResourceRegistry& resourceReg) {
+    auto it = inventory.items.find(itemId);
+
+    if (it == inventory.items.end() || it->second <= 0) {
+        return false;
+    }
+
+    const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
+
+    if (resource == nullptr || !resource->isConsumable || resource->nutrition <= 0.0f) {
+        return false;
+    }
+
+    it->second--;
+
+    if (it->second <= 0) {
+        inventory.items.erase(it);
+    }
+
+    needs.hunger += resource->nutrition;
+
+    if (needs.hunger > needs.maxHunger) {
+        needs.hunger = needs.maxHunger;
+    }
+
+    return true;
+}
+
+bool HarvestableHasFoodDrop(const HarvestableComponent& harvestable, const ResourceRegistry& resourceReg) {
+    for (const DropEntry& drop : harvestable.drops) {
+        if (drop.amount <= 0 || drop.itemId.empty()) {
+            continue;
+        }
+
+        if (IsConsumableFoodItem(resourceReg, drop.itemId)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool HasRequiredHarvestTool(EntityID worker, const HarvestableComponent& harvestable, const EntityManager& em) {
+    if (harvestable.requiredTool == "none") {
+        return true;
+    }
+
+    if (!em.hasEquipment[worker]) {
+        return false;
+    }
+
+    return em.equipments[worker].rightHandToolType == harvestable.requiredTool;
 }
 
 } // namespace
 
 void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                      const ResourceRegistry& resourceReg, const Vector2& simulationCenter, float activeRadiusTiles, RoomSystem& roomSys) {
+                      const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, const Vector2& simulationCenter,
+                      float activeRadiusTiles, RoomSystem& roomSys) {
     for (size_t i = 0; i < em.active.size(); ++i) {
         if (!em.active[i]) {
             continue;
@@ -78,7 +170,7 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
         }
 
         if (behavior.currentTask == "idle") {
-            HandleIdleState(i, em, map, tileReg, resourceReg);
+            HandleIdleState(i, em, map, tileReg, resourceReg, spatialGrid);
         } else if (behavior.isMoving) {
             HandleMovingState(i, deltaTime, em);
         } else {
@@ -92,7 +184,7 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
 // ============================================================================
 
 void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                               const ResourceRegistry& resourceReg) {
+                               const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid) {
     auto& behavior = em.behaviors[i];
 
     const bool canHunt = HasCapability(behavior, "hunt");
@@ -102,30 +194,26 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
     const bool canWander = HasCapability(behavior, "wander");
     const bool canSeekFood = HasCapability(behavior, "seek_food");
 
-    // Survival behavior first
-    if (canSeekFood && TryFindSeekFoodJob(i, em, resourceReg)) {
+    if (canSeekFood && TryFindSeekFoodJob(i, em, map, tileReg, resourceReg, spatialGrid)) {
         return;
     }
 
-    // Combat / hostile behavior first.
-    if (canHunt && TryFindHuntJob(i, em, map, tileReg)) {
+    if (canHunt && TryFindHuntJob(i, em, map, tileReg, spatialGrid)) {
         return;
     }
 
-    // Work behaviors.
-    if (canBuild && TryFindBuildJob(i, em, map, tileReg)) {
+    if (canBuild && TryFindBuildJob(i, em, map, tileReg, spatialGrid)) {
         return;
     }
 
-    if (canDismantle && TryFindDismantleJob(i, em, map, tileReg)) {
+    if (canDismantle && TryFindDismantleJob(i, em, map, tileReg, spatialGrid)) {
         return;
     }
 
-    if (canHarvest && TryFindHarvestJob(i, em, map, tileReg)) {
+    if (canHarvest && TryFindHarvestJob(i, em, map, tileReg, spatialGrid)) {
         return;
     }
 
-    // Fallback behavior.
     if (canWander && TryFindWanderJob(i, em, map, tileReg)) {
         return;
     }
@@ -210,6 +298,9 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
         } else if (behavior.currentTask == "moving_to_dismantle") {
             behavior.currentTask = "dismantling";
             behavior.stateTimer = 2.0f;
+        } else if (behavior.currentTask == "moving_to_food_storage") {
+            behavior.currentTask = "eating_from_storage";
+            behavior.stateTimer = EAT_DURATION;
         } else if (behavior.currentTask == "moving_to_harvest") {
             behavior.currentTask = "harvesting";
             behavior.stateTimer = 1.0f;
@@ -360,28 +451,14 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
         }
     } else if (behavior.currentTask == "eating") {
         if (em.hasNeeds[i] && em.hasInventory[i] && !behavior.currentItemTarget.empty()) {
-            auto& inventory = em.inventories[i];
-            auto& needs = em.needs[i];
+            ConsumeFoodFromInventory(em.inventories[i], em.needs[i], behavior.currentItemTarget, resourceReg);
+        }
+    } else if (behavior.currentTask == "eating_from_storage") {
+        EntityID storage = behavior.currentJobTarget;
 
-            auto it = inventory.items.find(behavior.currentItemTarget);
-
-            if (it != inventory.items.end() && it->second > 0) {
-                it->second--;
-
-                if (it->second <= 0) {
-                    inventory.items.erase(it);
-                }
-
-                const ResourceDef* resource = resourceReg.GetResourceDef(behavior.currentItemTarget);
-
-                if (resource != nullptr) {
-                    needs.hunger += resource->nutrition;
-                }
-
-                if (needs.hunger > needs.maxHunger) {
-                    needs.hunger = needs.maxHunger;
-                }
-            }
+        if (storage < em.active.size() && em.active[storage] && em.hasInventory[storage] && em.hasNeeds[i] &&
+            !behavior.currentItemTarget.empty()) {
+            ConsumeFoodFromInventory(em.inventories[storage], em.needs[i], behavior.currentItemTarget, resourceReg);
         }
     }
 
@@ -448,7 +525,9 @@ void AISystem::ResetBehaviorState(BehaviorComponent& behavior) {
 // JOB SEARCHERS
 // ============================================================================
 
-bool AISystem::TryFindHuntJob(EntityID hunter, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
+bool AISystem::TryFindHuntJob(EntityID hunter, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                              const EntitySpatialGrid& spatialGrid) {
+    // Vérification initiale de l'entité chasseur
     if (hunter >= em.active.size() || !em.active[hunter] || !em.hasBehavior[hunter] || !em.hasTransform[hunter]) {
         return false;
     }
@@ -461,17 +540,22 @@ bool AISystem::TryFindHuntJob(EntityID hunter, EntityManager& em, const WorldMap
         return false;
     }
 
+    const float searchRadius = GetActionRadiusWorld(hunter, em);
+    const Vector2 hunterPosition = em.transforms[hunter].position;
+
+    // Récupération des candidats via la grid
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(hunterPosition, searchRadius, em);
+
     EntityID bestTarget = static_cast<EntityID>(-1);
     float bestDistanceSq = std::numeric_limits<float>::infinity();
 
-    const Vector2 hunterPosition = em.transforms[hunter].position;
-
-    for (size_t target = 0; target < em.active.size(); ++target) {
+    for (EntityID target : candidates) {
         if (target == hunter) {
             continue;
         }
 
-        if (!em.active[target] || !em.hasTag[target] || !em.hasTransform[target] || !em.hasHealth[target]) {
+        // Vérification de sécurité pour le target (ajoutée par l'autre IA)
+        if (target >= em.active.size() || !em.active[target] || !em.hasTag[target] || !em.hasTransform[target] || !em.hasHealth[target]) {
             continue;
         }
 
@@ -493,10 +577,12 @@ bool AISystem::TryFindHuntJob(EntityID hunter, EntityManager& em, const WorldMap
         }
     }
 
+    // Si aucune cible valide trouvée
     if (bestTarget == static_cast<EntityID>(-1)) {
         return false;
     }
 
+    // Gestion de l'attaque si adjacent
     if (AreEntitiesAdjacent(hunter, bestTarget, em)) {
         behavior.currentTask = "attacking";
         behavior.currentJobTarget = bestTarget;
@@ -508,6 +594,7 @@ bool AISystem::TryFindHuntJob(EntityID hunter, EntityManager& em, const WorldMap
         return true;
     }
 
+    // Calcul du chemin pour se déplacer vers la cible
     std::vector<Vector2> path =
         Pathfinder::FindPathToAdjacentTile(em.transforms[hunter].position, em.transforms[bestTarget].position, map, tileReg, em, hunter);
 
@@ -526,9 +613,18 @@ bool AISystem::TryFindHuntJob(EntityID hunter, EntityManager& em, const WorldMap
     return true;
 }
 
-bool AISystem::TryFindBuildJob(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
-    for (size_t j = 0; j < em.active.size(); ++j) {
-        if (!em.active[j] || !em.hasBlueprint[j] || em.blueprints[j].isFinished || !em.hasTransform[j]) {
+bool AISystem::TryFindBuildJob(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                               const EntitySpatialGrid& spatialGrid) {
+    if (i >= em.active.size() || !em.active[i] || !em.hasTransform[i]) {
+        return false;
+    }
+
+    const float searchRadius = GetActionRadiusWorld(i, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[i].position, searchRadius, em);
+
+    for (EntityID j : candidates) {
+        if (j >= em.active.size() || !em.active[j] || !em.hasBlueprint[j] || em.blueprints[j].isFinished || !em.hasTransform[j]) {
             continue;
         }
 
@@ -570,9 +666,18 @@ bool AISystem::TryFindBuildJob(EntityID i, EntityManager& em, const WorldMap& ma
     return false;
 }
 
-bool AISystem::TryFindDismantleJob(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
-    for (size_t j = 0; j < em.active.size(); ++j) {
-        if (!em.active[j] || !em.hasDeconstruct[j] || !em.hasTransform[j]) {
+bool AISystem::TryFindDismantleJob(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                   const EntitySpatialGrid& spatialGrid) {
+    if (i >= em.active.size() || !em.active[i] || !em.hasTransform[i]) {
+        return false;
+    }
+
+    const float searchRadius = GetActionRadiusWorld(i, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[i].position, searchRadius, em);
+
+    for (EntityID j : candidates) {
+        if (j >= em.active.size() || !em.active[j] || !em.hasDeconstruct[j] || !em.hasTransform[j]) {
             continue;
         }
 
@@ -632,7 +737,8 @@ bool AISystem::TryFindWanderJob(EntityID i, EntityManager& em, const WorldMap& m
     return false;
 }
 
-bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
+bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                 const EntitySpatialGrid& spatialGrid) {
     if (worker >= em.active.size() || !em.active[worker] || !em.hasBehavior[worker] || !em.hasTransform[worker]) {
         return false;
     }
@@ -644,18 +750,25 @@ bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const World
         return false;
     }
 
+    const float searchRadius = GetActionRadiusWorld(worker, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[worker].position, searchRadius, em);
+
     EntityID bestTarget = static_cast<EntityID>(-1);
     float bestDistanceSq = std::numeric_limits<float>::infinity();
+
     const Vector2 workerPosition = em.transforms[worker].position;
 
-    for (size_t target = 0; target < em.active.size(); ++target) {
-        if (target == worker || !em.active[target] || !em.hasHarvestable[target] || !em.hasTransform[target] || !em.hasTag[target]) {
+    for (EntityID target : candidates) {
+        if (target == worker || target >= em.active.size() || !em.active[target] || !em.hasHarvestable[target] ||
+            !em.hasTransform[target] || !em.hasTag[target]) {
             continue;
         }
 
-        // On vérifie si la cible fait partie de ce qu'on a le droit de récolter (ex: TREE_OAK)
         const std::string& targetPrefab = em.tags[target].prefabId;
+
         bool isTargeted = false;
+
         for (const std::string& arg : harvestRule->arguments) {
             if (arg == targetPrefab) {
                 isTargeted = true;
@@ -668,6 +781,7 @@ bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const World
         }
 
         const float distanceSq = SquaredDistance(workerPosition, em.transforms[target].position);
+
         if (distanceSq < bestDistanceSq) {
             bestDistanceSq = distanceSq;
             bestTarget = target;
@@ -678,7 +792,6 @@ bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const World
         return false;
     }
 
-    // Si on est déjà à côté, on tape !
     if (AreEntitiesAdjacent(worker, bestTarget, em)) {
         behavior.currentTask = "harvesting";
         behavior.currentJobTarget = bestTarget;
@@ -690,7 +803,6 @@ bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const World
         return true;
     }
 
-    // Sinon, on calcule le chemin
     std::vector<Vector2> path =
         Pathfinder::FindPathToAdjacentTile(workerPosition, em.transforms[bestTarget].position, map, tileReg, em, worker);
 
@@ -709,8 +821,10 @@ bool AISystem::TryFindHarvestJob(EntityID worker, EntityManager& em, const World
     return true;
 }
 
-bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg) {
-    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity] || !em.hasInventory[entity] || !em.hasBehavior[entity]) {
+bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                  const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity] || !em.hasInventory[entity] || !em.hasBehavior[entity] ||
+        !em.hasTransform[entity]) {
         return false;
     }
 
@@ -723,29 +837,16 @@ bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em, const Reso
     }
 
     auto& inventory = em.inventories[entity];
+    auto& behavior = em.behaviors[entity];
 
-    for (const auto& item : inventory.items) {
-        const std::string& itemId = item.first;
-        const int count = item.second;
+    // =========================================================
+    // 1. Eat from own inventory.
+    // =========================================================
+    const std::string ownFood = FindFirstFoodItemInInventory(inventory, resourceReg);
 
-        if (count <= 0) {
-            continue;
-        }
-
-        const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
-
-        if (resource == nullptr) {
-            continue;
-        }
-
-        if (!resource->isConsumable || resource->nutrition <= 0.0f) {
-            continue;
-        }
-
-        auto& behavior = em.behaviors[entity];
-
+    if (!ownFood.empty()) {
         behavior.currentTask = "eating";
-        behavior.currentItemTarget = itemId;
+        behavior.currentItemTarget = ownFood;
         behavior.hasJob = true;
         behavior.isMoving = false;
         behavior.currentPath.clear();
@@ -755,5 +856,142 @@ bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em, const Reso
         return true;
     }
 
-    return false;
+    const float searchRadius = GetActionRadiusWorld(entity, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    // =========================================================
+    // 2. Search nearby completed storage with food.
+    // =========================================================
+    EntityID bestStorage = static_cast<EntityID>(-1);
+    std::string bestStorageFood;
+    float bestStorageDistanceSq = std::numeric_limits<float>::infinity();
+
+    for (EntityID candidate : candidates) {
+        if (candidate == entity || candidate >= em.active.size() || !em.active[candidate] || !em.hasTransform[candidate] ||
+            !em.hasInventory[candidate]) {
+            continue;
+        }
+
+        // Do not eat from unfinished blueprints.
+        if (em.hasBlueprint[candidate] && !em.blueprints[candidate].isFinished) {
+            continue;
+        }
+
+        // Avoid stealing from other creatures for now.
+        // Storage furniture has inventory but no behavior.
+        if (em.hasBehavior[candidate]) {
+            continue;
+        }
+
+        const std::string foodItem = FindFirstFoodItemInInventory(em.inventories[candidate], resourceReg);
+
+        if (foodItem.empty()) {
+            continue;
+        }
+
+        const float distanceSq = SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        if (distanceSq < bestStorageDistanceSq) {
+            bestStorageDistanceSq = distanceSq;
+            bestStorage = candidate;
+            bestStorageFood = foodItem;
+        }
+    }
+
+    if (bestStorage != static_cast<EntityID>(-1)) {
+        if (AreEntitiesAdjacent(entity, bestStorage, em)) {
+            behavior.currentTask = "eating_from_storage";
+            behavior.currentJobTarget = bestStorage;
+            behavior.currentItemTarget = bestStorageFood;
+            behavior.hasJob = true;
+            behavior.isMoving = false;
+            behavior.currentPath.clear();
+            behavior.currentPathIndex = 0;
+            behavior.stateTimer = EAT_DURATION;
+
+            return true;
+        }
+
+        std::vector<Vector2> path = Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestStorage].position,
+                                                                       map, tileReg, em, entity);
+
+        if (!path.empty()) {
+            behavior.currentTask = "moving_to_food_storage";
+            behavior.currentJobTarget = bestStorage;
+            behavior.currentItemTarget = bestStorageFood;
+            behavior.hasJob = true;
+            behavior.currentPath = std::move(path);
+            behavior.currentPathIndex = 0;
+            behavior.currentTarget = behavior.currentPath[0];
+            behavior.isMoving = true;
+
+            return true;
+        }
+    }
+
+    // =========================================================
+    // 3. Search nearby harvestable food source.
+    // Example: BUSH_BERRY with consumable BUSH_BERRY drop.
+    // =========================================================
+    EntityID bestFoodSource = static_cast<EntityID>(-1);
+    float bestFoodSourceDistanceSq = std::numeric_limits<float>::infinity();
+
+    for (EntityID candidate : candidates) {
+        if (candidate == entity || candidate >= em.active.size() || !em.active[candidate] || !em.hasTransform[candidate] ||
+            !em.hasHarvestable[candidate] || !em.hasHealth[candidate]) {
+            continue;
+        }
+
+        const HarvestableComponent& harvestable = em.harvestables[candidate];
+
+        if (!HarvestableHasFoodDrop(harvestable, resourceReg)) {
+            continue;
+        }
+
+        if (!HasRequiredHarvestTool(entity, harvestable, em)) {
+            continue;
+        }
+
+        const float distanceSq = SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        if (distanceSq < bestFoodSourceDistanceSq) {
+            bestFoodSourceDistanceSq = distanceSq;
+            bestFoodSource = candidate;
+        }
+    }
+
+    if (bestFoodSource == static_cast<EntityID>(-1)) {
+        return false;
+    }
+
+    if (AreEntitiesAdjacent(entity, bestFoodSource, em)) {
+        behavior.currentTask = "harvesting";
+        behavior.currentJobTarget = bestFoodSource;
+        behavior.hasJob = true;
+        behavior.isMoving = false;
+        behavior.currentPath.clear();
+        behavior.currentPathIndex = 0;
+        behavior.stateTimer = 1.0f;
+        behavior.actionAccumulator = 0.0f;
+
+        return true;
+    }
+
+    std::vector<Vector2> path = Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestFoodSource].position,
+                                                                   map, tileReg, em, entity);
+
+    if (path.empty()) {
+        return false;
+    }
+
+    behavior.currentTask = "moving_to_harvest";
+    behavior.currentJobTarget = bestFoodSource;
+    behavior.hasJob = true;
+    behavior.currentPath = std::move(path);
+    behavior.currentPathIndex = 0;
+    behavior.currentTarget = behavior.currentPath[0];
+    behavior.isMoving = true;
+
+    return true;
 }

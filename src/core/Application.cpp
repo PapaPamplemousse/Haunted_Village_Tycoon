@@ -116,6 +116,7 @@ Application::Application()
     EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50, midY}, m_nameRegistry, m_behaviorRegistry);
 
     // --- : Cheat code d'inventaire ---
+    m_entityManager.tags[vId].age = 20;
     m_entityManager.inventories[vId].items["WOOD"] = 100;
     m_entityManager.inventories[vId].items["ROPE"] = 50;
     const WeaponDef* axeDef = m_weaponRegistry.GetWeaponDef("IRON_AXE");
@@ -123,6 +124,8 @@ Application::Application()
         m_entityManager.hasEquipment[vId] = true;
         m_entityManager.equipments[vId] = {axeDef->toolType, axeDef->damage};
     }
+
+    m_spatialGrid.Rebuild(m_entityManager);
 
     m_camera.SetTarget({midX, midY});
     // Assign offset components individually to avoid brace-init issues
@@ -224,8 +227,12 @@ void Application::Update(float deltaTime) {
     // L'IA utilise ensuite les professions/comportements à jour.
     const Vector2 simulationCenter = m_camera.GetRaylibCamera().target;
 
-    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, simulationCenter,
+    m_spatialGrid.Rebuild(m_entityManager);
+
+    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, m_spatialGrid, simulationCenter,
                       static_cast<float>(Config::SIMULATION_ACTIVE_RADIUS_TILES), m_roomSystem);
+
+    m_spatialGrid.Rebuild(m_entityManager);
 }
 void Application::Render() {
     BeginDrawing();
@@ -268,13 +275,18 @@ void Application::Render() {
             Color roomTint = (room.structureId == "EMPTY_ROOM") ? ColorAlpha(GRAY, 0.3f) : ColorAlpha(BLUE, 0.3f);
 
             for (const Vector2& tile : room.floorTiles) {
-                DrawRectangle(tile.x * Config::TILE_SIZE, tile.y * Config::TILE_SIZE, Config::TILE_SIZE, Config::TILE_SIZE, roomTint);
+                if (tile.x < startX || tile.x > endX || tile.y < startY || tile.y > endY) {
+                    continue;
+                }
+
+                DrawRectangle(static_cast<int>(tile.x * Config::TILE_SIZE), static_cast<int>(tile.y * Config::TILE_SIZE), Config::TILE_SIZE,
+                              Config::TILE_SIZE, roomTint);
             }
         }
     }
 
     // --- 2. DESSIN DES ENTITÉS ---
-    m_renderSystem.Render(m_entityManager, m_camera.GetRaylibCamera(), showNames);
+    m_renderSystem.Render(m_entityManager, m_spatialGrid, m_camera.GetRaylibCamera(), showNames);
 
     // --- 3. DESSIN DU NOM DES PIÈCES (Au-dessus de tout) ---
     if (showNames) {
@@ -292,6 +304,10 @@ void Application::Render() {
                 }
                 float centerX = (sumX / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
                 float centerY = (sumY / room.floorTiles.size()) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
+
+                if (centerX < topLeft.x || centerX > bottomRight.x || centerY < topLeft.y || centerY > bottomRight.y) {
+                    continue;
+                }
 
                 std::string roomName = room.name;
                 int nameFontSize = 30;
@@ -375,15 +391,34 @@ void Application::Render() {
 
         // On cherche les entités sur cette case.
         // Priorité: PNJ/AI > Porte > autre entité.
-        for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
-            if (!m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
-                continue;
-            }
+        // for (size_t i = 0; i < m_entityManager.active.size(); ++i) {
+        //     if (!m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
+        //         continue;
+        //     }
 
-            int ex = WorldToTile(m_entityManager.transforms[i].position.x);
-            int ey = WorldToTile(m_entityManager.transforms[i].position.y);
+        //     int ex = WorldToTile(m_entityManager.transforms[i].position.x);
+        //     int ey = WorldToTile(m_entityManager.transforms[i].position.y);
 
-            if (ex != hoverX || ey != hoverY) {
+        //     if (ex != hoverX || ey != hoverY) {
+        //         continue;
+        //     }
+
+        //     if (firstEntityOnTile == static_cast<EntityID>(-1)) {
+        //         firstEntityOnTile = i;
+        //     }
+
+        //     if (m_entityManager.hasDoor[i]) {
+        //         doorEntityOnTile = i;
+        //     }
+
+        //     if (m_entityManager.hasBehavior[i]) {
+        //         behaviorEntityOnTile = i;
+        //     }
+        // }
+        const std::vector<EntityID> hoveredEntities = m_spatialGrid.GetEntitiesAtTile(hoverX, hoverY, m_entityManager);
+
+        for (EntityID i : hoveredEntities) {
+            if (i >= m_entityManager.active.size() || !m_entityManager.active[i] || !m_entityManager.hasTransform[i]) {
                 continue;
             }
 

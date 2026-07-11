@@ -3,32 +3,35 @@ name = Villager
 max_hp = 100
 max_speed = 30
 base_atk = 1
+action_radius = 45
 category = humanoid
 species = human
 gender = binary
 texture = circle
 color = 200, 200, 255, 255
 sprite_size = 24, 24
-drops = FLESH:2:1
+drops = FLESH:2:0.5
 
 [CANNIBAL]
 name = Cannibal Raider
 max_hp = 80
 max_speed = 45
 base_atk = 5
+action_radius = 35
 category = humanoid
 species = cannibal
 gender = binary
 texture = triangle
 color = 255, 50, 50, 255
 sprite_size = 28, 28
-drops = FLESH:2:0.75
+drops = FLESH:2:1.0
 
 [ELDRITCH_HORROR]
 name = Eldritch Horror
 max_hp = 500
 max_speed = 20
 base_atk = 25
+action_radius = 80
 category = monster
 species = eldritch
 gender = undefined

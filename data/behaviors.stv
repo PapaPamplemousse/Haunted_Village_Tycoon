@@ -16,7 +16,7 @@ species = cannibal
 
 [HARVEST_BUSH_GATHERER]
 rule = harvest(BUSH_BERRY)
-professions = druid
+professions = gatherer
 
 [HARVEST_OAK_LUMBERJACK]
 rule = harvest(TREE_OAK)

@@ -31,4 +31,9 @@ constexpr int SIMULATION_ACTIVE_RADIUS_TILES = 80;
 constexpr float PROFESSION_UPDATE_INTERVAL = 1.0f;
 constexpr float HUNGER_DECAY_PER_SECOND = 0.05f;
 
+// --- Spatial Optimization ---
+constexpr int SPATIAL_CELL_SIZE_TILES = 16;
+constexpr int RENDER_ENTITY_MARGIN_TILES = 4;
+constexpr int AI_SEARCH_RADIUS_TILES = 80;
+
 } // namespace Config

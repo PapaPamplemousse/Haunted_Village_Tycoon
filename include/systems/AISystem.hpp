@@ -4,8 +4,10 @@
 #include "data/TileRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/RoomSystem.hpp"
+#include "world/EntitySpatialGrid.hpp"
 #include "world/WorldMap.hpp"
 
+#include <raylib.h>
 #include <string>
 
 /**
@@ -17,12 +19,12 @@ public:
     AISystem() = default;
 
     void Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, const ResourceRegistry& resourceReg,
-                const Vector2& simulationCenter, float activeRadiusTiles, RoomSystem& roomSys);
+                const EntitySpatialGrid& spatialGrid, const Vector2& simulationCenter, float activeRadiusTiles, RoomSystem& roomSys);
 
 private:
     // --- State Handlers ---
     void HandleIdleState(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                         const ResourceRegistry& resourceReg);
+                         const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
 
     void HandleMovingState(EntityID entity, float deltaTime, EntityManager& em);
 
@@ -42,15 +44,20 @@ private:
     void ResetBehaviorState(BehaviorComponent& behavior);
 
     // --- Job Searchers ---
-    bool TryFindHuntJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+    bool TryFindHuntJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                        const EntitySpatialGrid& spatialGrid);
 
-    bool TryFindBuildJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+    bool TryFindBuildJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                         const EntitySpatialGrid& spatialGrid);
 
-    bool TryFindDismantleJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+    bool TryFindDismantleJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                             const EntitySpatialGrid& spatialGrid);
 
     bool TryFindWanderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 
-    bool TryFindHarvestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+    bool TryFindHarvestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                           const EntitySpatialGrid& spatialGrid);
 
-    bool TryFindSeekFoodJob(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg);
+    bool TryFindSeekFoodJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                            const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
 };

@@ -21,6 +21,8 @@ struct EntityDef {
     float maxHp = 100.0f;
     float baseAtk = 1.0f;
     float maxSpeed = 30.0f;
+    float actionRadiusTiles = 40.0f;
+
     std::string category;
     std::string species;
     std::string genderModel = "undefined";
