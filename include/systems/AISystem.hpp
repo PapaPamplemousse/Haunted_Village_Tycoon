@@ -17,7 +17,7 @@ public:
     AISystem() = default;
 
     void Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, const ResourceRegistry& resourceReg,
-                RoomSystem& roomSys);
+                const Vector2& simulationCenter, float activeRadiusTiles, RoomSystem& roomSys);
 
 private:
     // --- State Handlers ---

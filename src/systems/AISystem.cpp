@@ -16,9 +16,8 @@ namespace {
 constexpr float ATTACK_DURATION = 0.45f;
 constexpr float ATTACK_COOLDOWN = 0.6f;
 
-constexpr float HUNGER_DECAY_PER_SECOND = 0.05f;
 constexpr float SEEK_FOOD_THRESHOLD_RATIO = 0.5f;
-constexpr float EAT_DURATION = 0.8f;
+constexpr float EAT_DURATION = 1.0f;
 
 int ToTileCoord(float worldCoord) {
     return static_cast<int>(std::floor(worldCoord / Config::TILE_SIZE));
@@ -44,35 +43,30 @@ void GiveLootToInventory(EntityID receiver, EntityID source, EntityManager& em) 
         }
     }
 }
+bool IsWithinActiveSimulationRadius(Vector2 entityPosition, Vector2 simulationCenter, float activeRadiusTiles) {
+    const float activeRadiusWorld = activeRadiusTiles * Config::TILE_SIZE;
+    const float activeRadiusSq = activeRadiusWorld * activeRadiusWorld;
+
+    const float dx = entityPosition.x - simulationCenter.x;
+    const float dy = entityPosition.y - simulationCenter.y;
+
+    return dx * dx + dy * dy <= activeRadiusSq;
+}
 
 } // namespace
 
 void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                      const ResourceRegistry& resourceReg, RoomSystem& roomSys) {
+                      const ResourceRegistry& resourceReg, const Vector2& simulationCenter, float activeRadiusTiles, RoomSystem& roomSys) {
     for (size_t i = 0; i < em.active.size(); ++i) {
         if (!em.active[i]) {
             continue;
         }
 
-        // =========================================================
-        // NEEDS UPDATE
-        // =========================================================
-        if (em.hasNeeds[i]) {
-            auto& needs = em.needs[i];
-
-            needs.hunger -= HUNGER_DECAY_PER_SECOND * deltaTime;
-
-            if (needs.hunger < 0.0f) {
-                needs.hunger = 0.0f;
-            }
-
-            if (needs.hunger <= 0.0f) {
-                em.DestroyEntity(i);
-                continue;
-            }
+        if (!em.hasBehavior[i] || !em.hasTransform[i] || !em.hasStats[i]) {
+            continue;
         }
 
-        if (!em.hasBehavior[i] || !em.hasTransform[i] || !em.hasStats[i]) {
+        if (!IsWithinActiveSimulationRadius(em.transforms[i].position, simulationCenter, activeRadiusTiles)) {
             continue;
         }
 

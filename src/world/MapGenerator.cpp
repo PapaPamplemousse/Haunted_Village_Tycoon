@@ -7,156 +7,281 @@
 #include "ecs/EntityManager.hpp"
 #include "world/PerlinNoise.hpp"
 
+#include <algorithm>
 #include <cmath>
-#include <raylib.h> // Pour GetRandomValue
+#include <limits>
+#include <raylib.h>
+#include <vector>
 
-void MapGenerator::GenerateIsland(WorldMap& map, EntityManager& em, const TileRegistry& tileReg, const BiomeRegistry& biomeReg,
-                                  const EnvironmentRegistry& envReg, unsigned int seed) {
-    PerlinNoise elevationNoise(seed);
+namespace {
+
+constexpr int WORLD_BORDER_SIZE = 2;
+
+// Smaller value => larger, smoother climate zones.
+constexpr float TEMPERATURE_NOISE_SCALE = 180.0f;
+constexpr float HUMIDITY_NOISE_SCALE = 180.0f;
+constexpr float CLIMATE_DETAIL_SCALE = 75.0f;
+
+// Flora noise is smaller-scale than climate, but still smooth enough to create groves.
+constexpr float VEGETATION_NOISE_SCALE = 18.0f;
+
+bool IsInsideMap(int x, int y, int width, int height) {
+    return x >= 0 && y >= 0 && x < width && y < height;
+}
+
+bool IsBorderTile(int x, int y, int width, int height) {
+    return x < WORLD_BORDER_SIZE || y < WORLD_BORDER_SIZE || x >= width - WORLD_BORDER_SIZE || y >= height - WORLD_BORDER_SIZE;
+}
+
+float NormalizeNoise(float value) {
+    return std::clamp((value + 1.0f) * 0.5f, 0.0f, 1.0f);
+}
+
+float DistanceToRange(float value, float minValue, float maxValue) {
+    if (value < minValue) {
+        return minValue - value;
+    }
+
+    if (value > maxValue) {
+        return value - maxValue;
+    }
+
+    return 0.0f;
+}
+
+const BiomeDef* FindBestClimateBiome(float temperature, float humidity, const BiomeRegistry& biomeReg) {
+    const BiomeDef* exactMatch = biomeReg.GetClimateBiome(temperature, humidity);
+
+    if (exactMatch != nullptr) {
+        return exactMatch;
+    }
+
+    // Fallback: choose the nearest climate biome.
+    // This avoids unexpected default tiles if climate ranges do not cover 100% of the map.
+    const BiomeDef* bestBiome = nullptr;
+    float bestScore = std::numeric_limits<float>::infinity();
+
+    for (const BiomeDef& biome : biomeReg.GetClimateBiomes()) {
+        const float tempDistance = DistanceToRange(temperature, biome.minTemp, biome.maxTemp);
+
+        const float humidityDistance = DistanceToRange(humidity, biome.minHum, biome.maxHum);
+
+        const float score = tempDistance * tempDistance + humidityDistance * humidityDistance;
+
+        if (score < bestScore) {
+            bestScore = score;
+            bestBiome = &biome;
+        }
+    }
+
+    return bestBiome;
+}
+
+float ComputeTemperature(int x, int y, int width, int height, const PerlinNoise& temperatureNoise) {
+    const float nx = static_cast<float>(x) / TEMPERATURE_NOISE_SCALE;
+    const float ny = static_cast<float>(y) / TEMPERATURE_NOISE_SCALE;
+
+    const float detailX = static_cast<float>(x) / CLIMATE_DETAIL_SCALE;
+    const float detailY = static_cast<float>(y) / CLIMATE_DETAIL_SCALE;
+
+    const float large = NormalizeNoise(temperatureNoise.GetNoise(nx, ny));
+    const float detail = NormalizeNoise(temperatureNoise.GetNoise(detailX + 51.7f, detailY + 12.3f));
+
+    // Slight north/south gradient to reduce pure noise randomness.
+    const float latitude = height > 1 ? static_cast<float>(y) / static_cast<float>(height - 1) : 0.5f;
+
+    const float latitudeWarmth = 1.0f - std::abs(latitude - 0.5f) * 0.35f;
+
+    const float temperature01 = std::clamp(large * 0.65f + detail * 0.20f + latitudeWarmth * 0.15f, 0.0f, 1.0f);
+
+    return temperature01 * 50.0f;
+}
+
+float ComputeHumidity(int x, int y, const PerlinNoise& humidityNoise) {
+    const float nx = static_cast<float>(x) / HUMIDITY_NOISE_SCALE;
+    const float ny = static_cast<float>(y) / HUMIDITY_NOISE_SCALE;
+
+    const float detailX = static_cast<float>(x) / CLIMATE_DETAIL_SCALE;
+    const float detailY = static_cast<float>(y) / CLIMATE_DETAIL_SCALE;
+
+    const float large = NormalizeNoise(humidityNoise.GetNoise(nx + 133.0f, ny + 91.0f));
+    const float detail = NormalizeNoise(humidityNoise.GetNoise(detailX + 7.0f, detailY + 19.0f));
+
+    return std::clamp(large * 0.75f + detail * 0.25f, 0.0f, 1.0f) * 100.0f;
+}
+
+void ApplyPatchBiome(WorldMap& map, std::vector<const BiomeDef*>& biomeAt, const BiomeDef& patch, int centerX, int centerY, int radius,
+                     int voidTileId) {
+    const int width = map.GetWidth();
+    const int height = map.GetHeight();
+
+    for (int y = centerY - radius; y <= centerY + radius; ++y) {
+        for (int x = centerX - radius; x <= centerX + radius; ++x) {
+            if (!IsInsideMap(x, y, width, height)) {
+                continue;
+            }
+
+            if (IsBorderTile(x, y, width, height)) {
+                continue;
+            }
+
+            const int currentTileId = map.GetTile(x, y);
+
+            if (currentTileId == voidTileId) {
+                continue;
+            }
+
+            const float dx = static_cast<float>(x - centerX);
+            const float dy = static_cast<float>(y - centerY);
+            const float distance = std::sqrt(dx * dx + dy * dy);
+
+            // Soft noisy border.
+            const float normalizedDistance = distance / static_cast<float>(radius);
+
+            if (normalizedDistance > 1.0f) {
+                continue;
+            }
+
+            map.SetTile(x, y, patch.baseTileId);
+            biomeAt[static_cast<size_t>(y * width + x)] = &patch;
+        }
+    }
+}
+
+void SpawnFlora(WorldMap& map, EntityManager& em, const EnvironmentRegistry& envReg, const std::vector<const BiomeDef*>& biomeAt,
+                unsigned int seed) {
+    const int width = map.GetWidth();
+    const int height = map.GetHeight();
+
+    PerlinNoise vegetationNoise(seed + 300);
+    SetRandomSeed(seed + 301);
+
+    for (int y = WORLD_BORDER_SIZE; y < height - WORLD_BORDER_SIZE; ++y) {
+        for (int x = WORLD_BORDER_SIZE; x < width - WORLD_BORDER_SIZE; ++x) {
+            const BiomeDef* biome = biomeAt[static_cast<size_t>(y * width + x)];
+
+            if (biome == nullptr || biome->flora.empty()) {
+                continue;
+            }
+
+            const float nx = static_cast<float>(x) / VEGETATION_NOISE_SCALE;
+            const float ny = static_cast<float>(y) / VEGETATION_NOISE_SCALE;
+
+            const float vegetationScore = NormalizeNoise(vegetationNoise.GetNoise(nx, ny));
+
+            Vector2 worldPos = {static_cast<float>(x) * Config::TILE_SIZE + Config::TILE_SIZE * 0.5f,
+                                static_cast<float>(y) * Config::TILE_SIZE + Config::TILE_SIZE * 0.5f};
+
+            for (const FloraSpawnDef& flora : biome->flora) {
+                if (vegetationScore >= flora.noiseThreshold) {
+                    envReg.SpawnEnvironment(em, flora.prefabId, worldPos);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+} // namespace
+
+void MapGenerator::GenerateWorld(WorldMap& map, EntityManager& em, const TileRegistry& tileReg, const BiomeRegistry& biomeReg,
+                                 const EnvironmentRegistry& envReg, unsigned int seed) {
+    const int width = map.GetWidth();
+    const int height = map.GetHeight();
+
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+
+    const int voidTileId = tileReg.GetTileIdByString("VOID");
+    const int fallbackTileId = tileReg.GetTileIdByString("SAND");
+
     PerlinNoise temperatureNoise(seed + 100);
     PerlinNoise humidityNoise(seed + 200);
 
-    int width = map.GetWidth();
-    int height = map.GetHeight();
-    float centerX = width / 2.0f;
-    float centerY = height / 2.0f;
-    float maxRadius = std::min(centerX, centerY) * 0.9f;
-
-    int deepWaterId = tileReg.GetTileIdByString("DEEP_WATER");
-    int shallowWaterId = tileReg.GetTileIdByString("SHALLOW_WATER");
+    std::vector<float> temperatureMap(static_cast<size_t>(width * height), 0.0f);
+    std::vector<float> humidityMap(static_cast<size_t>(width * height), 0.0f);
+    std::vector<const BiomeDef*> biomeAt(static_cast<size_t>(width * height), nullptr);
 
     // ==========================================
-    // PASS 1 : CLIMATE GENERATION
+    // PASS 1: FINITE RECTANGULAR CLIMATE MAP
     // ==========================================
-    std::vector<float> tempMap(width * height, 0.0f);
-    std::vector<float> humMap(width * height, 0.0f);
-
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            float nx = (float)x / 60.0f;
-            float ny = (float)y / 60.0f;
+            const int index = y * width + x;
 
-            float elevation = elevationNoise.GetNoise(nx, ny) * 1.0f + elevationNoise.GetNoise(nx * 2.5f, ny * 2.5f) * 0.5f;
-            elevation = (elevation + 1.5f) / 3.0f;
-            float distToCenter = std::sqrt((x - centerX) * (x - centerX) + (y - centerY) * (y - centerY));
-            float mask = distToCenter / maxRadius;
-            elevation -= (mask * mask);
-
-            if (elevation < 0.25f) {
-                map.SetTile(x, y, deepWaterId);
-                continue;
-            }
-            if (elevation < 0.35f) {
-                map.SetTile(x, y, shallowWaterId);
+            if (IsBorderTile(x, y, width, height)) {
+                map.SetTile(x, y, voidTileId >= 0 ? voidTileId : fallbackTileId);
+                biomeAt[static_cast<size_t>(index)] = nullptr;
                 continue;
             }
 
-            float temp = (temperatureNoise.GetNoise(nx * 0.8f, ny * 0.8f) + 1.0f) * 25.0f;
-            float hum = (humidityNoise.GetNoise(nx * 1.2f, ny * 1.2f) + 1.0f) * 50.0f;
+            const float temperature = ComputeTemperature(x, y, width, height, temperatureNoise);
+            const float humidity = ComputeHumidity(x, y, humidityNoise);
 
-            int index = y * width + x;
-            tempMap[index] = temp;
-            humMap[index] = hum;
+            temperatureMap[static_cast<size_t>(index)] = temperature;
+            humidityMap[static_cast<size_t>(index)] = humidity;
 
-            const BiomeDef* biome = biomeReg.GetClimateBiome(temp, hum);
-            if (biome) {
+            const BiomeDef* biome = FindBestClimateBiome(temperature, humidity, biomeReg);
+
+            if (biome != nullptr) {
                 map.SetTile(x, y, biome->baseTileId);
+                biomeAt[static_cast<size_t>(index)] = biome;
             } else {
-                map.SetTile(x, y, tileReg.GetTileIdByString("SAND"));
+                map.SetTile(x, y, fallbackTileId);
+                biomeAt[static_cast<size_t>(index)] = nullptr;
             }
         }
     }
 
     // ==========================================
-    // PASS 2 : PATCH BIOMES (Oasis, Volcano...)
+    // PASS 2: DATA-DRIVEN PATCH BIOMES
     // ==========================================
-    SetRandomSeed(seed);
+    SetRandomSeed(seed + 500);
 
-    for (const auto& patch : biomeReg.GetPatchBiomes()) {
-        int instanceCount = GetRandomValue(patch.minInstances, patch.maxInstances);
+    for (const BiomeDef& patch : biomeReg.GetPatchBiomes()) {
+        if (patch.maxInstances <= 0) {
+            continue;
+        }
 
-        for (int i = 0; i < instanceCount; ++i) {
+        const int minInstances = std::max(0, patch.minInstances);
+        const int maxInstances = std::max(minInstances, patch.maxInstances);
+        const int instanceCount = GetRandomValue(minInstances, maxInstances);
+
+        for (int instance = 0; instance < instanceCount; ++instance) {
             bool placed = false;
-            int attempts = 0;
 
-            while (!placed && attempts < 100) {
-                int px = GetRandomValue(0, width - 1);
-                int py = GetRandomValue(0, height - 1);
-                int index = py * width + px;
+            for (int attempt = 0; attempt < 200 && !placed; ++attempt) {
+                const int px = GetRandomValue(WORLD_BORDER_SIZE, width - WORLD_BORDER_SIZE - 1);
+                const int py = GetRandomValue(WORLD_BORDER_SIZE, height - WORLD_BORDER_SIZE - 1);
 
-                int currentTile = map.GetTile(px, py);
-                if (currentTile == deepWaterId || currentTile == shallowWaterId) {
-                    attempts++;
+                const int index = py * width + px;
+
+                const float temperature = temperatureMap[static_cast<size_t>(index)];
+                const float humidity = humidityMap[static_cast<size_t>(index)];
+
+                if (temperature < patch.minTemp || temperature > patch.maxTemp || humidity < patch.minHum || humidity > patch.maxHum) {
                     continue;
                 }
 
-                float t = tempMap[index];
-                float h = humMap[index];
+                const int minRadius = std::max(1, patch.minRadius);
+                const int maxRadius = std::max(minRadius, patch.maxRadius);
+                const int radius = GetRandomValue(minRadius, maxRadius);
 
-                if (t >= patch.minTemp && t <= patch.maxTemp && h >= patch.minHum && h <= patch.maxHum) {
-                    int radius = GetRandomValue(patch.minRadius, patch.maxRadius);
-                    for (int cy = py - radius; cy <= py + radius; ++cy) {
-                        for (int cx = px - radius; cx <= px + radius; ++cx) {
-                            if (std::sqrt((cx - px) * (cx - px) + (cy - py) * (cy - py)) <= radius) {
-                                int tId = map.GetTile(cx, cy);
-                                if (tId != deepWaterId && tId != shallowWaterId) {
-                                    map.SetTile(cx, cy, patch.baseTileId);
-                                }
-                            }
-                        }
-                    }
-                    placed = true;
-                }
-                attempts++;
+                ApplyPatchBiome(map, biomeAt, patch, px, py, radius, voidTileId);
+
+                placed = true;
             }
         }
     }
 
     // ==========================================
-    // PASS 3 : VÉGÉTATION DATA-DRIVEN
+    // PASS 3: DATA-DRIVEN FLORA
     // ==========================================
-    PerlinNoise vegetationNoise(seed + 300);
+    SpawnFlora(map, em, envReg, biomeAt, seed);
+}
 
-    // On met en cache la correspondance (Tile ID -> BiomeDef) pour aller très vite
-    std::unordered_map<int, const BiomeDef*> tileToBiome;
-
-    // On lit tes biomes climatiques
-    for (const auto& biome : biomeReg.GetClimateBiomes()) {
-        tileToBiome[biome.baseTileId] = &biome;
-    }
-    // On lit tes biomes patch (Oasis, Volcans...)
-    for (const auto& biome : biomeReg.GetPatchBiomes()) {
-        tileToBiome[biome.baseTileId] = &biome;
-    }
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int tileId = map.GetTile(x, y);
-
-            // Si cette tuile appartient à un biome qu'on connaît
-            auto it = tileToBiome.find(tileId);
-            if (it != tileToBiome.end()) {
-                const BiomeDef* biome = it->second;
-
-                // S'il n'y a pas de flore dans ce biome, on passe
-                if (biome->flora.empty())
-                    continue;
-
-                float nx = (float)x / 15.0f;
-                float ny = (float)y / 15.0f;
-                float vegValue = (vegetationNoise.GetNoise(nx, ny) + 1.0f) / 2.0f; // [0.0 à 1.0]
-
-                Vector2 worldPos = {(float)x * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f),
-                                    (float)y * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f)};
-
-                // On vérifie la flore (dans l'ordre du .stv : le plus rare en premier)
-                for (const auto& fDef : biome->flora) {
-                    if (vegValue > fDef.noiseThreshold) {
-                        envReg.SpawnEnvironment(em, fDef.prefabId, worldPos);
-                        break; // On ne fait pousser qu'une seule chose par case !
-                    }
-                }
-            }
-        }
-    }
+void MapGenerator::GenerateIsland(WorldMap& map, EntityManager& em, const TileRegistry& tileReg, const BiomeRegistry& biomeReg,
+                                  const EnvironmentRegistry& envReg, unsigned int seed) {
+    GenerateWorld(map, em, tileReg, biomeReg, envReg, seed);
 }

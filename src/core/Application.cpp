@@ -219,10 +219,13 @@ void Application::Update(float deltaTime) {
     m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
 
     // Assigne les travailleurs aux workplaces détectés par le RoomSystem.
-    m_professionSystem.Update(m_entityManager, m_professionRegistry, m_behaviorRegistry);
+    m_professionSystem.Update(deltaTime, m_entityManager, m_professionRegistry, m_behaviorRegistry);
 
     // L'IA utilise ensuite les professions/comportements à jour.
-    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, m_roomSystem);
+    const Vector2 simulationCenter = m_camera.GetRaylibCamera().target;
+
+    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, simulationCenter,
+                      static_cast<float>(Config::SIMULATION_ACTIVE_RADIUS_TILES), m_roomSystem);
 }
 void Application::Render() {
     BeginDrawing();

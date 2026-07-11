@@ -25,4 +25,10 @@ constexpr float CAMERA_MAX_ZOOM = 10.0f;
 // --- Simulation Settings ---
 constexpr int SEED = 100;           // Default seed for procedural generation
 constexpr float TIME_SCALE = 20.0f; // 1 real second = 20 in-game minutes
+
+// --- Simulation Optimization ---
+constexpr int SIMULATION_ACTIVE_RADIUS_TILES = 80;
+constexpr float PROFESSION_UPDATE_INTERVAL = 1.0f;
+constexpr float HUNGER_DECAY_PER_SECOND = 0.05f;
+
 } // namespace Config

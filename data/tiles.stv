@@ -45,3 +45,9 @@ id = 7
 name = Mud
 walkable = true
 color = 80, 60, 40, 255
+
+[VOID]
+id = 8
+name = Void Border
+walkable = false
+color = 0, 0, 0, 255

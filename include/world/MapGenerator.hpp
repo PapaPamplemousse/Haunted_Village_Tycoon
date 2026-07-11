@@ -1,4 +1,5 @@
 #pragma once
+
 #include "world/WorldMap.hpp"
 
 /* Forward declaration */
@@ -14,9 +15,14 @@ class EntityManager;
 class MapGenerator {
 public:
     /**
-     * @brief Generates an island using Perlin noise and a radial gradient.
-     * @param map The WorldMap instance to populate.
-     * @param seed The random seed for generation.
+     * @brief Generates a finite rectangular world using data-driven climate and patch biomes.
+     */
+    static void GenerateWorld(WorldMap& map, EntityManager& em, const TileRegistry& tileReg, const BiomeRegistry& biomeReg,
+                              const EnvironmentRegistry& envReg, unsigned int seed);
+
+    /**
+     * @brief Legacy entry point kept for compatibility.
+     * Internally calls GenerateWorld().
      */
     static void GenerateIsland(WorldMap& map, EntityManager& em, const TileRegistry& tileReg, const BiomeRegistry& biomeReg,
                                const EnvironmentRegistry& envReg, unsigned int seed);
