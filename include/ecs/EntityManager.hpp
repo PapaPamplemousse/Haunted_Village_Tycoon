@@ -43,6 +43,15 @@ public:
     std::vector<bool> hasStorage;
     std::vector<StorageComponent> storages;
 
+    std::vector<bool> hasVillage;
+    std::vector<VillageComponent> villages;
+
+    std::vector<bool> hasVillageMember;
+    std::vector<VillageMemberComponent> villageMembers;
+
+    std::vector<bool> hasFamily;
+    std::vector<FamilyComponent> families;
+
     std::vector<bool> hasBlueprint;
     std::vector<BlueprintComponent> blueprints;
 

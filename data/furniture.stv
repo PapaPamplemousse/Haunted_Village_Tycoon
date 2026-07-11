@@ -43,3 +43,16 @@ blueprint_cost = WOOD:10
 texture = square
 color = 180, 100, 50, 255
 sprite_size = 32, 32
+
+
+[VILLAGE_CORE]
+name = Village Core
+max_hp = 200
+grid_size = 1, 1
+interaction_type = village_core, store
+storage_capacity = 500
+filter = WOOD, STONE, ROPE, BUSH_BERRY, RAW_MEAT, FLESH, WATER_BOTTLE
+blueprint_cost =
+texture = square
+color = 255, 220, 120, 255
+sprite_size = 40, 40

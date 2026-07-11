@@ -25,7 +25,8 @@ private:
 
     void HandleMovingState(EntityID entity, float deltaTime, EntityManager& em);
 
-    void HandleTaskCompletion(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg, RoomSystem& roomSys);
+    void HandleTaskCompletion(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid,
+                              RoomSystem& roomSys);
 
     // --- Helpers ---
     void InteractWithDoorIfPresent(EntityID entity, int targetX, int targetY, EntityManager& em);

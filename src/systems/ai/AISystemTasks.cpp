@@ -3,21 +3,22 @@
 
 #include <algorithm>
 
-void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const ResourceRegistry& resourceReg, RoomSystem& roomSys) {
+void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const ResourceRegistry& resourceReg,
+                                    const EntitySpatialGrid& spatialGrid, RoomSystem& roomSys) {
     auto& behavior = em.behaviors[i];
 
     if (behavior.currentTask == "building") {
         EntityID target = behavior.currentJobTarget;
 
         if (target < em.active.size() && em.active[target] && em.hasBlueprint[target]) {
-            if (em.hasInventory[i]) {
-                for (const auto& req : em.blueprints[target].requiredMaterials) {
-                    em.inventories[i].items[req.first] -= req.second;
+            if (AISystemUtils::ConsumeAccessibleMaterials(i, em, spatialGrid, em.blueprints[target].requiredMaterials)) {
+                em.blueprints[target].isFinished = true;
+                em.hasBlueprint[target] = false;
+
+                if (em.hasConstruction[target] || (em.hasTag[target] && !em.hasBehavior[target])) {
+                    roomSys.MarkDirty();
                 }
             }
-
-            em.blueprints[target].isFinished = true;
-            em.hasBlueprint[target] = false;
 
             if (em.hasConstruction[target] || (em.hasTag[target] && !em.hasBehavior[target])) {
                 roomSys.MarkDirty();

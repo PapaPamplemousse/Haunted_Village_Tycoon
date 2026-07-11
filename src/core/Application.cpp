@@ -69,25 +69,19 @@ Application::Application()
     const float midX = (Config::MAP_WIDTH / 2.0f) * Config::TILE_SIZE;
     const float midY = (Config::MAP_HEIGHT / 2.0f) * Config::TILE_SIZE;
 
-    EntityID vId = m_entityRegistry.SpawnEntity(m_entityManager, "VILLAGER", {midX - 50.0f, midY}, m_nameRegistry, m_behaviorRegistry);
+    const Vector2 preferredVillageCenter = {midX, midY};
 
-    // Debug starter inventory.
-    if (vId < m_entityManager.active.size() && m_entityManager.active[vId]) {
-        m_entityManager.tags[vId].age = 20;
-        m_entityManager.inventories[vId].items["WOOD"] = 100;
-        m_entityManager.inventories[vId].items["ROPE"] = 50;
-
-        const WeaponDef* axeDef = m_weaponRegistry.GetWeaponDef("IRON_AXE");
-
-        if (axeDef) {
-            m_entityManager.hasEquipment[vId] = true;
-            m_entityManager.equipments[vId] = {axeDef->toolType, axeDef->damage};
-        }
-    }
+    EntityID villageCore =
+        m_villageSystem.InitializeStartingVillage(m_entityManager, m_entityRegistry, m_furnitureRegistry, m_nameRegistry,
+                                                  m_behaviorRegistry, m_worldMap, m_tileRegistry, preferredVillageCenter);
 
     m_spatialGrid.Rebuild(m_entityManager);
 
-    m_camera.SetTarget({midX, midY});
+    if (villageCore < m_entityManager.active.size() && m_entityManager.active[villageCore] && m_entityManager.hasTransform[villageCore]) {
+        m_camera.SetTarget(m_entityManager.transforms[villageCore].position);
+    } else {
+        m_camera.SetTarget(preferredVillageCenter);
+    }
 
     Camera2D& rayCamera = const_cast<Camera2D&>(m_camera.GetRaylibCamera());
 
@@ -124,6 +118,11 @@ void Application::Update(float deltaTime) {
 
     m_timeSystem.Update(deltaTime, m_entityManager);
 
+    m_villageSystem.Update(deltaTime, m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, m_worldMap, m_tileRegistry,
+                           m_resourceRegistry, m_timeSystem);
+
+    m_eventSystem.Update(m_entityManager, m_timeSystem, m_resourceRegistry, m_settlementMetrics, m_chronicle);
+
     m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
 
     m_professionSystem.Update(deltaTime, m_entityManager, m_professionRegistry, m_behaviorRegistry);
@@ -154,6 +153,8 @@ void Application::Render() {
 
     m_renderSystem.Render(m_entityManager, m_spatialGrid, camera, showNames);
 
+    m_worldRenderSystem.ShowName(m_entityManager, camera, showNames);
+
     EndMode2D();
 
     m_lightingSystem.RenderOverlay(m_timeSystem.GetHour(), m_timeSystem.GetSeasonIndex());
@@ -163,6 +164,8 @@ void Application::Render() {
                         m_lightingSystem.GetDayPhaseName(m_timeSystem.GetHour(), m_timeSystem.GetSeasonIndex()),
                         static_cast<int>(m_timeSystem.GetHour())),
              10, 40, 20, GOLD);
+
+    m_chronicleRenderSystem.Render(m_chronicle, m_settlementMetrics);
 
     DrawFPS(GetScreenWidth() - 100, 10);
 

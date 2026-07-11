@@ -112,18 +112,7 @@ bool AISystem::TryFindBuildJob(EntityID i, EntityManager& em, const WorldMap& ma
             continue;
         }
 
-        bool canAfford = true;
-
-        if (em.hasInventory[i]) {
-            for (const auto& req : em.blueprints[j].requiredMaterials) {
-                if (em.inventories[i].items[req.first] < req.second) {
-                    canAfford = false;
-                    break;
-                }
-            }
-        }
-
-        if (!canAfford) {
+        if (!AISystemUtils::HasAccessibleMaterials(i, em, spatialGrid, em.blueprints[j].requiredMaterials)) {
             continue;
         }
 

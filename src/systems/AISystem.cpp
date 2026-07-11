@@ -32,7 +32,7 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
         } else if (behavior.isMoving) {
             HandleMovingState(i, deltaTime, em);
         } else {
-            HandleTaskCompletion(i, em, resourceReg, roomSys);
+            HandleTaskCompletion(i, em, resourceReg, spatialGrid, roomSys);
         }
     }
 }

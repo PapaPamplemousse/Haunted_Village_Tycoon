@@ -2,6 +2,39 @@
 
 #include "core/Config.hpp"
 
+#include <unordered_set>
+
+namespace {
+
+void ApplyBehaviorRules(EntityID entity, EntityManager& em, const BehaviorRegistry& behReg) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTag[entity] || !em.hasProfession[entity] || !em.hasBehavior[entity]) {
+        return;
+    }
+
+    const auto& tag = em.tags[entity];
+    const auto& prof = em.professions[entity];
+
+    auto newRules = behReg.GetBehaviorsFor(tag.category, tag.species, prof.currentProfession);
+
+    em.behaviors[entity].innateBehaviorRules = newRules;
+    em.behaviors[entity].innateCapabilities.clear();
+
+    for (const auto& rule : newRules) {
+        em.behaviors[entity].innateCapabilities.push_back(rule.name);
+    }
+}
+
+void ResetProfession(EntityID entity, EntityManager& em, const BehaviorRegistry& behReg) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasProfession[entity]) {
+        return;
+    }
+
+    em.professions[entity].currentProfession = "none";
+    ApplyBehaviorRules(entity, em, behReg);
+}
+
+} // namespace
+
 void ProfessionSystem::Update(float deltaTime, EntityManager& em, const ProfessionRegistry& profReg, const BehaviorRegistry& behReg) {
     m_updateAccumulator += deltaTime;
 
@@ -11,21 +44,98 @@ void ProfessionSystem::Update(float deltaTime, EntityManager& em, const Professi
 
     m_updateAccumulator = 0.0f;
 
-    for (size_t i = 0; i < em.active.size(); ++i) {
-        if (!em.active[i] || !em.hasWorkplace[i]) {
+    std::unordered_set<EntityID> assignedWorkers;
+
+    // =========================================================
+    // PASS 1: Validate existing workplace slots.
+    // =========================================================
+    for (size_t workplaceEntity = 0; workplaceEntity < em.active.size(); ++workplaceEntity) {
+        if (!em.active[workplaceEntity] || !em.hasWorkplace[workplaceEntity]) {
             continue;
         }
 
-        auto& workplace = em.workplaces[i];
+        auto& workplace = em.workplaces[workplaceEntity];
 
         for (auto& slot : workplace.slots) {
-            // Clean invalid/dead worker.
-            if (slot.workerId != static_cast<EntityID>(-1)) {
-                if (slot.workerId >= em.active.size() || !em.active[slot.workerId]) {
-                    slot.workerId = static_cast<EntityID>(-1);
-                }
+            if (slot.workerId == static_cast<EntityID>(-1)) {
+                continue;
             }
 
+            const EntityID worker = slot.workerId;
+
+            const bool invalidWorker = worker >= em.active.size() || !em.active[worker] || !em.hasProfession[worker] ||
+                                       !em.hasTag[worker] || !em.hasBehavior[worker];
+
+            if (invalidWorker) {
+                slot.workerId = static_cast<EntityID>(-1);
+                continue;
+            }
+
+            // A worker cannot occupy two slots.
+            if (assignedWorkers.count(worker) > 0) {
+                slot.workerId = static_cast<EntityID>(-1);
+                continue;
+            }
+
+            // Ensure profession matches the slot.
+            if (em.professions[worker].currentProfession != slot.profession) {
+                em.professions[worker].currentProfession = slot.profession;
+                ApplyBehaviorRules(worker, em, behReg);
+            }
+
+            assignedWorkers.insert(worker);
+        }
+    }
+
+    // =========================================================
+    // PASS 2: Release stale professions.
+    //
+    // If a PNJ has a profession but is not assigned to any active
+    // workplace slot, reset him to "none".
+    // This fixes duplicated professions after room recalculation.
+    // =========================================================
+    for (size_t entity = 0; entity < em.active.size(); ++entity) {
+        if (!em.active[entity] || !em.hasProfession[entity] || !em.hasTag[entity] || !em.hasBehavior[entity]) {
+            continue;
+        }
+
+        auto& prof = em.professions[entity];
+
+        if (prof.currentProfession == "none") {
+            continue;
+        }
+
+        if (assignedWorkers.count(entity) == 0) {
+            ResetProfession(entity, em, behReg);
+        }
+    }
+
+    // Rebuild assigned set after cleanup.
+    assignedWorkers.clear();
+
+    for (size_t workplaceEntity = 0; workplaceEntity < em.active.size(); ++workplaceEntity) {
+        if (!em.active[workplaceEntity] || !em.hasWorkplace[workplaceEntity]) {
+            continue;
+        }
+
+        for (const auto& slot : em.workplaces[workplaceEntity].slots) {
+            if (slot.workerId != static_cast<EntityID>(-1) && slot.workerId < em.active.size() && em.active[slot.workerId]) {
+                assignedWorkers.insert(slot.workerId);
+            }
+        }
+    }
+
+    // =========================================================
+    // PASS 3: Fill empty slots.
+    // =========================================================
+    for (size_t workplaceEntity = 0; workplaceEntity < em.active.size(); ++workplaceEntity) {
+        if (!em.active[workplaceEntity] || !em.hasWorkplace[workplaceEntity]) {
+            continue;
+        }
+
+        auto& workplace = em.workplaces[workplaceEntity];
+
+        for (auto& slot : workplace.slots) {
             if (slot.workerId != static_cast<EntityID>(-1)) {
                 continue;
             }
@@ -36,13 +146,17 @@ void ProfessionSystem::Update(float deltaTime, EntityManager& em, const Professi
                 continue;
             }
 
-            for (size_t pnj = 0; pnj < em.active.size(); ++pnj) {
-                if (!em.active[pnj] || !em.hasProfession[pnj] || !em.hasTag[pnj] || !em.hasBehavior[pnj]) {
+            for (size_t candidate = 0; candidate < em.active.size(); ++candidate) {
+                if (!em.active[candidate] || !em.hasProfession[candidate] || !em.hasTag[candidate] || !em.hasBehavior[candidate]) {
                     continue;
                 }
 
-                auto& tag = em.tags[pnj];
-                auto& prof = em.professions[pnj];
+                if (assignedWorkers.count(candidate) > 0) {
+                    continue;
+                }
+
+                auto& tag = em.tags[candidate];
+                auto& prof = em.professions[candidate];
 
                 if (prof.currentProfession != "none") {
                     continue;
@@ -56,17 +170,11 @@ void ProfessionSystem::Update(float deltaTime, EntityManager& em, const Professi
                     continue;
                 }
 
-                slot.workerId = pnj;
+                slot.workerId = candidate;
                 prof.currentProfession = slot.profession;
+                assignedWorkers.insert(candidate);
 
-                auto newRules = behReg.GetBehaviorsFor(tag.category, tag.species, slot.profession);
-
-                em.behaviors[pnj].innateBehaviorRules = newRules;
-                em.behaviors[pnj].innateCapabilities.clear();
-
-                for (const auto& rule : newRules) {
-                    em.behaviors[pnj].innateCapabilities.push_back(rule.name);
-                }
+                ApplyBehaviorRules(candidate, em, behReg);
 
                 break;
             }

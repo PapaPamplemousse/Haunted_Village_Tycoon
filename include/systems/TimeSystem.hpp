@@ -21,6 +21,7 @@ public:
     }
 
     int GetSeasonIndex() const;
+    int GetSeasonNumber() const;
     int GetDayInSeason() const;
     const char* GetSeasonName() const;
 

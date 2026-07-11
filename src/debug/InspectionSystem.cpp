@@ -182,15 +182,23 @@ void InspectionSystem::Render(const InputManager& inputManager, const EntityMana
             lines.push_back("Empty");
         }
     }
+    if (entityManager.hasVillage[i]) {
+        lines.push_back("--- Village ---");
+        lines.push_back("Name: " + entityManager.villages[i].name);
+        lines.push_back("Population limit: " + std::to_string(entityManager.villages[i].populationLimit));
+    }
 
+    if (entityManager.hasVillageMember[i]) {
+        lines.push_back("Village ID: " + std::to_string(entityManager.villageMembers[i].villageId));
+    }
     if (entityManager.hasBehavior[i]) {
         const auto& behavior = entityManager.behaviors[i];
 
         lines.push_back("--- AI ---");
         lines.push_back("Task: " + behavior.currentTask);
-        lines.push_back("Activity: " + behavior.activityPeriod);
-        lines.push_back(TextFormat("Work hours: %.0f - %.0f", behavior.workStartHour, behavior.workEndHour));
-        lines.push_back(TextFormat("Store threshold: %d", behavior.storeThreshold));
+        // lines.push_back("Activity: " + behavior.activityPeriod);
+        // lines.push_back(TextFormat("Work hours: %.0f - %.0f", behavior.workStartHour, behavior.workEndHour));
+        // lines.push_back(TextFormat("Store threshold: %d", behavior.storeThreshold));
     }
 
     if (lines.empty()) {

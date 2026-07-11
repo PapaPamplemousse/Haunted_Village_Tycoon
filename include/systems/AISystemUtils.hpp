@@ -2,6 +2,7 @@
 
 #include "data/ResourceRegistry.hpp"
 #include "ecs/EntityManager.hpp"
+#include "world/EntitySpatialGrid.hpp"
 
 #include <raylib.h>
 #include <string>
@@ -54,5 +55,21 @@ bool IsHourInRange(float hour, float startHour, float endHour);
 bool CanStartWorkNow(const BehaviorComponent& behavior, float currentHour);
 
 bool ShouldDepositInventory(EntityID entity, const EntityManager& em, const BehaviorComponent& behavior, float currentHour);
+
+int GetItemCount(const InventoryComponent& inventory, const std::string& itemId);
+
+int RemoveItemFromInventory(InventoryComponent& inventory, const std::string& itemId, int amount);
+
+std::vector<EntityID> GetAccessibleStorageEntities(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid);
+
+int CountAccessibleItem(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid, const std::string& itemId);
+
+bool HasAccessibleMaterials(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid,
+                            const std::unordered_map<std::string, int>& requiredMaterials);
+
+bool ConsumeAccessibleMaterials(EntityID entity, EntityManager& em, const EntitySpatialGrid& spatialGrid,
+                                const std::unordered_map<std::string, int>& requiredMaterials);
+
+std::vector<EntityID> GetAccessibleStorageEntities(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid);
 
 } // namespace AISystemUtils

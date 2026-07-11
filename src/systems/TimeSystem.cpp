@@ -6,6 +6,10 @@ int TimeSystem::GetSeasonIndex() const {
     return ((m_day - 1) / DAYS_PER_SEASON) % SEASON_COUNT;
 }
 
+int TimeSystem::GetSeasonNumber() const {
+    return ((m_day - 1) / DAYS_PER_SEASON) + 1;
+}
+
 int TimeSystem::GetDayInSeason() const {
     return ((m_day - 1) % DAYS_PER_SEASON) + 1;
 }

@@ -1,7 +1,9 @@
 #pragma once
 
+#include "core/Chronicle.hpp"
 #include "core/GameCamera.hpp"
 #include "core/InputManager.hpp"
+#include "core/SettlementMetrics.hpp"
 #include "data/BehaviorRegistry.hpp"
 #include "data/BiomeRegistry.hpp"
 #include "data/ConstructionRegistry.hpp"
@@ -18,11 +20,14 @@
 #include "ecs/EntityManager.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/BuildPlacementSystem.hpp"
+#include "systems/ChronicleRenderSystem.hpp"
+#include "systems/EventSystem.hpp"
 #include "systems/LightingSystem.hpp"
 #include "systems/ProfessionSystem.hpp"
 #include "systems/RenderSystem.hpp"
 #include "systems/RoomSystem.hpp"
 #include "systems/TimeSystem.hpp"
+#include "systems/VillageSystem.hpp"
 #include "systems/WorldRenderSystem.hpp"
 #include "ui/UIManager.hpp"
 #include "world/EntitySpatialGrid.hpp"
@@ -67,13 +72,18 @@ private:
     WorldMap m_worldMap;
     EntityManager m_entityManager;
     EntitySpatialGrid m_spatialGrid;
+    SettlementMetrics m_settlementMetrics;
+    Chronicle m_chronicle;
 
     // Systems
     BuildPlacementSystem m_buildPlacementSystem;
     WorldRenderSystem m_worldRenderSystem;
     RenderSystem m_renderSystem;
     LightingSystem m_lightingSystem;
+    EventSystem m_eventSystem;
+    ChronicleRenderSystem m_chronicleRenderSystem;
     TimeSystem m_timeSystem;
+    VillageSystem m_villageSystem;
     AISystem m_aiSystem;
     RoomSystem m_roomSystem;
     ProfessionSystem m_professionSystem;

@@ -16,4 +16,6 @@ public:
 
     void Render(const EntityManager& entityManager, const WorldMap& worldMap, const TileRegistry& tileRegistry, const Camera2D& camera,
                 int hoverX, int hoverY, bool showNames) const;
+
+    void ShowName(const EntityManager& entityManager, const Camera2D& camera, bool showNames) const;
 };

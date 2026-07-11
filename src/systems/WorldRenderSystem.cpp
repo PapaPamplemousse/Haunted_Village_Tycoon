@@ -58,13 +58,18 @@ void WorldRenderSystem::Render(const EntityManager& entityManager, const WorldMa
                           Config::TILE_SIZE, roomTint);
         }
     }
+}
 
+void WorldRenderSystem::ShowName(const EntityManager& entityManager, const Camera2D& camera, bool showNames) const {
     // ==========================================================
     // ROOM LABELS, TAB
     // ==========================================================
     if (!showNames) {
         return;
     }
+
+    Vector2 topLeft = GetScreenToWorld2D({0, 0}, camera);
+    Vector2 bottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
 
     for (size_t i = 0; i < entityManager.active.size(); ++i) {
         if (!entityManager.active[i] || !entityManager.hasRoom[i]) {
@@ -86,7 +91,6 @@ void WorldRenderSystem::Render(const EntityManager& entityManager, const WorldMa
         }
 
         const float centerX = (sumX / static_cast<float>(room.floorTiles.size())) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
-
         const float centerY = (sumY / static_cast<float>(room.floorTiles.size())) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
 
         if (centerX < topLeft.x || centerX > bottomRight.x || centerY < topLeft.y || centerY > bottomRight.y) {
@@ -119,11 +123,9 @@ void WorldRenderSystem::Render(const EntityManager& entityManager, const WorldMa
             for (const auto& pair : slots) {
                 const std::string jobStr =
                     pair.first + " : " + std::to_string(pair.second.first) + " / " + std::to_string(pair.second.second);
-
                 jobLines.push_back(jobStr);
 
                 const int jobWidth = MeasureText(jobStr.c_str(), jobFontSize);
-
                 if (jobWidth > maxWidth) {
                     maxWidth = jobWidth;
                 }
@@ -148,10 +150,8 @@ void WorldRenderSystem::Render(const EntityManager& entityManager, const WorldMa
 
         for (const std::string& jobStr : jobLines) {
             const int jobWidth = MeasureText(jobStr.c_str(), jobFontSize);
-
             DrawText(jobStr.c_str(), static_cast<int>(boxX + (maxWidth - jobWidth) / 2.0f), static_cast<int>(currentY), jobFontSize,
                      LIGHTGRAY);
-
             currentY += jobFontSize + lineSpacing;
         }
     }

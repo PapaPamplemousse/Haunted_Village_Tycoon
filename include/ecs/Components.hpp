@@ -74,6 +74,44 @@ struct StorageComponent {
 };
 
 /**
+ * @struct VillageComponent
+ * @brief Marks an entity as the center of a village/settlement.
+ */
+struct VillageComponent {
+    std::string name = "Unnamed Village";
+    Vector2 rallyPoint = {0.0f, 0.0f};
+
+    int populationLimit = 10;
+    int currentPopulation = 0;
+    int adultPopulation = 0;
+    int childPopulation = 0;
+};
+
+/**
+ * @struct VillageMemberComponent
+ * @brief Associates an entity with a village.
+ */
+struct VillageMemberComponent {
+    EntityID villageId = static_cast<EntityID>(-1);
+};
+
+/**
+ * @struct FamilyComponent
+ * @brief Stores lightweight family links.
+ *
+ * First version:
+ * - partnerId can be used later for stable couples.
+ * - parentA / parentB are mainly used for children.
+ * - children is useful for debug and future family logic.
+ */
+struct FamilyComponent {
+    EntityID partnerId = static_cast<EntityID>(-1);
+    EntityID parentA = static_cast<EntityID>(-1);
+    EntityID parentB = static_cast<EntityID>(-1);
+    std::vector<EntityID> children;
+};
+
+/**
  * @struct BlueprintComponent
  * @brief Represents an unfinished structure. Requires materials to become active.
  */

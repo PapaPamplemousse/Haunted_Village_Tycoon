@@ -16,6 +16,15 @@ EntityManager::EntityManager() {
     hasStorage.reserve(INITIAL_CAPACITY);
     storages.reserve(INITIAL_CAPACITY);
 
+    hasVillage.reserve(INITIAL_CAPACITY);
+    villages.reserve(INITIAL_CAPACITY);
+
+    hasVillageMember.reserve(INITIAL_CAPACITY);
+    villageMembers.reserve(INITIAL_CAPACITY);
+
+    hasFamily.reserve(INITIAL_CAPACITY);
+    families.reserve(INITIAL_CAPACITY);
+
     hasBlueprint.reserve(INITIAL_CAPACITY);
     blueprints.reserve(INITIAL_CAPACITY);
 
@@ -90,6 +99,12 @@ EntityID EntityManager::CreateEntity() {
         inventories.push_back({});
         hasStorage.push_back(false);
         storages.push_back({});
+        hasVillage.push_back(false);
+        villages.push_back({});
+        hasVillageMember.push_back(false);
+        villageMembers.push_back({});
+        hasFamily.push_back(false);
+        families.push_back({});
         hasBlueprint.push_back(false);
         blueprints.push_back({});
         hasHealth.push_back(false);
@@ -132,6 +147,9 @@ EntityID EntityManager::CreateEntity() {
     hasTransform[id] = false;
     hasInventory[id] = false;
     hasStorage[id] = false;
+    hasVillage[id] = false;
+    hasVillageMember[id] = false;
+    hasFamily[id] = false;
     hasBlueprint[id] = false;
     hasHealth[id] = false;
     hasNeeds[id] = false;

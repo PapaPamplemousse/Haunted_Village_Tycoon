@@ -288,4 +288,156 @@ bool ShouldDepositInventory(EntityID entity, const EntityManager& em, const Beha
     return false;
 }
 
+int GetItemCount(const InventoryComponent& inventory, const std::string& itemId) {
+    auto it = inventory.items.find(itemId);
+
+    if (it == inventory.items.end()) {
+        return 0;
+    }
+
+    return std::max(0, it->second);
+}
+
+int RemoveItemFromInventory(InventoryComponent& inventory, const std::string& itemId, int amount) {
+    if (amount <= 0) {
+        return 0;
+    }
+
+    auto it = inventory.items.find(itemId);
+
+    if (it == inventory.items.end() || it->second <= 0) {
+        return 0;
+    }
+
+    const int removed = std::min(it->second, amount);
+    it->second -= removed;
+
+    if (it->second <= 0) {
+        inventory.items.erase(it);
+    }
+
+    return removed;
+}
+
+std::vector<EntityID> GetAccessibleStorageEntities(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid) {
+    std::vector<EntityID> storages;
+
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTransform[entity]) {
+        return storages;
+    }
+
+    // 1. Village core first.
+    if (em.hasVillageMember[entity]) {
+        const EntityID villageId = em.villageMembers[entity].villageId;
+
+        if (villageId < em.active.size() && em.active[villageId] && em.hasInventory[villageId] && em.hasStorage[villageId]) {
+            storages.push_back(villageId);
+        }
+    }
+
+    // 2. Nearby storages.
+    const float searchRadius = GetActionRadiusWorld(entity, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    for (EntityID candidate : candidates) {
+        if (candidate >= em.active.size() || !em.active[candidate] || candidate == entity || !em.hasInventory[candidate] ||
+            !em.hasStorage[candidate]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[candidate] && !em.blueprints[candidate].isFinished) {
+            continue;
+        }
+
+        if (em.hasBehavior[candidate]) {
+            continue;
+        }
+
+        if (std::find(storages.begin(), storages.end(), candidate) == storages.end()) {
+            storages.push_back(candidate);
+        }
+    }
+
+    return storages;
+}
+
+int CountAccessibleItem(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid, const std::string& itemId) {
+    int total = 0;
+
+    if (entity < em.active.size() && em.active[entity] && em.hasInventory[entity]) {
+        total += GetItemCount(em.inventories[entity], itemId);
+    }
+
+    const std::vector<EntityID> storages = GetAccessibleStorageEntities(entity, em, spatialGrid);
+
+    for (EntityID storage : storages) {
+        if (storage < em.active.size() && em.active[storage] && em.hasInventory[storage]) {
+            total += GetItemCount(em.inventories[storage], itemId);
+        }
+    }
+
+    return total;
+}
+
+bool HasAccessibleMaterials(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid,
+                            const std::unordered_map<std::string, int>& requiredMaterials) {
+    for (const auto& req : requiredMaterials) {
+        const std::string& itemId = req.first;
+        const int requiredAmount = req.second;
+
+        if (requiredAmount <= 0) {
+            continue;
+        }
+
+        if (CountAccessibleItem(entity, em, spatialGrid, itemId) < requiredAmount) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ConsumeAccessibleMaterials(EntityID entity, EntityManager& em, const EntitySpatialGrid& spatialGrid,
+                                const std::unordered_map<std::string, int>& requiredMaterials) {
+    if (!HasAccessibleMaterials(entity, em, spatialGrid, requiredMaterials)) {
+        return false;
+    }
+
+    for (const auto& req : requiredMaterials) {
+        const std::string& itemId = req.first;
+        int remaining = req.second;
+
+        if (remaining <= 0) {
+            continue;
+        }
+
+        // 1. Consume from carried inventory first.
+        if (entity < em.active.size() && em.active[entity] && em.hasInventory[entity]) {
+            remaining -= RemoveItemFromInventory(em.inventories[entity], itemId, remaining);
+        }
+
+        if (remaining <= 0) {
+            continue;
+        }
+
+        // 2. Consume from accessible storages.
+        const std::vector<EntityID> storages = GetAccessibleStorageEntities(entity, em, spatialGrid);
+
+        for (EntityID storage : storages) {
+            if (remaining <= 0) {
+                break;
+            }
+
+            if (storage >= em.active.size() || !em.active[storage] || !em.hasInventory[storage]) {
+                continue;
+            }
+
+            remaining -= RemoveItemFromInventory(em.inventories[storage], itemId, remaining);
+        }
+    }
+
+    return true;
+}
+
 } // namespace AISystemUtils
