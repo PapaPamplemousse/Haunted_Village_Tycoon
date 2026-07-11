@@ -175,7 +175,7 @@ void Application::Render() {
 
     m_uiManager.Render();
 
-    m_inspectionSystem.Render(m_inputManager, m_entityManager, m_spatialGrid);
+    m_inspectionSystem.Render(m_inputManager, m_entityManager, m_spatialGrid, m_resourceRegistry);
 
     EndDrawing();
 }
