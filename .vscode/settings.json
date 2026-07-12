@@ -3,7 +3,7 @@
         "app.h": "c",
         "camera.h": "c",
         "map.h": "c"
-    }
+    },
     /* === Formatting === */
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "xaver.clang-format",
@@ -11,7 +11,7 @@
         "editor.defaultFormatter": "xaver.clang-format"
     },
     "[cpp]": {
-        "editor.defaultFormatter": "xaver.clang-format"
+        "editor.defaultFormatter": "ms-vscode.cpptools"
     },
     "clang-format.style": "file",
     "clang-format.fallbackStyle": "LLVM",

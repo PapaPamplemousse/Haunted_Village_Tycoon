@@ -1,0 +1,15 @@
+[TREE_OAK]
+name = Oak Tree
+max_hp = 80
+grid_size = 1, 1
+is_obstacle = true
+harvest_tool = axe
+drops = WOOD:3:1.0
+
+[BUSH_BERRY]
+name = Berry Bush
+max_hp = 80
+grid_size = 1, 1
+is_obstacle = false
+harvest_tool = none
+drops = BUSH_BERRY:2:0.5

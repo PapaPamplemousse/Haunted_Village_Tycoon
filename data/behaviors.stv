@@ -1,0 +1,51 @@
+[WANDER_BASIC]
+rule = wander
+categories = humanoid
+
+[FLEE_HUMAN]
+rule = flee
+species = human
+
+[SEEK_FOOD_HUMANOID]
+rule = seek_food
+categories = humanoid
+
+[HUNT_CANNIBAL]
+rule = hunt(human)
+species = cannibal
+
+[HARVEST_BUSH_GATHERER]
+rule = harvest(BUSH_BERRY)
+professions = gatherer
+
+[STORE_GATHERER]
+rule = store
+professions = gatherer
+
+[HARVEST_OAK_LUMBERJACK]
+rule = harvest(TREE_OAK)
+professions = lumberjack
+
+[STORE_LUMBERJACK]
+rule = store
+professions = lumberjack
+
+[FIND_WEAPON_LUMBERJACK]
+rule = find(axe)
+professions = lumberjack
+
+[BUILD_HUMAN]
+rule = build
+species = human
+
+[DISMANTLE_HUMAN]
+rule = dismantle
+species = human
+
+[REST_HUMAN]
+rule = rest
+species = human
+
+[REST_CANNIBAL]
+rule = rest
+species = cannibal

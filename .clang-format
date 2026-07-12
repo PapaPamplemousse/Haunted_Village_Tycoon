@@ -1,25 +1,175 @@
-# .clang-format
+# ==============================================================================
+# clang-format configuration
+#
+# Purpose:
+#   Modern C++ style for long-term maintainability, code reviews and
+#   safety-critical software development.
+#
+# Design goals:
+#   - Consistent formatting
+#   - Readable diffs
+#   - Review-friendly code
+#   - Modern C++ conventions
+#   - Suitable for embedded and aerospace software projects
+# ==============================================================================
+
+# Start from LLVM style and override only what is required.
 BasedOnStyle: LLVM
+
+# ------------------------------------------------------------------------------
+# Language configuration
+# ------------------------------------------------------------------------------
+
+Language: Cpp
+Standard: Latest
+
+# ------------------------------------------------------------------------------
+# Indentation
+# ------------------------------------------------------------------------------
+
+# Number of spaces used for each indentation level.
 IndentWidth: 4
+
+# Indentation for continued lines.
+ContinuationIndentWidth: 4
+
+# Width of a tab character.
 TabWidth: 4
+
+# Always use spaces for deterministic formatting.
 UseTab: Never
-BreakBeforeBraces: Allman
-AllowShortIfStatementsOnASingleLine: false
+
+# ------------------------------------------------------------------------------
+# Line length
+# ------------------------------------------------------------------------------
+
+# Large enough to avoid excessive wrapping while remaining review-friendly.
+ColumnLimit: 140
+
+# ------------------------------------------------------------------------------
+# Braces
+# ------------------------------------------------------------------------------
+
+# Modern C++ style:
+#
+# class MyClass {
+# public:
+#     ...
+# };
+#
+BreakBeforeBraces: Attach
+
+# ------------------------------------------------------------------------------
+# Short statements
+# ------------------------------------------------------------------------------
+
+# Prevent compact one-line control statements.
+AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: None
-SpaceBeforeParens: ControlStatements
+
+# Only allow completely empty functions on one line.
+AllowShortFunctionsOnASingleLine: Empty
+
+# ------------------------------------------------------------------------------
+# Pointers and references
+# ------------------------------------------------------------------------------
+
+# Preferred modern C++ style:
+#
+# MyType* ptr;
+# MyType& ref;
+#
 PointerAlignment: Left
-AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
-ColumnLimit: 220
-SortIncludes: false
-IncludeBlocks: Preserve
-KeepEmptyLinesAtTheStartOfBlocks: false
-IndentCaseLabels: true
+ReferenceAlignment: Left
+
+# ------------------------------------------------------------------------------
+# Parentheses and spacing
+# ------------------------------------------------------------------------------
+
+# if (...) / while (...) / for (...)
+SpaceBeforeParens: ControlStatements
+
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
 SpacesInAngles: false
 SpaceInEmptyParentheses: false
+
 SpaceBeforeAssignmentOperators: true
-ContinuationIndentWidth: 4
+
+# ------------------------------------------------------------------------------
+# Alignment
+# ------------------------------------------------------------------------------
+
+# Keep function calls readable.
+AlignAfterOpenBracket: Align
+
+# Avoid formatting churn when declarations change.
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# ------------------------------------------------------------------------------
+# Includes
+# ------------------------------------------------------------------------------
+
+# Automatically sort includes.
+SortIncludes: true
+
+# Group includes while preserving logical blocks.
+IncludeBlocks: Regroup
+
+# ------------------------------------------------------------------------------
+# Switch statements
+# ------------------------------------------------------------------------------
+
+IndentCaseLabels: true
+
+# ------------------------------------------------------------------------------
+# Namespaces
+# ------------------------------------------------------------------------------
+
+# Keep namespace indentation flat:
+#
+# namespace foo {
+# class Bar {
+# };
+# }
+#
+NamespaceIndentation: None
+
+# Automatically add namespace closing comments.
+FixNamespaceComments: true
+
+# ------------------------------------------------------------------------------
+# Classes
+# ------------------------------------------------------------------------------
+
+# Align public/private/protected with class declaration.
+AccessModifierOffset: -4
+
+# Add visual separation around access sections.
+EmptyLineBeforeAccessModifier: LogicalBlock
+
+# ------------------------------------------------------------------------------
+# Constructors
+# ------------------------------------------------------------------------------
+
+# Formatting of initializer lists.
+ConstructorInitializerIndentWidth: 4
+BreakConstructorInitializers: BeforeComma
+
+# ------------------------------------------------------------------------------
+# Empty lines
+# ------------------------------------------------------------------------------
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+
+# ------------------------------------------------------------------------------
+# Modern C++ features
+# ------------------------------------------------------------------------------
+
+# Preferred style for uniform initialization.
+Cpp11BracedListStyle: true
+
+# Reflow comments when possible.
+ReflowComments: true

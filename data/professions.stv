@@ -1,0 +1,15 @@
+[lumberjack]
+name = Lumberjack
+min_age = 16
+req_species = human
+
+[guard]
+name = Town Guard
+min_age = 18
+req_species = human
+
+
+[gatherer]
+name = Gatherer
+min_age = 14
+req_species = human

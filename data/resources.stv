@@ -1,0 +1,48 @@
+[WOOD]
+name = Wood
+max_stack = 200
+is_consumable = false
+
+[STONE]
+name = Stone
+max_stack = 200
+is_consumable = false
+
+[ROPE]
+name = Rope
+max_stack = 200
+is_consumable = false
+
+[RAW_MEAT]
+name = Raw Meat
+max_stack = 20
+is_consumable = true
+nutrition = 35.0
+spoilage_days = 3
+
+[FLESH]
+name = Flesh
+max_stack = 20
+is_consumable = true
+nutrition = 25.0
+spoilage_days = 4
+
+[WATER_BOTTLE]
+name = Water Bottle
+max_stack = 20
+is_consumable = true
+hydration = 60.0
+
+[BUSH_BERRY]
+name = Bush Berry
+max_stack = 20
+is_consumable = true
+nutrition = 15.0
+spoilage_days = 5
+
+[HEALING_POTION]
+name = Healing Potion
+requirements = BUSH_BERRY:1, WATER_BOTTLE:1
+max_stack = 5
+is_consumable = true
+healing = 50.0
