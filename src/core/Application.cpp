@@ -190,7 +190,7 @@ void Application::Render() {
         m_inspectionSystem.Render(m_inputManager, m_entityManager, m_spatialGrid, m_resourceRegistry);
     }
 
-    m_villageMenu.Render(m_entityManager, m_resourceRegistry, m_timeSystem);
+    m_villageMenu.Render(m_entityManager, m_resourceRegistry, m_timeSystem, m_professionRegistry);
 
     EndDrawing();
 }

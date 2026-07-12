@@ -34,7 +34,8 @@ public:
     VillageMenu() = default;
 
     void Update(EntityManager& em, GameCamera& camera, const ProfessionRegistry& professionReg, const BehaviorRegistry& behaviorReg);
-    void Render(const EntityManager& em, const ResourceRegistry& resourceReg, const TimeSystem& timeSystem) const;
+    void Render(const EntityManager& em, const ResourceRegistry& resourceReg, const TimeSystem& timeSystem,
+                const ProfessionRegistry& professionReg) const;
 
     bool IsOpen() const {
         return m_isOpen;
@@ -46,6 +47,7 @@ private:
 
     int m_selectedVillagerIndex = 0;
     int m_selectedProfessionSlotIndex = 0;
+    int m_selectedProfessionCandidateIndex = 0;
 
     EntityID FindPrimaryVillage(const EntityManager& em) const;
     int GetTabIndex() const;
@@ -55,7 +57,7 @@ private:
     void RenderOverview(const EntityManager& em, const ResourceRegistry& resourceReg, const TimeSystem& timeSystem, EntityID villageId,
                         float x, float y) const;
     void RenderVillagers(const EntityManager& em, EntityID villageId, float x, float y) const;
-    void RenderProfessions(const EntityManager& em, float x, float y) const;
+    void RenderProfessions(const EntityManager& em, const ProfessionRegistry& professionReg, float x, float y) const;
     void RenderStorage(const EntityManager& em, const ResourceRegistry& resourceReg, EntityID villageId, float x, float y) const;
 
     EntityID GetSelectedVillager(const EntityManager& em, EntityID villageId) const;

@@ -305,16 +305,6 @@ bool IsEligibleForProfession(const EntityManager& em, EntityID candidate, const 
         return false;
     }
 
-    if (IsWorkerAssignedToAnySlot(em, candidate)) {
-        return false;
-    }
-
-    const ProfessionComponent& currentProfession = em.professions[candidate];
-
-    if (currentProfession.currentProfession != "none") {
-        return false;
-    }
-
     const ProfessionDef* professionDef = professionReg.GetProfession(profession);
 
     if (professionDef == nullptr) {
@@ -330,6 +320,87 @@ bool IsEligibleForProfession(const EntityManager& em, EntityID candidate, const 
     if (tag.species != professionDef->reqSpecies) {
         return false;
     }
+
+    return true;
+}
+
+std::vector<EntityID> GetEligibleWorkersForProfession(const EntityManager& em, const std::string& profession,
+                                                      const ProfessionRegistry& professionReg, EntityID villageId) {
+    std::vector<EntityID> result;
+
+    for (EntityID candidate = 0; candidate < em.active.size(); ++candidate) {
+        if (IsEligibleForProfession(em, candidate, profession, professionReg, villageId)) {
+            result.push_back(candidate);
+        }
+    }
+
+    std::sort(result.begin(), result.end(),
+              [&em](EntityID lhs, EntityID rhs) { return GetDisplayName(em, lhs) < GetDisplayName(em, rhs); });
+
+    return result;
+}
+
+bool ReleaseWorkerFromAnySlot(EntityManager& em, EntityID workerId, const BehaviorRegistry& behaviorReg) {
+    bool released = false;
+
+    for (EntityID workplaceId = 0; workplaceId < em.active.size(); ++workplaceId) {
+        if (!em.active[workplaceId] || !em.hasWorkplace[workplaceId]) {
+            continue;
+        }
+
+        WorkplaceComponent& workplace = em.workplaces[workplaceId];
+
+        for (JobSlot& slot : workplace.slots) {
+            if (slot.workerId == workerId) {
+                slot.workerId = static_cast<EntityID>(-1);
+                released = true;
+            }
+        }
+    }
+
+    if (workerId < em.active.size() && em.active[workerId] && em.hasProfession[workerId]) {
+        em.professions[workerId].currentProfession = "none";
+        ApplyProfessionBehaviorRules(em, workerId, behaviorReg);
+    }
+
+    return released;
+}
+
+bool AssignSpecificWorkerToProfessionSlot(EntityManager& em, const ProfessionSlotView& slotView, EntityID workerId,
+                                          const BehaviorRegistry& behaviorReg) {
+    if (slotView.workplaceId >= em.active.size() || !em.active[slotView.workplaceId] || !em.hasWorkplace[slotView.workplaceId]) {
+        return false;
+    }
+
+    if (workerId >= em.active.size() || !em.active[workerId] || !em.hasProfession[workerId] || !em.hasBehavior[workerId]) {
+        return false;
+    }
+
+    WorkplaceComponent& workplace = em.workplaces[slotView.workplaceId];
+
+    if (slotView.slotIndex < 0 || slotView.slotIndex >= static_cast<int>(workplace.slots.size())) {
+        return false;
+    }
+
+    JobSlot& slot = workplace.slots[slotView.slotIndex];
+
+    // If another worker was in this slot, release him first.
+    if (slot.workerId != static_cast<EntityID>(-1) && slot.workerId != workerId) {
+        const EntityID previousWorker = slot.workerId;
+
+        if (previousWorker < em.active.size() && em.active[previousWorker] && em.hasProfession[previousWorker]) {
+            em.professions[previousWorker].currentProfession = "none";
+            ApplyProfessionBehaviorRules(em, previousWorker, behaviorReg);
+        }
+    }
+
+    // If the selected worker already had another slot, release it.
+    ReleaseWorkerFromAnySlot(em, workerId, behaviorReg);
+
+    slot.workerId = workerId;
+    em.professions[workerId].currentProfession = slot.profession;
+
+    ApplyProfessionBehaviorRules(em, workerId, behaviorReg);
 
     return true;
 }
@@ -387,13 +458,13 @@ bool ReleaseProfessionSlot(EntityManager& em, const ProfessionSlotView& slotView
     }
 
     JobSlot& slot = workplace.slots[slotView.slotIndex];
-    const EntityID workerId = slot.workerId;
+    const EntityID previousWorker = slot.workerId;
 
     slot.workerId = static_cast<EntityID>(-1);
 
-    if (workerId < em.active.size() && em.active[workerId] && em.hasProfession[workerId]) {
-        em.professions[workerId].currentProfession = "none";
-        ApplyProfessionBehaviorRules(em, workerId, behaviorReg);
+    if (previousWorker < em.active.size() && em.active[previousWorker] && em.hasProfession[previousWorker]) {
+        em.professions[previousWorker].currentProfession = "none";
+        ApplyProfessionBehaviorRules(em, previousWorker, behaviorReg);
     }
 
     return true;
@@ -430,39 +501,57 @@ void VillageMenu::Update(EntityManager& em, GameCamera& camera, const Profession
         return;
     }
 
+    // =========================================================
+    // Villagers tab
+    // =========================================================
     if (m_currentTab == VillageMenuTab::Villagers) {
         const std::vector<EntityID> members = GetVillageMembers(em, villageId);
 
-        if (!members.empty()) {
-            if (IsKeyPressed(KEY_DOWN)) {
-                m_selectedVillagerIndex = (m_selectedVillagerIndex + 1) % static_cast<int>(members.size());
-            }
-
-            if (IsKeyPressed(KEY_UP)) {
-                m_selectedVillagerIndex =
-                    (m_selectedVillagerIndex - 1 + static_cast<int>(members.size())) % static_cast<int>(members.size());
-            }
-
-            if (IsKeyPressed(KEY_ENTER)) {
-                const EntityID selected = GetSelectedVillager(em, villageId);
-
-                if (selected != static_cast<EntityID>(-1) && selected < em.active.size() && em.active[selected] &&
-                    em.hasTransform[selected]) {
-                    camera.SetTarget(em.transforms[selected].position);
-                }
-            }
-        } else {
+        if (members.empty()) {
             m_selectedVillagerIndex = 0;
+            return;
+        }
+
+        if (m_selectedVillagerIndex >= static_cast<int>(members.size())) {
+            m_selectedVillagerIndex = static_cast<int>(members.size()) - 1;
+        }
+
+        if (m_selectedVillagerIndex < 0) {
+            m_selectedVillagerIndex = 0;
+        }
+
+        if (IsKeyPressed(KEY_DOWN)) {
+            m_selectedVillagerIndex = (m_selectedVillagerIndex + 1) % static_cast<int>(members.size());
+        }
+
+        if (IsKeyPressed(KEY_UP)) {
+            m_selectedVillagerIndex = (m_selectedVillagerIndex - 1 + static_cast<int>(members.size())) % static_cast<int>(members.size());
+        }
+
+        const EntityID selected = members[m_selectedVillagerIndex];
+
+        if (IsKeyPressed(KEY_ENTER)) {
+            if (selected < em.active.size() && em.active[selected] && em.hasTransform[selected]) {
+                camera.SetTarget(em.transforms[selected].position);
+            }
+        }
+
+        if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressed(KEY_R)) {
+            ReleaseWorkerFromAnySlot(em, selected, behaviorReg);
         }
 
         return;
     }
 
+    // =========================================================
+    // Professions tab
+    // =========================================================
     if (m_currentTab == VillageMenuTab::Professions) {
         const std::vector<ProfessionSlotView> slots = GetProfessionSlots(em);
 
         if (slots.empty()) {
             m_selectedProfessionSlotIndex = 0;
+            m_selectedProfessionCandidateIndex = 0;
             return;
         }
 
@@ -476,14 +565,41 @@ void VillageMenu::Update(EntityManager& em, GameCamera& camera, const Profession
 
         if (IsKeyPressed(KEY_DOWN)) {
             m_selectedProfessionSlotIndex = (m_selectedProfessionSlotIndex + 1) % static_cast<int>(slots.size());
+
+            m_selectedProfessionCandidateIndex = 0;
         }
 
         if (IsKeyPressed(KEY_UP)) {
             m_selectedProfessionSlotIndex =
                 (m_selectedProfessionSlotIndex - 1 + static_cast<int>(slots.size())) % static_cast<int>(slots.size());
+
+            m_selectedProfessionCandidateIndex = 0;
         }
 
         const ProfessionSlotView& selectedSlot = slots[m_selectedProfessionSlotIndex];
+
+        const std::vector<EntityID> candidates = GetEligibleWorkersForProfession(em, selectedSlot.profession, professionReg, villageId);
+
+        if (!candidates.empty()) {
+            if (m_selectedProfessionCandidateIndex >= static_cast<int>(candidates.size())) {
+                m_selectedProfessionCandidateIndex = static_cast<int>(candidates.size()) - 1;
+            }
+
+            if (m_selectedProfessionCandidateIndex < 0) {
+                m_selectedProfessionCandidateIndex = 0;
+            }
+
+            if (IsKeyPressed(KEY_S)) {
+                m_selectedProfessionCandidateIndex = (m_selectedProfessionCandidateIndex + 1) % static_cast<int>(candidates.size());
+            }
+
+            if (IsKeyPressed(KEY_W)) {
+                m_selectedProfessionCandidateIndex =
+                    (m_selectedProfessionCandidateIndex - 1 + static_cast<int>(candidates.size())) % static_cast<int>(candidates.size());
+            }
+        } else {
+            m_selectedProfessionCandidateIndex = 0;
+        }
 
         if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressed(KEY_R)) {
             ReleaseProfessionSlot(em, selectedSlot, behaviorReg);
@@ -491,28 +607,38 @@ void VillageMenu::Update(EntityManager& em, GameCamera& camera, const Profession
         }
 
         if (IsKeyPressed(KEY_ENTER)) {
-            if (selectedSlot.workerId != static_cast<EntityID>(-1)) {
-                const EntityID worker = selectedSlot.workerId;
-
-                if (worker < em.active.size() && em.active[worker] && em.hasTransform[worker]) {
-                    camera.SetTarget(em.transforms[worker].position);
-                }
-
+            if (candidates.empty()) {
                 return;
             }
 
-            const EntityID worker = FindFirstEligibleWorker(em, selectedSlot.profession, professionReg, villageId);
+            const EntityID selectedWorker = candidates[m_selectedProfessionCandidateIndex];
 
-            if (worker == static_cast<EntityID>(-1)) {
-                return;
-            }
+            AssignSpecificWorkerToProfessionSlot(em, selectedSlot, selectedWorker, behaviorReg);
 
-            AssignWorkerToProfessionSlot(em, selectedSlot, worker, behaviorReg);
+            return;
         }
+
+        if (IsKeyPressed(KEY_F)) {
+            EntityID focusTarget = static_cast<EntityID>(-1);
+
+            if (selectedSlot.workerId != static_cast<EntityID>(-1)) {
+                focusTarget = selectedSlot.workerId;
+            } else if (!candidates.empty()) {
+                focusTarget = candidates[m_selectedProfessionCandidateIndex];
+            }
+
+            if (focusTarget != static_cast<EntityID>(-1) && focusTarget < em.active.size() && em.active[focusTarget] &&
+                em.hasTransform[focusTarget]) {
+                camera.SetTarget(em.transforms[focusTarget].position);
+            }
+        }
+
+        return;
     }
 }
 
-void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resourceReg, const TimeSystem& timeSystem) const {
+void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resourceReg, const TimeSystem& timeSystem,
+                         const ProfessionRegistry& professionReg) const {
     if (!m_isOpen) {
         return;
     }
@@ -549,7 +675,7 @@ void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resour
             RenderVillagers(em, villageId, contentX, contentY);
             break;
         case VillageMenuTab::Professions:
-            RenderProfessions(em, contentX, contentY);
+            RenderProfessions(em, professionReg, contentX, contentY);
             break;
         case VillageMenuTab::Storage:
             RenderStorage(em, resourceReg, villageId, contentX, contentY);
@@ -714,15 +840,15 @@ void VillageMenu::RenderVillagers(const EntityManager& em, EntityID villageId, f
     }
 }
 
-void VillageMenu::RenderProfessions(const EntityManager& em, float x, float y) const {
+void VillageMenu::RenderProfessions(const EntityManager& em, const ProfessionRegistry& professionReg, float x, float y) const {
     DrawText("Professions", static_cast<int>(x), static_cast<int>(y), 24, SKYBLUE);
 
     const std::vector<ProfessionSlotView> slots = GetProfessionSlots(em);
 
     float currentY = y + 42.0f;
 
-    DrawText("Up/Down: select slot | Enter: assign/focus | Backspace/R: release", static_cast<int>(x), static_cast<int>(currentY), 16,
-             LIGHTGRAY);
+    DrawText("Up/Down: slot | W/S: candidate | Enter: assign | R/Backspace: unassign | F: focus", static_cast<int>(x),
+             static_cast<int>(currentY), 16, LIGHTGRAY);
 
     currentY += 34.0f;
 
@@ -731,31 +857,43 @@ void VillageMenu::RenderProfessions(const EntityManager& em, float x, float y) c
         return;
     }
 
-    DrawText("Profession", static_cast<int>(x), static_cast<int>(currentY), 16, GRAY);
-    DrawText("Worker", static_cast<int>(x + 220.0f), static_cast<int>(currentY), 16, GRAY);
-    DrawText("Workplace", static_cast<int>(x + 460.0f), static_cast<int>(currentY), 16, GRAY);
-    DrawText("Status", static_cast<int>(x + 620.0f), static_cast<int>(currentY), 16, GRAY);
+    const int selectedSlotIndex = std::max(0, std::min(m_selectedProfessionSlotIndex, static_cast<int>(slots.size()) - 1));
 
-    currentY += 26.0f;
+    const ProfessionSlotView& selectedSlot = slots[selectedSlotIndex];
 
-    const int visibleMax = 14;
-    int selected = std::max(0, std::min(m_selectedProfessionSlotIndex, static_cast<int>(slots.size()) - 1));
+    const EntityID villageId = FindPrimaryVillage(em);
 
-    const int start = std::max(0, selected - visibleMax + 1);
-    const int end = std::min(static_cast<int>(slots.size()), start + visibleMax);
+    const std::vector<EntityID> candidates = villageId == static_cast<EntityID>(-1)
+                                                 ? std::vector<EntityID>{}
+                                                 : GetEligibleWorkersForProfession(em, selectedSlot.profession, professionReg, villageId);
 
-    for (int row = start; row < end; ++row) {
+    const int selectedCandidateIndex =
+        candidates.empty() ? 0 : std::max(0, std::min(m_selectedProfessionCandidateIndex, static_cast<int>(candidates.size()) - 1));
+
+    const float leftX = x;
+    const float rightX = x + 470.0f;
+
+    DrawText("Slots", static_cast<int>(leftX), static_cast<int>(currentY), 20, YELLOW);
+    DrawText("Candidates", static_cast<int>(rightX), static_cast<int>(currentY), 20, YELLOW);
+
+    currentY += 30.0f;
+
+    float slotY = currentY;
+    float candidateY = currentY;
+
+    const int visibleSlots = 13;
+    const int slotStart = std::max(0, selectedSlotIndex - visibleSlots + 1);
+    const int slotEnd = std::min(static_cast<int>(slots.size()), slotStart + visibleSlots);
+
+    for (int row = slotStart; row < slotEnd; ++row) {
         const ProfessionSlotView& slot = slots[row];
-        const bool isSelected = row == selected;
+        const bool isSelected = row == selectedSlotIndex;
 
         const Color rowColor = isSelected ? YELLOW : RAYWHITE;
 
         if (isSelected) {
-            DrawRectangle(static_cast<int>(x - 8.0f), static_cast<int>(currentY - 3.0f), PANEL_WIDTH - PANEL_PADDING * 2, 24,
-                          ColorAlpha(DARKGRAY, 0.65f));
+            DrawRectangle(static_cast<int>(leftX - 8.0f), static_cast<int>(slotY - 3.0f), 430, 24, ColorAlpha(DARKGRAY, 0.65f));
         }
-
-        DrawText(slot.profession.c_str(), static_cast<int>(x), static_cast<int>(currentY), 16, rowColor);
 
         std::string workerName = "empty";
 
@@ -763,17 +901,73 @@ void VillageMenu::RenderProfessions(const EntityManager& em, float x, float y) c
             workerName = GetDisplayName(em, slot.workerId);
         }
 
-        DrawText(workerName.c_str(), static_cast<int>(x + 220.0f), static_cast<int>(currentY), 16,
-                 slot.workerId == static_cast<EntityID>(-1) ? ORANGE : rowColor);
+        const std::string line = slot.profession + " | " + TruncateText(workerName, 14);
 
-        DrawText(("#" + std::to_string(slot.workplaceId)).c_str(), static_cast<int>(x + 460.0f), static_cast<int>(currentY), 16, LIGHTGRAY);
+        DrawText(line.c_str(), static_cast<int>(leftX), static_cast<int>(slotY), 16, rowColor);
 
-        const bool occupied = slot.workerId != static_cast<EntityID>(-1);
+        DrawText(slot.workerId == static_cast<EntityID>(-1) ? "available" : "occupied", static_cast<int>(leftX + 330.0f),
+                 static_cast<int>(slotY), 16, slot.workerId == static_cast<EntityID>(-1) ? ORANGE : GREEN);
 
-        DrawText(occupied ? "occupied" : "available", static_cast<int>(x + 620.0f), static_cast<int>(currentY), 16,
-                 occupied ? GREEN : ORANGE);
+        slotY += 26.0f;
+    }
 
-        currentY += 26.0f;
+    DrawText(("Selected: " + selectedSlot.profession).c_str(), static_cast<int>(rightX), static_cast<int>(candidateY), 17, RAYWHITE);
+
+    candidateY += 26.0f;
+
+    if (selectedSlot.workerId != static_cast<EntityID>(-1) && selectedSlot.workerId < em.active.size() &&
+        em.active[selectedSlot.workerId]) {
+        DrawText(("Current: " + GetDisplayName(em, selectedSlot.workerId)).c_str(), static_cast<int>(rightX), static_cast<int>(candidateY),
+                 16, GREEN);
+    } else {
+        DrawText("Current: none", static_cast<int>(rightX), static_cast<int>(candidateY), 16, ORANGE);
+    }
+
+    candidateY += 34.0f;
+
+    if (candidates.empty()) {
+        DrawText("No eligible candidates.", static_cast<int>(rightX), static_cast<int>(candidateY), 16, ORANGE);
+        return;
+    }
+
+    DrawText("Name", static_cast<int>(rightX), static_cast<int>(candidateY), 16, GRAY);
+    DrawText("Age", static_cast<int>(rightX + 170.0f), static_cast<int>(candidateY), 16, GRAY);
+    DrawText("Current Job", static_cast<int>(rightX + 230.0f), static_cast<int>(candidateY), 16, GRAY);
+
+    candidateY += 24.0f;
+
+    const int visibleCandidates = 11;
+    const int candidateStart = std::max(0, selectedCandidateIndex - visibleCandidates + 1);
+    const int candidateEnd = std::min(static_cast<int>(candidates.size()), candidateStart + visibleCandidates);
+
+    for (int row = candidateStart; row < candidateEnd; ++row) {
+        const EntityID candidate = candidates[row];
+        const bool isSelected = row == selectedCandidateIndex;
+
+        const Color rowColor = isSelected ? YELLOW : RAYWHITE;
+
+        if (isSelected) {
+            DrawRectangle(static_cast<int>(rightX - 8.0f), static_cast<int>(candidateY - 3.0f), 390, 24, ColorAlpha(DARKGRAY, 0.65f));
+        }
+
+        DrawText(TruncateText(GetDisplayName(em, candidate), 16).c_str(), static_cast<int>(rightX), static_cast<int>(candidateY), 16,
+                 rowColor);
+
+        if (em.hasTag[candidate]) {
+            DrawText(std::to_string(em.tags[candidate].age).c_str(), static_cast<int>(rightX + 170.0f), static_cast<int>(candidateY), 16,
+                     rowColor);
+        }
+
+        std::string currentJob = "none";
+
+        if (em.hasProfession[candidate]) {
+            currentJob = em.professions[candidate].currentProfession;
+        }
+
+        DrawText(TruncateText(currentJob, 14).c_str(), static_cast<int>(rightX + 230.0f), static_cast<int>(candidateY), 16,
+                 currentJob == "none" ? LIGHTGRAY : SKYBLUE);
+
+        candidateY += 26.0f;
     }
 }
 
