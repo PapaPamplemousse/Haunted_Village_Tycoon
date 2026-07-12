@@ -8,7 +8,220 @@
 #include "core/Config.hpp"
 #include "world/MapGenerator.hpp"
 
+#include <cmath>
 #include <iostream>
+#include <string>
+
+namespace {
+
+constexpr const char* DEBUG_WALL_PREFAB = "WOOD_WALL";
+constexpr const char* DEBUG_DOOR_PREFAB = "WOOD_DOOR";
+
+int WorldToTile(float worldCoord) {
+    return static_cast<int>(std::floor(worldCoord / Config::TILE_SIZE));
+}
+
+Vector2 TileToWorldCenter(int tileX, int tileY) {
+    return {tileX * Config::TILE_SIZE + Config::TILE_SIZE * 0.5f, tileY * Config::TILE_SIZE + Config::TILE_SIZE * 0.5f};
+}
+
+void ClearDebugArea(EntityManager& em, int minX, int minY, int maxX, int maxY) {
+    for (EntityID id = 0; id < em.active.size(); ++id) {
+        if (!em.active[id] || !em.hasTransform[id]) {
+            continue;
+        }
+
+        // Do not delete villagers or the Village Core.
+        if (em.hasBehavior[id] || em.hasVillage[id]) {
+            continue;
+        }
+
+        const int tx = WorldToTile(em.transforms[id].position.x);
+        const int ty = WorldToTile(em.transforms[id].position.y);
+
+        if (tx >= minX && tx <= maxX && ty >= minY && ty <= maxY) {
+            em.DestroyEntity(id);
+        }
+    }
+}
+
+void SpawnDebugConstruction(EntityManager& em, ConstructionRegistry& constructionReg, const std::string& prefabId, int tileX, int tileY) {
+    const Vector2 position = TileToWorldCenter(tileX, tileY);
+
+    // If your ConstructionRegistry signature differs, this is the only line to adapt.
+    constructionReg.SpawnConstruction(em, prefabId, position, false);
+}
+
+void SpawnDebugFurniture(EntityManager& em, FurnitureRegistry& furnitureReg, const std::string& prefabId, int tileX, int tileY) {
+    const Vector2 position = TileToWorldCenter(tileX, tileY);
+    furnitureReg.SpawnFurniture(em, prefabId, position, false);
+}
+
+/**
+ * @brief Spawns a rectangular closed room around an interior area.
+ *
+ * interiorX/interiorY = top-left tile of the room interior.
+ * interiorW/interiorH = walkable interior area.
+ *
+ * A wall ring is placed around the interior.
+ * A door is placed on the south wall.
+ */
+void SpawnDebugRoomBox(EntityManager& em, ConstructionRegistry& constructionReg, int interiorX, int interiorY, int interiorW,
+                       int interiorH) {
+    const int wallMinX = interiorX - 1;
+    const int wallMinY = interiorY - 1;
+    const int wallMaxX = interiorX + interiorW;
+    const int wallMaxY = interiorY + interiorH;
+
+    const int doorX = interiorX;
+    const int doorY = wallMaxY;
+
+    ClearDebugArea(em, wallMinX, wallMinY, wallMaxX, wallMaxY);
+
+    for (int y = wallMinY; y <= wallMaxY; ++y) {
+        for (int x = wallMinX; x <= wallMaxX; ++x) {
+            const bool isBorder = x == wallMinX || x == wallMaxX || y == wallMinY || y == wallMaxY;
+
+            if (!isBorder) {
+                continue;
+            }
+
+            if (x == doorX && y == doorY) {
+                SpawnDebugConstruction(em, constructionReg, DEBUG_DOOR_PREFAB, x, y);
+            } else {
+                SpawnDebugConstruction(em, constructionReg, DEBUG_WALL_PREFAB, x, y);
+            }
+        }
+    }
+}
+
+void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furnitureReg, ConstructionRegistry& constructionReg,
+                                     RoomSystem& roomSystem, StructureRegistry& structureReg, const WorldMap& worldMap,
+                                     EntityID villageCore) {
+    if (villageCore >= em.active.size() || !em.active[villageCore] || !em.hasTransform[villageCore]) {
+        return;
+    }
+
+    const int coreX = WorldToTile(em.transforms[villageCore].position.x);
+    const int coreY = WorldToTile(em.transforms[villageCore].position.y);
+
+    // =========================================================
+    // Lumberjack Sawmill
+    // Structure:
+    //   [SAWMILL_ROOM]
+    //   min_area = 4
+    //   requirements = SAWMILL_BENCH:1
+    //   job_slots = lumberjack:2
+    //
+    // Interior: 2x2 = 4
+    // =========================================================
+    {
+        const int x = coreX + 6;
+        const int y = coreY - 5;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 2, 2);
+        SpawnDebugFurniture(em, furnitureReg, "SAWMILL_BENCH", x, y);
+    }
+
+    // =========================================================
+    // Gathering Tent
+    // Structure:
+    //   [GATHERING_TENT]
+    //   min_area = 4
+    //   requirements = GATHERING_BASKET:1
+    //   job_slots = gatherer:1
+    //
+    // Interior: 2x2 = 4
+    // =========================================================
+    {
+        const int x = coreX + 6;
+        const int y = coreY + 4;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 2, 2);
+        SpawnDebugFurniture(em, furnitureReg, "GATHERING_BASKET", x, y);
+    }
+
+    // =========================================================
+    // Small Bedroom
+    // Structure:
+    //   [SMALL_BEDROOM]
+    //   min_area = 4
+    //   max_area = 4
+    //   requirements = SMALL_BED:1
+    //
+    // Interior: 2x2 = 4
+    // Housing capacity: 1
+    // =========================================================
+    {
+        const int x = coreX - 7;
+        const int y = coreY - 5;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 2, 2);
+        SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x, y);
+    }
+
+    // =========================================================
+    // Small Bedroom
+    // Structure:
+    //   [SMALL_BEDROOM]
+    //   min_area = 4
+    //   max_area = 4
+    //   requirements = SMALL_BED:1
+    //
+    // Interior: 2x2 = 4
+    // Housing capacity: 1
+    // =========================================================
+    {
+        const int x = coreX - 13;
+        const int y = coreY - 5;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 2, 2);
+        SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x, y);
+    }
+
+    // =========================================================
+    // Large Bedroom
+    // Structure:
+    //   [LARGE_BEDROOM]
+    //   min_area = 4
+    //   max_area = 8
+    //   requirements = DOUBLE_BED:1
+    //
+    // Interior: 2x4 = 8
+    // Housing capacity: 2
+    // =========================================================
+    {
+        const int x = coreX - 7;
+        const int y = coreY + 4;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 2, 4);
+        SpawnDebugFurniture(em, furnitureReg, "DOUBLE_BED", x, y);
+    }
+
+    // =========================================================
+    // Empty room / Spare Room
+    // Interior area: 2x2 = 4
+    //
+    // Purpose:
+    // - debug spare closed room;
+    // - does not provide housing capacity yet;
+    // - can later receive a SMALL_BED or another furniture;
+    // - useful for testing room ownership / family assignment later.
+    // =========================================================
+    {
+        const int x = coreX - 13;
+        const int y = coreY + 5;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 2, 2);
+    }
+
+    roomSystem.MarkDirty();
+    roomSystem.Update(em, worldMap, structureReg);
+
+    std::cout << "[DEBUG] Spawned village test structures around Village Core." << std::endl;
+}
+
+} // namespace
 
 Application::Application()
     : m_isRunning(true)
@@ -79,6 +292,11 @@ Application::Application()
     EntityID villageCore =
         m_villageSystem.InitializeStartingVillage(m_entityManager, m_entityRegistry, m_furnitureRegistry, m_nameRegistry,
                                                   m_behaviorRegistry, m_worldMap, m_tileRegistry, preferredVillageCenter);
+
+    // TEMP DEBUG TEST SETUP.
+    // Remove this once normal early-game construction is stable.
+    SpawnDebugVillageTestStructures(m_entityManager, m_furnitureRegistry, m_constructionRegistry, m_roomSystem, m_structureRegistry,
+                                    m_worldMap, villageCore);
 
     m_spatialGrid.Rebuild(m_entityManager);
 
