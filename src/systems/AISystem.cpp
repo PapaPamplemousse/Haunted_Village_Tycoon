@@ -48,6 +48,7 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
     const bool canWander = HasCapability(behavior, "wander");
     const bool canSeekFood = HasCapability(behavior, "seek_food");
     const bool canStore = HasCapability(behavior, "store");
+    const bool canRest = HasCapability(behavior, "rest");
 
     const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
 
@@ -63,6 +64,12 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
         }
     }
 
+    if (canRest && AISystemUtils::ShouldRest(i, em, behavior, currentHour)) {
+        if (TryFindRestJob(i, em, map, tileReg, spatialGrid)) {
+            return;
+        }
+    }
+
     // Outside work hours: do not start productive jobs.
     if (!canStartWork) {
         if (canWander && TryFindWanderJob(i, em, map, tileReg)) {
@@ -72,7 +79,6 @@ void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& ma
         behavior.stateTimer = 1.0f;
         return;
     }
-
     if (canHunt && TryFindHuntJob(i, em, map, tileReg, spatialGrid)) {
         return;
     }
@@ -144,4 +150,5 @@ void AISystem::ResetBehaviorState(BehaviorComponent& behavior) {
     behavior.currentPath.clear();
     behavior.currentPathIndex = 0;
     behavior.isMoving = false;
+    behavior.reservedRestSpot = static_cast<EntityID>(-1);
 }

@@ -56,6 +56,9 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
         } else if (behavior.currentTask == "moving_to_dismantle") {
             behavior.currentTask = "dismantling";
             behavior.stateTimer = 2.0f;
+        } else if (behavior.currentTask == "moving_to_rest") {
+            behavior.currentTask = "resting";
+            behavior.stateTimer = 1.0f;
         } else if (behavior.currentTask == "moving_to_storage") {
             behavior.currentTask = "depositing";
             behavior.stateTimer = AISystemUtils::DEPOSIT_DURATION;

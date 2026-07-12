@@ -74,6 +74,21 @@ struct StorageComponent {
 };
 
 /**
+ * @struct RestSpotComponent
+ * @brief Marks an entity as a usable rest spot such as a bed, straw bed or double bed.
+ *
+ * Ownership fields are reserved for future private property / family ownership.
+ */
+struct RestSpotComponent {
+    int capacity = 1;
+    std::vector<EntityID> occupants;
+
+    bool isPrivate = false;
+    EntityID ownerVillageId = static_cast<EntityID>(-1);
+    EntityID ownerFamilyId = static_cast<EntityID>(-1);
+};
+
+/**
  * @struct VillageComponent
  * @brief Marks an entity as the center of a village/settlement.
  */
@@ -218,15 +233,16 @@ struct EquipmentComponent {
     float rightHandDamage = 0.0f;
 };
 
-/**
- * @struct NeedsComponent
- * @brief Tracks survival metrics like hunger, thirst, or sanity.
- */
 struct NeedsComponent {
     float hunger = 100.0f;
     float maxHunger = 100.0f;
-};
 
+    // Fatigue model:
+    // 0   = fully rested
+    // max = exhausted
+    float fatigue = 0.0f;
+    float maxFatigue = 100.0f;
+};
 /**
  * @struct ProfessionComponent
  * @brief Determines what kind of jobs this entity is allowed to take.
@@ -261,6 +277,8 @@ struct BehaviorComponent {
 
     // Used by simple item-based AI actions such as eating.
     std::string currentItemTarget = "";
+
+    EntityID reservedRestSpot = static_cast<EntityID>(-1);
 
     // Daily activity rules.
     // activityPeriod: "any", "diurnal", "nocturnal"

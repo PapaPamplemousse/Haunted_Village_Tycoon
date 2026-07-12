@@ -72,4 +72,16 @@ bool ConsumeAccessibleMaterials(EntityID entity, EntityManager& em, const Entity
 
 std::vector<EntityID> GetAccessibleStorageEntities(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid);
 
+bool ShouldRest(EntityID entity, const EntityManager& em, const BehaviorComponent& behavior, float currentHour);
+
+bool IsFullyRested(EntityID entity, const EntityManager& em);
+
+void CleanRestSpotOccupants(RestSpotComponent& restSpot, const EntityManager& em);
+
+bool RestSpotHasCapacity(EntityID restSpotEntity, EntityManager& em);
+
+bool ReserveRestSpot(EntityID restSpotEntity, EntityID sleeper, EntityManager& em);
+
+void ReleaseRestSpotReservation(EntityID sleeper, EntityManager& em);
+
 } // namespace AISystemUtils

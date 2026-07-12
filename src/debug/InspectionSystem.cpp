@@ -28,51 +28,59 @@ const char* DoorStateToString(DoorState state) {
 
 float ComputeFoodNutrition(const InventoryComponent& inventory, const ResourceRegistry& resourceReg) {
     float totalNutrition = 0.0f;
-
     for (const auto& item : inventory.items) {
-        const std::string& itemId = item.first;
-        const int count = item.second;
-
-        if (count <= 0)
+        if (item.second <= 0)
             continue;
-
-        const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
-        if (resource == nullptr || !resource->isConsumable || resource->nutrition <= 0.0f) {
-            continue;
+        const ResourceDef* resource = resourceReg.GetResourceDef(item.first);
+        if (resource && resource->isConsumable && resource->nutrition > 0.0f) {
+            totalNutrition += resource->nutrition * static_cast<float>(item.second);
         }
-
-        totalNutrition += resource->nutrition * static_cast<float>(count);
     }
     return totalNutrition;
 }
 
-// --- NOUVEAUX OUTILS POUR UN CODE CLEAN ---
+// --- SYSTEME D'UI AVANCE ---
+
+enum class InfoType { Title, Header, Text, KeyValue, ProgressBar };
 
 struct TooltipLine {
-    std::string text;
+    InfoType type;
+    std::string label;
+    std::string value;
+    float currentVal;
+    float maxVal;
     Color color;
 };
 
-void AddHeader(std::vector<TooltipLine>& lines, const std::string& text) {
-    lines.push_back({text, SKYBLUE});
+void AddTitle(std::vector<TooltipLine>& lines, const std::string& text) {
+    lines.push_back({InfoType::Title, text, "", 0, 0, GOLD});
 }
 
-void AddNormal(std::vector<TooltipLine>& lines, const std::string& text) {
-    lines.push_back({text, LIGHTGRAY});
+void AddHeader(std::vector<TooltipLine>& lines, const std::string& text) {
+    lines.push_back({InfoType::Header, text, "", 0, 0, SKYBLUE});
+}
+
+void AddText(std::vector<TooltipLine>& lines, const std::string& text, Color color = LIGHTGRAY) {
+    lines.push_back({InfoType::Text, text, "", 0, 0, color});
+}
+
+void AddKV(std::vector<TooltipLine>& lines, const std::string& key, const std::string& value) {
+    lines.push_back({InfoType::KeyValue, key, value, 0, 0, WHITE});
+}
+
+void AddBar(std::vector<TooltipLine>& lines, const std::string& label, float current, float max, Color color) {
+    lines.push_back({InfoType::ProgressBar, label, "", current, max, color});
 }
 
 EntityID GetHoveredEntity(int hoverX, int hoverY, const EntitySpatialGrid& spatialGrid, const EntityManager& entityManager) {
     const std::vector<EntityID> hoveredEntities = spatialGrid.GetEntitiesAtTile(hoverX, hoverY, entityManager);
-
     EntityID firstEntity = static_cast<EntityID>(-1);
     EntityID doorEntity = static_cast<EntityID>(-1);
     EntityID behaviorEntity = static_cast<EntityID>(-1);
 
     for (EntityID i : hoveredEntities) {
-        if (i >= entityManager.active.size() || !entityManager.active[i] || !entityManager.hasTransform[i]) {
+        if (i >= entityManager.active.size() || !entityManager.active[i] || !entityManager.hasTransform[i])
             continue;
-        }
-
         if (firstEntity == static_cast<EntityID>(-1))
             firstEntity = i;
         if (entityManager.hasDoor[i])
@@ -80,7 +88,6 @@ EntityID GetHoveredEntity(int hoverX, int hoverY, const EntitySpatialGrid& spati
         if (entityManager.hasBehavior[i])
             behaviorEntity = i;
     }
-
     if (behaviorEntity != static_cast<EntityID>(-1))
         return behaviorEntity;
     if (doorEntity != static_cast<EntityID>(-1))
@@ -91,129 +98,148 @@ EntityID GetHoveredEntity(int hoverX, int hoverY, const EntitySpatialGrid& spati
 std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& entityManager, const ResourceRegistry& resourceReg) {
     std::vector<TooltipLine> lines;
 
-    lines.push_back({"Entity ID: " + std::to_string(i), GOLD});
-
-    // 1. Identité & Tags
+    // 1. Titre & Identité
+    std::string title = "Entity #" + std::to_string(i);
     if (entityManager.hasTag[i]) {
         const auto& tag = entityManager.tags[i];
-        if (!tag.firstName.empty())
-            AddNormal(lines, tag.firstName + " the " + tag.name);
-        else
-            AddNormal(lines, tag.name);
+        title = tag.firstName.empty() ? tag.name : (tag.firstName + " the " + tag.name);
+        AddTitle(lines, title);
 
         if (!tag.species.empty())
-            AddNormal(lines, "Species: " + tag.species);
+            AddKV(lines, "Species", tag.species);
         if (!tag.gender.empty() && tag.gender != "undefined")
-            AddNormal(lines, "Gender: " + tag.gender);
-        AddNormal(lines, TextFormat("Age: %d", tag.age));
+            AddKV(lines, "Gender", tag.gender);
+        AddKV(lines, "Age", std::to_string(tag.age));
+    } else {
+        AddTitle(lines, title);
     }
 
-    // 2. Position
     if (entityManager.hasTransform[i]) {
         const int tileX = WorldToTile(entityManager.transforms[i].position.x);
         const int tileY = WorldToTile(entityManager.transforms[i].position.y);
-        AddNormal(lines, "Tile: " + std::to_string(tileX) + ", " + std::to_string(tileY));
+        AddKV(lines, "Position", std::to_string(tileX) + ", " + std::to_string(tileY));
     }
 
-    // 3. Stats & Vitals
-    if (entityManager.hasHealth[i]) {
-        AddNormal(lines, TextFormat("HP: %.0f / %.0f", entityManager.healths[i].current, entityManager.healths[i].max));
-    }
-    if (entityManager.hasNeeds[i]) {
-        AddNormal(lines, TextFormat("Hunger: %.0f / %.0f", entityManager.needs[i].hunger, entityManager.needs[i].maxHunger));
-    }
-    if (entityManager.hasStats[i]) {
-        AddNormal(lines, TextFormat("Speed: %.0f", entityManager.stats[i].maxSpeed));
-        AddNormal(lines, TextFormat("Base ATK: %.0f", entityManager.stats[i].baseAttack));
-        AddNormal(lines, TextFormat("Action radius: %.0f", entityManager.stats[i].actionRadiusTiles));
-    }
+    // 2. Barres de Vies et Stats
+    if (entityManager.hasHealth[i] || entityManager.hasNeeds[i] || entityManager.hasStats[i]) {
+        AddHeader(lines, "Vitals & Stats");
 
-    // 4. Intelligence & Rôles
-    if (entityManager.hasProfession[i]) {
-        std::string profName = entityManager.professions[i].currentProfession;
-        if (!profName.empty() && profName != "none") {
-            profName[0] = static_cast<char>(std::toupper(profName[0]));
+        if (entityManager.hasHealth[i]) {
+            AddBar(lines, "HP", entityManager.healths[i].current, entityManager.healths[i].max, RED);
         }
-        AddNormal(lines, "Profession: " + profName);
-    }
-    if (entityManager.hasBehavior[i]) {
-        AddHeader(lines, "--- AI ---");
-        AddNormal(lines, "Task: " + entityManager.behaviors[i].currentTask);
-    }
-
-    // 5. Famille & Société
-    if (entityManager.hasFamily[i]) {
-        const auto& family = entityManager.families[i];
-        AddHeader(lines, "--- Family ---");
-        if (family.partnerId != static_cast<EntityID>(-1))
-            AddNormal(lines, "Partner ID: " + std::to_string(family.partnerId));
-        if (family.parentA != static_cast<EntityID>(-1))
-            AddNormal(lines, "Parent A: " + std::to_string(family.parentA));
-        if (family.parentB != static_cast<EntityID>(-1))
-            AddNormal(lines, "Parent B: " + std::to_string(family.parentB));
-        AddNormal(lines, "Children: " + std::to_string(family.children.size()));
-    }
-    if (entityManager.hasVillageMember[i]) {
-        AddHeader(lines, "--- Village Member ---");
-        AddNormal(lines, "Village ID: " + std::to_string(entityManager.villageMembers[i].villageId));
-    }
-    if (entityManager.hasVillage[i]) {
-        const auto& village = entityManager.villages[i];
-        AddHeader(lines, "--- Village ---");
-        AddNormal(lines, "Name: " + village.name);
-        AddNormal(lines, "Population: " + std::to_string(village.currentPopulation) + " / " + std::to_string(village.populationLimit));
-        AddNormal(lines, "Adults: " + std::to_string(village.adultPopulation));
-        AddNormal(lines, "Children: " + std::to_string(village.childPopulation));
-
-        if (entityManager.hasInventory[i]) {
-            int foodNutrition = static_cast<int>(ComputeFoodNutrition(entityManager.inventories[i], resourceReg));
-            AddNormal(lines, "Food nutrition: " + std::to_string(foodNutrition));
+        if (entityManager.hasNeeds[i]) {
+            AddBar(lines, "Hunger", entityManager.needs[i].hunger, entityManager.needs[i].maxHunger, ORANGE);
+            AddBar(lines, "Fatigue", entityManager.needs[i].fatigue, entityManager.needs[i].maxFatigue, SKYBLUE);
+        }
+        if (entityManager.hasStats[i]) {
+            AddKV(lines, "Speed", TextFormat("%.0f", entityManager.stats[i].maxSpeed));
+            AddKV(lines, "Base ATK", TextFormat("%.0f", entityManager.stats[i].baseAttack));
+            AddKV(lines, "Action Radius", TextFormat("%.0f", entityManager.stats[i].actionRadiusTiles));
         }
     }
 
-    // 6. Équipement & Inventaire & Objets interactifs
-    if (entityManager.hasDoor[i]) {
-        const auto& door = entityManager.doors[i];
-        AddHeader(lines, "--- Door ---");
-        AddNormal(lines, "State: " + std::string(DoorStateToString(door.state)));
-        AddNormal(lines, "Owner ID: " + std::to_string(door.ownerId));
+    // 3. IA & Profession
+    if (entityManager.hasBehavior[i] || entityManager.hasProfession[i]) {
+        AddHeader(lines, "Behavior");
+        if (entityManager.hasProfession[i]) {
+            std::string prof = entityManager.professions[i].currentProfession;
+            if (!prof.empty() && prof != "none")
+                prof[0] = static_cast<char>(std::toupper(prof[0]));
+            AddKV(lines, "Profession", prof);
+        }
+        if (entityManager.hasBehavior[i]) {
+            AddKV(lines, "Current Task", entityManager.behaviors[i].currentTask);
+        }
     }
 
-    if (entityManager.hasEquipment[i]) {
-        const auto& equip = entityManager.equipments[i];
-        AddHeader(lines, "--- Equipment ---");
-        AddNormal(lines, "Tool: " + equip.rightHandToolType);
-        AddNormal(lines, TextFormat("Weapon damage: %.0f", equip.rightHandDamage));
-    }
+    // 4. Famille & Société
+    if (entityManager.hasFamily[i] || entityManager.hasVillage[i] || entityManager.hasVillageMember[i]) {
+        AddHeader(lines, "Social & Family");
 
-    const bool hasInv = entityManager.hasInventory[i];
-    const bool hasHarv = entityManager.hasHarvestable[i];
-    if (hasInv || hasHarv) {
-        AddHeader(lines, "--- Inventory ---");
-        bool isEmpty = true;
+        if (entityManager.hasVillageMember[i]) {
+            AddKV(lines, "Village ID", std::to_string(entityManager.villageMembers[i].villageId));
+        }
 
-        if (hasInv && !entityManager.inventories[i].items.empty()) {
-            for (const auto& item : entityManager.inventories[i].items) {
-                AddNormal(lines, item.first + ": " + std::to_string(item.second));
+        if (entityManager.hasVillage[i]) {
+            const auto& village = entityManager.villages[i];
+            AddKV(lines, "Village Name", village.name);
+            AddKV(lines, "Population", std::to_string(village.currentPopulation) + " / " + std::to_string(village.populationLimit));
+            AddKV(lines, "Adults / Children", std::to_string(village.adultPopulation) + " / " + std::to_string(village.childPopulation));
+
+            if (entityManager.hasInventory[i]) {
+                int foodNutrition = static_cast<int>(ComputeFoodNutrition(entityManager.inventories[i], resourceReg));
+                AddKV(lines, "Food Nutrition", std::to_string(foodNutrition));
             }
-            isEmpty = false;
         }
 
-        if (entityManager.hasStorage[i]) {
-            AddNormal(lines, TextFormat("Storage capacity: %d", entityManager.storages[i].capacity));
+        if (entityManager.hasFamily[i]) {
+            const auto& family = entityManager.families[i];
+            if (family.partnerId != static_cast<EntityID>(-1))
+                AddKV(lines, "Partner ID", std::to_string(family.partnerId));
+            if (family.parentA != static_cast<EntityID>(-1))
+                AddKV(lines, "Parent A", std::to_string(family.parentA));
+            if (family.parentB != static_cast<EntityID>(-1))
+                AddKV(lines, "Parent B", std::to_string(family.parentB));
+            AddKV(lines, "Children Count", std::to_string(family.children.size()));
+        }
+    }
+
+    // 5. Inventaire & Equipement & Portes
+    bool hasDoor = entityManager.hasDoor[i];
+    bool hasEquip = entityManager.hasEquipment[i];
+    bool hasInv = entityManager.hasInventory[i];
+    bool hasHarv = entityManager.hasHarvestable[i];
+    bool hasRes = entityManager.hasRestSpot[i];
+
+    if (hasDoor || hasEquip || hasInv || hasHarv) {
+        AddHeader(lines, "Equipment & Cargo");
+
+        if (hasDoor) {
+            const auto& door = entityManager.doors[i];
+            AddKV(lines, "Door State", DoorStateToString(door.state));
+            AddKV(lines, "Owner ID", std::to_string(door.ownerId));
+        }
+
+        if (hasEquip) {
+            const auto& equip = entityManager.equipments[i];
+            AddKV(lines, "Tool", equip.rightHandToolType);
+            AddKV(lines, "Weapon DMG", TextFormat("%.0f", equip.rightHandDamage));
+        }
+
+        if (hasInv) {
+            if (entityManager.hasStorage[i]) {
+                AddKV(lines, "Capacity", std::to_string(entityManager.storages[i].capacity));
+            }
+            for (const auto& item : entityManager.inventories[i].items) {
+                AddKV(lines, item.first, std::to_string(item.second));
+            }
+        }
+        if (hasRes) {
+            const auto& rest = entityManager.restSpots[i];
+
+            AddHeader(lines, "Rest Spot");
+            AddKV(lines, "Capacity", std::to_string(rest.occupants.size()) + " / " + std::to_string(rest.capacity));
+
+            if (rest.isPrivate) {
+                AddKV(lines, "Private", "true");
+            }
+
+            if (rest.ownerFamilyId != static_cast<EntityID>(-1)) {
+                AddKV(lines, "Owner Family", std::to_string(rest.ownerFamilyId));
+            }
+
+            if (rest.ownerVillageId != static_cast<EntityID>(-1)) {
+                AddKV(lines, "Owner Village", std::to_string(rest.ownerVillageId));
+            }
         }
 
         if (hasHarv) {
             for (const DropEntry& drop : entityManager.harvestables[i].drops) {
                 if (drop.amount > 0 && !drop.itemId.empty()) {
-                    AddNormal(lines, drop.itemId + ": " + std::to_string(drop.amount) + " (Yield)");
-                    isEmpty = false;
+                    AddKV(lines, drop.itemId, std::to_string(drop.amount) + " (Yield)");
                 }
             }
         }
-
-        if (isEmpty)
-            AddNormal(lines, "Empty");
     }
 
     return lines;
@@ -223,32 +249,87 @@ void DrawTooltipBox(const std::vector<TooltipLine>& lines) {
     if (lines.empty())
         return;
 
+    const float boxWidth = 350.0f;
+    const float padding = 15.0f;
+    const float baseLineHeight = 22.0f;
+
+    // Calcul dynamique de la hauteur
+    float totalHeight = padding * 2.0f;
+    for (const auto& line : lines) {
+        if (line.type == InfoType::Header)
+            totalHeight += baseLineHeight + 10.0f;
+        else
+            totalHeight += baseLineHeight;
+    }
+
     const Vector2 mousePos = GetMousePosition();
-    const float boxWidth = 330.0f;
-    const float lineHeight = 22.0f;
-    const float boxHeight = lines.size() * lineHeight + 12.0f;
+    float boxX = mousePos.x + 20.0f;
+    float boxY = mousePos.y + 20.0f;
 
-    float boxX = mousePos.x + 15.0f;
-    float boxY = mousePos.y + 15.0f;
-
-    // Reste dans l'écran
+    // Rester dans l'écran
     if (boxX + boxWidth > GetScreenWidth())
-        boxX = mousePos.x - boxWidth - 15.0f;
-    if (boxY + boxHeight > GetScreenHeight())
-        boxY = mousePos.y - boxHeight - 15.0f;
+        boxX = mousePos.x - boxWidth - 10.0f;
+    if (boxY + totalHeight > GetScreenHeight())
+        boxY = mousePos.y - totalHeight - 10.0f;
 
-    DrawRectangle(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(boxHeight),
-                  ColorAlpha(BLACK, 0.9f));
-    DrawRectangleLines(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(boxHeight), DARKGRAY);
+    // Dessin du fond
+    DrawRectangle(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(totalHeight),
+                  ColorAlpha(BLACK, 0.95f));
+    DrawRectangleLines(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(totalHeight), DARKGRAY);
 
-    for (size_t l = 0; l < lines.size(); ++l) {
-        DrawText(lines[l].text.c_str(), static_cast<int>(boxX + 10.0f), static_cast<int>(boxY + 8.0f + l * lineHeight), 18, lines[l].color);
+    // Dessin des éléments
+    float currentY = boxY + padding;
+    int rightEdge = static_cast<int>(boxX + boxWidth - padding);
+
+    for (const auto& line : lines) {
+        if (line.type == InfoType::Header) {
+            currentY += 10.0f; // Espacement avant le header
+            DrawText(line.label.c_str(), static_cast<int>(boxX + padding), static_cast<int>(currentY), 18, line.color);
+            // Ligne de soulignement subtile
+            DrawLine(static_cast<int>(boxX + padding), static_cast<int>(currentY + 20), rightEdge, static_cast<int>(currentY + 20),
+                     Fade(line.color, 0.3f));
+            currentY += baseLineHeight;
+        } else if (line.type == InfoType::Title) {
+            DrawText(line.label.c_str(), static_cast<int>(boxX + padding), static_cast<int>(currentY), 20, line.color);
+            currentY += baseLineHeight;
+        } else if (line.type == InfoType::KeyValue) {
+            DrawText(line.label.c_str(), static_cast<int>(boxX + padding), static_cast<int>(currentY), 18, GRAY);
+            int valWidth = MeasureText(line.value.c_str(), 18);
+            DrawText(line.value.c_str(), rightEdge - valWidth, static_cast<int>(currentY), 18, line.color);
+            currentY += baseLineHeight;
+        } else if (line.type == InfoType::ProgressBar) {
+            DrawText(line.label.c_str(), static_cast<int>(boxX + padding), static_cast<int>(currentY), 18, GRAY);
+
+            float barX = boxX + padding + 100.0f; // Alignement des jauges
+            float barWidth = rightEdge - barX;
+            float barHeight = 16.0f;
+            float ratio = line.maxVal > 0 ? (line.currentVal / line.maxVal) : 0;
+            if (ratio > 1.0f)
+                ratio = 1.0f;
+            if (ratio < 0.0f)
+                ratio = 0.0f;
+
+            // Fond de la jauge
+            DrawRectangle(static_cast<int>(barX), static_cast<int>(currentY + 3), static_cast<int>(barWidth), static_cast<int>(barHeight),
+                          Fade(DARKGRAY, 0.5f));
+            // Remplissage de la jauge
+            DrawRectangle(static_cast<int>(barX), static_cast<int>(currentY + 3), static_cast<int>(barWidth * ratio),
+                          static_cast<int>(barHeight), line.color);
+
+            // Texte par dessus la jauge
+            std::string valText = TextFormat("%.0f/%.0f", line.currentVal, line.maxVal);
+            int valWidth = MeasureText(valText.c_str(), 16);
+            DrawText(valText.c_str(), static_cast<int>(barX + (barWidth / 2) - (valWidth / 2)), static_cast<int>(currentY + 3), 16, WHITE);
+
+            currentY += baseLineHeight;
+        } else { // Texte Normal
+            DrawText(line.label.c_str(), static_cast<int>(boxX + padding + 15.0f), static_cast<int>(currentY), 18, line.color);
+            currentY += baseLineHeight;
+        }
     }
 }
 
 } // namespace
-
-// --- LA FONCTION PRINCIPALE ---
 
 void InspectionSystem::Render(const InputManager& inputManager, const EntityManager& entityManager, const EntitySpatialGrid& spatialGrid,
                               const ResourceRegistry& resourceReg) {

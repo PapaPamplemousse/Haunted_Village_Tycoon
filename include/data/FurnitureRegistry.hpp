@@ -23,6 +23,7 @@ struct FurnitureDef {
     std::string interactionType;
     int storageCapacity = 0;
     std::vector<std::string> storageFilter;
+    int restCapacity = 0;
 
     std::unordered_map<std::string, int> blueprintCost;
 

@@ -34,3 +34,11 @@ max_area = 50
 requirements = GATHERING_BASKET:1
 granted_buffs = none
 job_slots = gatherer:1
+
+
+[SMALL_BEDROOM]
+name = Small bedroom
+min_area = 4
+max_area = 4
+requirements = SMALL_BED:1
+granted_buffs = rest

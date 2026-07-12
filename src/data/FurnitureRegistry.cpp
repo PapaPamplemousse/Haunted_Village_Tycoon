@@ -71,6 +71,9 @@ bool FurnitureRegistry::LoadFromSTV(const std::string& filepath) {
             def.interactionType = block.properties.at("interaction_type");
         if (block.properties.count("storage_capacity"))
             def.storageCapacity = std::stoi(block.properties.at("storage_capacity"));
+        if (block.properties.count("rest_capacity")) {
+            def.restCapacity = std::stoi(block.properties.at("rest_capacity"));
+        }
         if (block.properties.count("filter")) {
             def.storageFilter = ParseStringList(block.properties.at("filter"));
         }
@@ -157,6 +160,12 @@ EntityID FurnitureRegistry::SpawnFurniture(EntityManager& em, const std::string&
 
         em.hasStorage[id] = true;
         em.storages[id] = {def.storageCapacity, def.storageFilter};
+    }
+
+    if (def.restCapacity > 0) {
+        em.hasRestSpot[id] = true;
+        em.restSpots[id] = {};
+        em.restSpots[id].capacity = def.restCapacity;
     }
 
     // 5. Visual Representation

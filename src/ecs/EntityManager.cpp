@@ -16,6 +16,9 @@ EntityManager::EntityManager() {
     hasStorage.reserve(INITIAL_CAPACITY);
     storages.reserve(INITIAL_CAPACITY);
 
+    hasRestSpot.reserve(INITIAL_CAPACITY);
+    restSpots.reserve(INITIAL_CAPACITY);
+
     hasVillage.reserve(INITIAL_CAPACITY);
     villages.reserve(INITIAL_CAPACITY);
 
@@ -99,6 +102,8 @@ EntityID EntityManager::CreateEntity() {
         inventories.push_back({});
         hasStorage.push_back(false);
         storages.push_back({});
+        hasRestSpot.push_back(false);
+        restSpots.push_back({});
         hasVillage.push_back(false);
         villages.push_back({});
         hasVillageMember.push_back(false);
@@ -147,6 +152,7 @@ EntityID EntityManager::CreateEntity() {
     hasTransform[id] = false;
     hasInventory[id] = false;
     hasStorage[id] = false;
+    hasRestSpot[id] = false;
     hasVillage[id] = false;
     hasVillageMember[id] = false;
     hasFamily[id] = false;

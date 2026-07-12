@@ -41,3 +41,11 @@ species = human
 [DISMANTLE_HUMAN]
 rule = dismantle
 species = human
+
+[REST_HUMAN]
+rule = rest
+species = human
+
+[REST_CANNIBAL]
+rule = rest
+species = cannibal

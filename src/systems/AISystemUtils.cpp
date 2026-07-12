@@ -440,4 +440,94 @@ bool ConsumeAccessibleMaterials(EntityID entity, EntityManager& em, const Entity
     return true;
 }
 
+bool ShouldRest(EntityID entity, const EntityManager& em, const BehaviorComponent& behavior, float currentHour) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity]) {
+        return false;
+    }
+
+    const NeedsComponent& needs = em.needs[entity];
+
+    const float fatigueRatio = needs.maxFatigue > 0.0f ? needs.fatigue / needs.maxFatigue : 0.0f;
+
+    if (fatigueRatio >= Config::FATIGUE_REST_THRESHOLD_RATIO) {
+        return true;
+    }
+
+    // Humans should try to rest outside work hours.
+    if (!CanStartWorkNow(behavior, currentHour)) {
+        return true;
+    }
+
+    return false;
+}
+
+bool IsFullyRested(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity]) {
+        return true;
+    }
+
+    const NeedsComponent& needs = em.needs[entity];
+
+    const float fatigueRatio = needs.maxFatigue > 0.0f ? needs.fatigue / needs.maxFatigue : 0.0f;
+
+    return fatigueRatio <= Config::FATIGUE_FULLY_RESTED_RATIO;
+}
+
+void CleanRestSpotOccupants(RestSpotComponent& restSpot, const EntityManager& em) {
+    std::vector<EntityID> validOccupants;
+
+    for (EntityID occupant : restSpot.occupants) {
+        if (occupant < em.active.size() && em.active[occupant] && em.hasBehavior[occupant] &&
+            (em.behaviors[occupant].currentTask == "moving_to_rest" || em.behaviors[occupant].currentTask == "resting")) {
+            validOccupants.push_back(occupant);
+        }
+    }
+
+    restSpot.occupants = validOccupants;
+}
+
+bool RestSpotHasCapacity(EntityID restSpotEntity, EntityManager& em) {
+    if (restSpotEntity >= em.active.size() || !em.active[restSpotEntity] || !em.hasRestSpot[restSpotEntity]) {
+        return false;
+    }
+
+    CleanRestSpotOccupants(em.restSpots[restSpotEntity], em);
+
+    return static_cast<int>(em.restSpots[restSpotEntity].occupants.size()) < em.restSpots[restSpotEntity].capacity;
+}
+
+bool ReserveRestSpot(EntityID restSpotEntity, EntityID sleeper, EntityManager& em) {
+    if (!RestSpotHasCapacity(restSpotEntity, em)) {
+        return false;
+    }
+
+    auto& restSpot = em.restSpots[restSpotEntity];
+
+    if (std::find(restSpot.occupants.begin(), restSpot.occupants.end(), sleeper) == restSpot.occupants.end()) {
+        restSpot.occupants.push_back(sleeper);
+    }
+
+    if (em.hasBehavior[sleeper]) {
+        em.behaviors[sleeper].reservedRestSpot = restSpotEntity;
+    }
+
+    return true;
+}
+
+void ReleaseRestSpotReservation(EntityID sleeper, EntityManager& em) {
+    if (sleeper >= em.active.size() || !em.active[sleeper] || !em.hasBehavior[sleeper]) {
+        return;
+    }
+
+    EntityID restSpotEntity = em.behaviors[sleeper].reservedRestSpot;
+
+    if (restSpotEntity < em.active.size() && em.active[restSpotEntity] && em.hasRestSpot[restSpotEntity]) {
+        auto& occupants = em.restSpots[restSpotEntity].occupants;
+
+        occupants.erase(std::remove(occupants.begin(), occupants.end(), sleeper), occupants.end());
+    }
+
+    em.behaviors[sleeper].reservedRestSpot = static_cast<EntityID>(-1);
+}
+
 } // namespace AISystemUtils

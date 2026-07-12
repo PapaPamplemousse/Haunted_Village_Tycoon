@@ -180,3 +180,84 @@ bool AISystem::TryFindSeekFoodJob(EntityID entity, EntityManager& em, const Worl
 
     return true;
 }
+
+bool AISystem::TryFindRestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                              const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTransform[entity] || !em.hasBehavior[entity]) {
+        return false;
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    EntityID bestRestSpot = static_cast<EntityID>(-1);
+    float bestDistanceSq = std::numeric_limits<float>::infinity();
+
+    for (EntityID candidate : candidates) {
+        if (candidate >= em.active.size() || !em.active[candidate] || !em.hasTransform[candidate] || !em.hasRestSpot[candidate]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[candidate] && !em.blueprints[candidate].isFinished) {
+            continue;
+        }
+
+        // Future private property hook:
+        // if em.restSpots[candidate].isPrivate, check family/village ownership here.
+
+        if (!AISystemUtils::RestSpotHasCapacity(candidate, em)) {
+            continue;
+        }
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        if (distanceSq < bestDistanceSq) {
+            bestDistanceSq = distanceSq;
+            bestRestSpot = candidate;
+        }
+    }
+
+    if (bestRestSpot == static_cast<EntityID>(-1)) {
+        return false;
+    }
+
+    BehaviorComponent& behavior = em.behaviors[entity];
+
+    if (AreEntitiesAdjacent(entity, bestRestSpot, em)) {
+        if (!AISystemUtils::ReserveRestSpot(bestRestSpot, entity, em)) {
+            return false;
+        }
+
+        behavior.currentTask = "resting";
+        behavior.currentJobTarget = bestRestSpot;
+        behavior.hasJob = true;
+        behavior.isMoving = false;
+        behavior.currentPath.clear();
+        behavior.currentPathIndex = 0;
+        behavior.stateTimer = 1.0f;
+
+        return true;
+    }
+
+    std::vector<Vector2> path =
+        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestRestSpot].position, map, tileReg, em, entity);
+
+    if (path.empty()) {
+        return false;
+    }
+
+    if (!AISystemUtils::ReserveRestSpot(bestRestSpot, entity, em)) {
+        return false;
+    }
+
+    behavior.currentTask = "moving_to_rest";
+    behavior.currentJobTarget = bestRestSpot;
+    behavior.hasJob = true;
+    behavior.currentPath = std::move(path);
+    behavior.currentPathIndex = 0;
+    behavior.currentTarget = behavior.currentPath[0];
+    behavior.isMoving = true;
+
+    return true;
+}

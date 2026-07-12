@@ -43,6 +43,9 @@ public:
     std::vector<bool> hasStorage;
     std::vector<StorageComponent> storages;
 
+    std::vector<bool> hasRestSpot;
+    std::vector<RestSpotComponent> restSpots;
+
     std::vector<bool> hasVillage;
     std::vector<VillageComponent> villages;
 

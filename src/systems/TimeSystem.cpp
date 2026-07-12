@@ -80,5 +80,15 @@ void TimeSystem::Update(float deltaTime, EntityManager& em) {
             em.DestroyEntity(i);
             continue;
         }
+
+        const bool isResting = em.hasBehavior[i] && em.behaviors[i].currentTask == "resting";
+
+        if (!isResting) {
+            needs.fatigue += Config::FATIGUE_GAIN_PER_SECOND * deltaTime;
+
+            if (needs.fatigue > needs.maxFatigue) {
+                needs.fatigue = needs.maxFatigue;
+            }
+        }
     }
 }

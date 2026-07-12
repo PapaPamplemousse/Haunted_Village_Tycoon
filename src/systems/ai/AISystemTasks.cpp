@@ -1,3 +1,4 @@
+#include "core/Config.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 
@@ -41,6 +42,23 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
 
             em.DestroyEntity(target);
         }
+    } else if (behavior.currentTask == "resting") {
+        if (em.hasNeeds[i]) {
+            auto& needs = em.needs[i];
+
+            needs.fatigue -= Config::FATIGUE_REST_RECOVERY_PER_SECOND;
+
+            if (needs.fatigue < 0.0f) {
+                needs.fatigue = 0.0f;
+            }
+
+            if (!AISystemUtils::IsFullyRested(i, em)) {
+                behavior.stateTimer = 1.0f;
+                return;
+            }
+        }
+
+        AISystemUtils::ReleaseRestSpotReservation(i, em);
     } else if (behavior.currentTask == "harvesting") {
         EntityID target = behavior.currentJobTarget;
 

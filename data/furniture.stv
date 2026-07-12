@@ -56,3 +56,36 @@ blueprint_cost =
 texture = square
 color = 255, 220, 120, 255
 sprite_size = 40, 40
+
+[STRAW_BED]
+name = Straw Bed
+max_hp = 30
+grid_size = 1, 1
+interaction_type = rest
+rest_capacity = 1
+blueprint_cost = WOOD:2, ROPE:1
+texture = square
+color = 180, 160, 100, 255
+sprite_size = 32, 32
+
+[SMALL_BED]
+name = Small Bed
+max_hp = 50
+grid_size = 1, 1
+interaction_type = rest
+rest_capacity = 1
+blueprint_cost = WOOD:6, ROPE:2
+texture = square
+color = 120, 90, 180, 255
+sprite_size = 32, 32
+
+[DOUBLE_BED]
+name = Double Bed
+max_hp = 80
+grid_size = 2, 1
+interaction_type = rest
+rest_capacity = 2
+blueprint_cost = WOOD:12, ROPE:4
+texture = square
+color = 100, 80, 160, 255
+sprite_size = 64, 32
