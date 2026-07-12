@@ -31,6 +31,7 @@
 #include "systems/ProfessionSystem.hpp"
 #include "systems/RenderSystem.hpp"
 #include "systems/RoomSystem.hpp"
+#include "systems/SocialSystem.hpp"
 #include "systems/TimeSystem.hpp"
 #include "systems/VillageSystem.hpp"
 #include "systems/WorldRenderSystem.hpp"
@@ -90,6 +91,7 @@ private:
     ChronicleRenderSystem m_chronicleRenderSystem;
     TimeSystem m_timeSystem;
     VillageSystem m_villageSystem;
+    SocialSystem m_socialSystem;
     AISystem m_aiSystem;
     RoomSystem m_roomSystem;
     ProfessionSystem m_professionSystem;

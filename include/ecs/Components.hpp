@@ -132,6 +132,28 @@ struct FamilyComponent {
 };
 
 /**
+ * @struct RelationshipEntry
+ * @brief Stores the relationship state between two entities.
+ */
+struct RelationshipEntry {
+    EntityID otherId = static_cast<EntityID>(-1);
+
+    float friendship = 0.0f;
+    float romance = 0.0f;
+
+    bool friendshipAnnounced = false;
+    bool romanceAnnounced = false;
+};
+
+/**
+ * @struct SocialComponent
+ * @brief Stores lightweight social relationships for an entity.
+ */
+struct SocialComponent {
+    std::vector<RelationshipEntry> relationships;
+};
+
+/**
  * @struct BlueprintComponent
  * @brief Represents an unfinished structure. Requires materials to become active.
  */

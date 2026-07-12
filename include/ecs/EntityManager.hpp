@@ -110,6 +110,9 @@ public:
     std::vector<bool> hasFamily;
     std::vector<FamilyComponent> families;
 
+    std::vector<bool> hasSocial;
+    std::vector<SocialComponent> socials;
+
     std::vector<bool> hasWorkplace;
     std::vector<WorkplaceComponent> workplaces;
 

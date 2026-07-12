@@ -54,34 +54,35 @@ EntityID EntityManager::FindReusableSlot() const {
 }
 
 void EntityManager::ReserveComponentStorage(std::size_t capacity) {
-    ReserveFlagArrays(capacity, {&hasTag,         &hasTransform,    &hasSprite,     &hasInventory,     &hasStorage,     &hasRestSpot,
-                                 &hasBlueprint,   &hasConstruction, &hasRoom,       &hasCost,          &hasDeconstruct, &hasDoor,
-                                 &hasHarvestable, &hasLoot,         &hasVillage,    &hasVillageMember, &hasFamily,      &hasWorkplace,
-                                 &hasHealth,      &hasNeeds,        &hasProfession, &hasBehavior,      &hasStats,       &hasEquipment});
+    ReserveFlagArrays(capacity,
+                      {&hasTag,          &hasTransform,     &hasSprite, &hasInventory,   &hasStorage,   &hasRestSpot,    &hasBlueprint,
+                       &hasConstruction, &hasRoom,          &hasCost,   &hasDeconstruct, &hasDoor,      &hasHarvestable, &hasLoot,
+                       &hasVillage,      &hasVillageMember, &hasFamily, &hasSocial,      &hasWorkplace, &hasHealth,      &hasNeeds,
+                       &hasProfession,   &hasBehavior,      &hasStats,  &hasEquipment});
 
     ReserveComponentArrays(capacity, tags, transforms, sprites, inventories, storages, restSpots, blueprints, constructions, rooms, costs,
-                           deconstructs, doors, harvestables, loots, villages, villageMembers, families, workplaces, healths, needs,
-                           professions, behaviors, stats, equipments);
+                           deconstructs, doors, harvestables, loots, villages, villageMembers, families, socials, workplaces, healths,
+                           needs, professions, behaviors, stats, equipments);
 }
 
 void EntityManager::AppendEntitySlot() {
     active.push_back(false);
 
-    PushInactiveFlags({&hasTag,         &hasTransform,    &hasSprite,     &hasInventory,     &hasStorage,     &hasRestSpot,
-                       &hasBlueprint,   &hasConstruction, &hasRoom,       &hasCost,          &hasDeconstruct, &hasDoor,
-                       &hasHarvestable, &hasLoot,         &hasVillage,    &hasVillageMember, &hasFamily,      &hasWorkplace,
-                       &hasHealth,      &hasNeeds,        &hasProfession, &hasBehavior,      &hasStats,       &hasEquipment});
+    PushInactiveFlags({&hasTag,          &hasTransform,     &hasSprite, &hasInventory,   &hasStorage,   &hasRestSpot,    &hasBlueprint,
+                       &hasConstruction, &hasRoom,          &hasCost,   &hasDeconstruct, &hasDoor,      &hasHarvestable, &hasLoot,
+                       &hasVillage,      &hasVillageMember, &hasFamily, &hasSocial,      &hasWorkplace, &hasHealth,      &hasNeeds,
+                       &hasProfession,   &hasBehavior,      &hasStats,  &hasEquipment});
 
     PushDefaultComponents(tags, transforms, sprites, inventories, storages, restSpots, blueprints, constructions, rooms, costs,
-                          deconstructs, doors, harvestables, loots, villages, villageMembers, families, workplaces, healths, needs,
+                          deconstructs, doors, harvestables, loots, villages, villageMembers, families, socials, workplaces, healths, needs,
                           professions, behaviors, stats, equipments);
 }
 
 void EntityManager::ResetComponentFlags(EntityID id) {
-    ResetFlags(id,
-               {&hasTag,    &hasTransform, &hasSprite,      &hasInventory, &hasStorage,     &hasRestSpot, &hasBlueprint, &hasConstruction,
-                &hasRoom,   &hasCost,      &hasDeconstruct, &hasDoor,      &hasHarvestable, &hasLoot,     &hasVillage,   &hasVillageMember,
-                &hasFamily, &hasWorkplace, &hasHealth,      &hasNeeds,     &hasProfession,  &hasBehavior, &hasStats,     &hasEquipment});
+    ResetFlags(id, {&hasTag,          &hasTransform,     &hasSprite, &hasInventory,   &hasStorage,   &hasRestSpot,    &hasBlueprint,
+                    &hasConstruction, &hasRoom,          &hasCost,   &hasDeconstruct, &hasDoor,      &hasHarvestable, &hasLoot,
+                    &hasVillage,      &hasVillageMember, &hasFamily, &hasSocial,      &hasWorkplace, &hasHealth,      &hasNeeds,
+                    &hasProfession,   &hasBehavior,      &hasStats,  &hasEquipment});
 }
 
 EntityID EntityManager::CreateEntity() {

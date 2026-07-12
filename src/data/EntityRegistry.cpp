@@ -289,6 +289,13 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
     }
     em.tags[id] = {def.name, def.id, nameReg.GetRandomName(def.species), def.species, def.category, def.genderModel, generatedGender, 0};
 
+    // Social relationships are enabled for human entities for now.
+    // Other species can get their own social rules later.
+    if (def.species == "human") {
+        em.hasSocial[id] = true;
+        em.socials[id] = {};
+    }
+
     em.hasTransform[id] = true;
     em.transforms[id] = {position};
 

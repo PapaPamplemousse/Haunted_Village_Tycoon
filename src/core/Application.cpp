@@ -146,6 +146,8 @@ void Application::Update(float deltaTime) {
                       static_cast<float>(Config::SIMULATION_ACTIVE_RADIUS_TILES), m_timeSystem.GetHour(), m_roomSystem);
 
     m_spatialGrid.Rebuild(m_entityManager);
+
+    m_socialSystem.Update(deltaTime, m_entityManager, m_spatialGrid);
 }
 
 void Application::Render() {
