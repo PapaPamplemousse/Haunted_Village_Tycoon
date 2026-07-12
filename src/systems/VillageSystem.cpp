@@ -218,6 +218,86 @@ EntityID FindAdultByGender(const EntityManager& em, EntityID villageId, const st
     return static_cast<EntityID>(-1);
 }
 
+// ---------------------------------------------------------
+// Added Social Setup Helpers for Reproduction V2
+// ---------------------------------------------------------
+bool IsValidPartnerLink(const EntityManager& em, EntityID a, EntityID b) {
+    if (a >= em.active.size() || b >= em.active.size() || !em.active[a] || !em.active[b] || !em.hasFamily[a] || !em.hasFamily[b]) {
+        return false;
+    }
+
+    return em.families[a].partnerId == b && em.families[b].partnerId == a;
+}
+
+bool IsAdultHumanCoupleMember(const EntityManager& em, EntityID entity, EntityID villageId) {
+    if (!IsAdultHumanVillageMember(entity, em, villageId)) {
+        return false;
+    }
+
+    if (!em.hasFamily[entity]) {
+        return false;
+    }
+
+    return em.families[entity].partnerId != static_cast<EntityID>(-1);
+}
+
+bool AreBirthCompatiblePartners(const EntityManager& em, EntityID a, EntityID b, EntityID villageId) {
+    if (!IsAdultHumanVillageMember(a, em, villageId) || !IsAdultHumanVillageMember(b, em, villageId)) {
+        return false;
+    }
+
+    if (!IsValidPartnerLink(em, a, b)) {
+        return false;
+    }
+
+    if (!em.hasTag[a] || !em.hasTag[b]) {
+        return false;
+    }
+
+    const std::string& genderA = em.tags[a].gender;
+    const std::string& genderB = em.tags[b].gender;
+
+    if (genderA == "undefined" || genderB == "undefined") {
+        return false;
+    }
+
+    // V2 keeps current binary reproduction simple.
+    // Later this can become data-driven.
+    return genderA != genderB;
+}
+
+bool FindEligibleCoupleForBirth(const EntityManager& em, EntityID villageId, EntityID& outParentA, EntityID& outParentB) {
+    outParentA = static_cast<EntityID>(-1);
+    outParentB = static_cast<EntityID>(-1);
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!IsAdultHumanCoupleMember(em, entity, villageId)) {
+            continue;
+        }
+
+        const EntityID partner = em.families[entity].partnerId;
+
+        if (partner == static_cast<EntityID>(-1)) {
+            continue;
+        }
+
+        // Avoid evaluating the same couple twice.
+        if (partner < entity) {
+            continue;
+        }
+
+        if (!AreBirthCompatiblePartners(em, entity, partner, villageId)) {
+            continue;
+        }
+
+        outParentA = entity;
+        outParentB = partner;
+        return true;
+    }
+
+    return false;
+}
+
 void EnsureFamilyComponent(EntityManager& em, EntityID entity) {
     if (entity >= em.active.size() || !em.active[entity]) {
         return;
@@ -275,40 +355,28 @@ void AgeVillageMembersOneSeason(EntityManager& em, EntityID villageId) {
     }
 }
 
-/**
- * @brief Checks if a given rest spot entity can be used by the specified village.
- */
 bool IsRestSpotUsableByVillage(const EntityManager& em, EntityID restSpotEntity, EntityID villageId) {
     if (restSpotEntity >= em.active.size() || !em.active[restSpotEntity] || !em.hasRestSpot[restSpotEntity]) {
         return false;
     }
 
-    // Unfinished blueprints cannot be used
     if (em.hasBlueprint[restSpotEntity] && !em.blueprints[restSpotEntity].isFinished) {
         return false;
     }
 
     const RestSpotComponent& restSpot = em.restSpots[restSpotEntity];
 
-    // Future private ownership hook:
-    // - Private beds should later be validated against family ownership.
-    // - For now, a private bed only counts for a village if explicitly owned by that village.
     if (restSpot.isPrivate) {
         return restSpot.ownerVillageId == villageId;
     }
 
-    // Public beds with no explicit owner are usable by any village
     if (restSpot.ownerVillageId == static_cast<EntityID>(-1)) {
         return true;
     }
 
-    // Village-owned beds are usable only by their specific village
     return restSpot.ownerVillageId == villageId;
 }
 
-/**
- * @brief Calculates the total housing capacity available for the village.
- */
 int CountVillageHousingCapacity(const EntityManager& em, EntityID villageId) {
     int capacity = 0;
 
@@ -323,9 +391,6 @@ int CountVillageHousingCapacity(const EntityManager& em, EntityID villageId) {
     return capacity;
 }
 
-/**
- * @brief Returns the effective population limit (bounded by available housing).
- */
 int GetEffectivePopulationLimit(const EntityManager& em, EntityID villageId) {
     if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
         return 0;
@@ -334,13 +399,9 @@ int GetEffectivePopulationLimit(const EntityManager& em, EntityID villageId) {
     const VillageComponent& village = em.villages[villageId];
     const int housingCapacity = CountVillageHousingCapacity(em, villageId);
 
-    // The village cannot grow past its structural limit or its housing capacity
     return std::min(village.populationLimit, housingCapacity);
 }
 
-/**
- * @brief Evaluates whether there is enough housing space to support a new birth.
- */
 bool HasHousingCapacityForNewChild(const EntityManager& em, EntityID villageId) {
     if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
         return false;
@@ -448,7 +509,6 @@ void VillageSystem::Update(float, EntityManager& em, EntityRegistry& entityReg, 
                            const ResourceRegistry& resourceReg, const TimeSystem& timeSystem) {
     const int currentSeasonNumber = timeSystem.GetSeasonNumber();
 
-    // First call: initialize internal state and avoid instant reproduction on game start.
     if (m_lastProcessedSeasonNumber == 0) {
         m_lastProcessedSeasonNumber = currentSeasonNumber;
 
@@ -457,18 +517,15 @@ void VillageSystem::Update(float, EntityManager& em, EntityRegistry& entityReg, 
                 RecomputeVillagePopulation(em, villageId);
             }
         }
-
         return;
     }
 
-    // Always keep population counters fresh.
     for (EntityID villageId = 0; villageId < em.active.size(); ++villageId) {
         if (em.active[villageId] && em.hasVillage[villageId]) {
             RecomputeVillagePopulation(em, villageId);
         }
     }
 
-    // Seasonal logic only once per season.
     if (currentSeasonNumber == m_lastProcessedSeasonNumber) {
         return;
     }
@@ -480,26 +537,22 @@ void VillageSystem::Update(float, EntityManager& em, EntityRegistry& entityReg, 
             continue;
         }
 
-        // Aging is village/lifecycle logic and must not depend on storage availability.
         AgeVillageMembersOneSeason(em, villageId);
         RecomputeVillagePopulation(em, villageId);
 
-        VillageComponent& village = em.villages[villageId];
-
-        // Reproduction requires storage because food is consumed from the Village Core.
         if (!em.hasInventory[villageId]) {
             continue;
         }
 
-        // Reproduction is blocked if the village lacks sufficient housing capacity for a new child.
         if (!HasHousingCapacityForNewChild(em, villageId)) {
             continue;
         }
 
-        const EntityID male = FindAdultByGender(em, villageId, "male");
-        const EntityID female = FindAdultByGender(em, villageId, "female");
+        // Updated Partner Check
+        EntityID parentA = static_cast<EntityID>(-1);
+        EntityID parentB = static_cast<EntityID>(-1);
 
-        if (male == static_cast<EntityID>(-1) || female == static_cast<EntityID>(-1)) {
+        if (!FindEligibleCoupleForBirth(em, villageId, parentA, parentB)) {
             continue;
         }
 
@@ -507,7 +560,7 @@ void VillageSystem::Update(float, EntityManager& em, EntityRegistry& entityReg, 
             continue;
         }
 
-        if (TrySpawnHumanChild(em, entityReg, nameReg, behaviorReg, map, tileReg, villageId, male, female)) {
+        if (TrySpawnHumanChild(em, entityReg, nameReg, behaviorReg, map, tileReg, villageId, parentA, parentB)) {
             RecomputeVillagePopulation(em, villageId);
         }
     }

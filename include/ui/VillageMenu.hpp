@@ -1,6 +1,6 @@
 /**
  * @file VillageMenu.hpp
- * @brief Village management menu for settlement overview, villagers, professions and storage inspection.
+ * @brief Village management menu for settlement overview, villagers, professions, storage and social inspection.
  * @author Hugo Reif Faudemer (PapaPamplemousse)
  */
 #pragma once
@@ -14,7 +14,8 @@
 
 #include <cstddef>
 
-enum class VillageMenuTab { Overview = 0, Villagers, Professions, Storage };
+// Added the Social tab to the enum
+enum class VillageMenuTab { Overview = 0, Villagers, Professions, Storage, Social };
 
 /**
  * @class VillageMenu
@@ -26,8 +27,8 @@ enum class VillageMenuTab { Overview = 0, Villagers, Professions, Storage };
  * - profession slots;
  * - storage content.
  *
- * Manual profession assignment will be added later once the profession system
- * supports explicit player overrides without fighting auto-assignment.
+ * V2 adds:
+ * - social tab for families and relationships.
  */
 class VillageMenu {
 public:
@@ -49,6 +50,10 @@ private:
     int m_selectedProfessionSlotIndex = 0;
     int m_selectedProfessionCandidateIndex = 0;
 
+    // Social indices
+    int m_selectedSocialPrimaryIndex = 0;
+    int m_selectedSocialTargetIndex = 0;
+
     EntityID FindPrimaryVillage(const EntityManager& em) const;
     int GetTabIndex() const;
     void SetTabIndex(int index);
@@ -59,6 +64,9 @@ private:
     void RenderVillagers(const EntityManager& em, EntityID villageId, float x, float y) const;
     void RenderProfessions(const EntityManager& em, const ProfessionRegistry& professionReg, float x, float y) const;
     void RenderStorage(const EntityManager& em, const ResourceRegistry& resourceReg, EntityID villageId, float x, float y) const;
+
+    // Added Social render method
+    void RenderSocial(const EntityManager& em, EntityID villageId, float x, float y) const;
 
     EntityID GetSelectedVillager(const EntityManager& em, EntityID villageId) const;
 };

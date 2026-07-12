@@ -18,7 +18,7 @@ namespace {
 constexpr int PANEL_WIDTH = 900;
 constexpr int PANEL_HEIGHT = 560;
 constexpr int PANEL_PADDING = 24;
-constexpr int TAB_COUNT = 4;
+constexpr int TAB_COUNT = 5;                       // Updated for Social Tab
 constexpr float BIRTH_FOOD_NUTRITION_COST = 80.0f; // Sourced from VillageSystem
 
 const char* TabName(VillageMenuTab tab) {
@@ -31,6 +31,8 @@ const char* TabName(VillageMenuTab tab) {
             return "Professions";
         case VillageMenuTab::Storage:
             return "Storage";
+        case VillageMenuTab::Social:
+            return "Social"; // Added Social label
         default:
             return "Unknown";
     }
@@ -68,9 +70,6 @@ int CountInventoryItems(const InventoryComponent& inventory) {
     return total;
 }
 
-/**
- * @brief Shared check to ensure a bed is actually available for use by a village.
- */
 bool IsRestSpotUsableByVillage(const EntityManager& em, EntityID restSpotEntity, EntityID villageId) {
     if (restSpotEntity >= em.active.size() || !em.active[restSpotEntity] || !em.hasRestSpot[restSpotEntity]) {
         return false;
@@ -93,9 +92,6 @@ bool IsRestSpotUsableByVillage(const EntityManager& em, EntityID restSpotEntity,
     return restSpot.ownerVillageId == villageId;
 }
 
-/**
- * @brief Computes the total valid housing capacity for the given village.
- */
 int CountHousingCapacityForVillage(const EntityManager& em, EntityID villageId) {
     int capacity = 0;
 
@@ -110,9 +106,6 @@ int CountHousingCapacityForVillage(const EntityManager& em, EntityID villageId) 
     return capacity;
 }
 
-/**
- * @brief Returns the number of villagers currently sleeping in usable beds.
- */
 int CountSleepingOccupantsForVillage(const EntityManager& em, EntityID villageId) {
     int sleeping = 0;
 
@@ -127,9 +120,6 @@ int CountSleepingOccupantsForVillage(const EntityManager& em, EntityID villageId
     return sleeping;
 }
 
-/**
- * @brief Calculates how many available housing slots the village has left.
- */
 int GetFreeHousingSlots(const EntityManager& em, EntityID villageId) {
     if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
         return 0;
@@ -141,9 +131,6 @@ int GetFreeHousingSlots(const EntityManager& em, EntityID villageId) {
     return std::max(0, housingCapacity - population);
 }
 
-/**
- * @brief Analyzes village conditions to provide human-readable feedback on population growth.
- */
 std::string GetBirthStatusText(const EntityManager& em, const ResourceRegistry& resourceReg, EntityID villageId) {
     if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
         return "no village";
@@ -220,6 +207,161 @@ std::string GetDisplayName(const EntityManager& em, EntityID entity) {
 
     return "Entity #" + std::to_string(entity);
 }
+
+// ---------------------------------------------------------
+// Social Helpers
+// ---------------------------------------------------------
+
+const RelationshipEntry* FindRelationship(const EntityManager& em, EntityID owner, EntityID other) {
+    if (owner >= em.active.size() || !em.active[owner] || !em.hasSocial[owner]) {
+        return nullptr;
+    }
+
+    const SocialComponent& social = em.socials[owner];
+
+    for (const RelationshipEntry& relationship : social.relationships) {
+        if (relationship.otherId == other) {
+            return &relationship;
+        }
+    }
+    return nullptr;
+}
+
+bool HasPartnerLink(const EntityManager& em, EntityID a, EntityID b) {
+    if (a >= em.active.size() || b >= em.active.size() || !em.active[a] || !em.active[b] || !em.hasFamily[a] || !em.hasFamily[b]) {
+        return false;
+    }
+
+    return em.families[a].partnerId == b && em.families[b].partnerId == a;
+}
+
+bool IsParentOf(const EntityManager& em, EntityID possibleParent, EntityID possibleChild) {
+    if (possibleChild >= em.active.size() || !em.active[possibleChild] || !em.hasFamily[possibleChild]) {
+        return false;
+    }
+
+    const FamilyComponent& family = em.families[possibleChild];
+    return family.parentA == possibleParent || family.parentB == possibleParent;
+}
+
+bool IsChildOf(const EntityManager& em, EntityID possibleChild, EntityID possibleParent) {
+    return IsParentOf(em, possibleParent, possibleChild);
+}
+
+std::string GetFamilyRelationLabel(const EntityManager& em, EntityID a, EntityID b) {
+    if (a == b) {
+        return "self";
+    }
+    if (HasPartnerLink(em, a, b)) {
+        return "partner";
+    }
+    if (IsParentOf(em, a, b)) {
+        return "parent";
+    }
+    if (IsChildOf(em, a, b)) {
+        return "child";
+    }
+    return "none";
+}
+
+std::string GetSocialRelationLabel(const EntityManager& em, EntityID a, EntityID b) {
+    const std::string familyRelation = GetFamilyRelationLabel(em, a, b);
+
+    if (familyRelation != "none") {
+        return familyRelation;
+    }
+
+    const RelationshipEntry* relationship = FindRelationship(em, a, b);
+
+    if (relationship == nullptr) {
+        return "neutral";
+    }
+
+    if (relationship->romance >= 50.0f) {
+        return "romantic interest";
+    }
+    if (relationship->friendship >= 50.0f) {
+        return "friend";
+    }
+
+    return "neutral";
+}
+
+float GetFriendshipValue(const EntityManager& em, EntityID a, EntityID b) {
+    const RelationshipEntry* relationship = FindRelationship(em, a, b);
+    return relationship != nullptr ? relationship->friendship : 0.0f;
+}
+
+float GetRomanceValue(const EntityManager& em, EntityID a, EntityID b) {
+    const RelationshipEntry* relationship = FindRelationship(em, a, b);
+    return relationship != nullptr ? relationship->romance : 0.0f;
+}
+
+std::string GetPartnerName(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasFamily[entity]) {
+        return "none";
+    }
+
+    const EntityID partner = em.families[entity].partnerId;
+
+    if (partner == static_cast<EntityID>(-1) || partner >= em.active.size() || !em.active[partner]) {
+        return "none";
+    }
+
+    return GetDisplayName(em, partner);
+}
+
+std::string GetParentsText(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasFamily[entity]) {
+        return "none";
+    }
+
+    const FamilyComponent& family = em.families[entity];
+    std::string result;
+
+    if (family.parentA != static_cast<EntityID>(-1) && family.parentA < em.active.size() && em.active[family.parentA]) {
+        result += GetDisplayName(em, family.parentA);
+    }
+
+    if (family.parentB != static_cast<EntityID>(-1) && family.parentB < em.active.size() && em.active[family.parentB]) {
+        if (!result.empty()) {
+            result += ", ";
+        }
+        result += GetDisplayName(em, family.parentB);
+    }
+
+    return result.empty() ? "none" : result;
+}
+
+std::string GetChildrenText(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasFamily[entity]) {
+        return "none";
+    }
+
+    const FamilyComponent& family = em.families[entity];
+
+    if (family.children.empty()) {
+        return "none";
+    }
+
+    std::string result;
+
+    for (EntityID child : family.children) {
+        if (child >= em.active.size() || !em.active[child]) {
+            continue;
+        }
+        if (!result.empty()) {
+            result += ", ";
+        }
+        result += GetDisplayName(em, child);
+    }
+
+    return result.empty() ? "none" : result;
+}
+
+// ---------------------------------------------------------
+// Drawing Helpers
+// ---------------------------------------------------------
 
 void DrawPanelBackground() {
     const int x = (GetScreenWidth() - PANEL_WIDTH) / 2;
@@ -452,7 +594,6 @@ bool AssignSpecificWorkerToProfessionSlot(EntityManager& em, const ProfessionSlo
 
     JobSlot& slot = workplace.slots[slotView.slotIndex];
 
-    // If another worker was in this slot, release him first.
     if (slot.workerId != static_cast<EntityID>(-1) && slot.workerId != workerId) {
         const EntityID previousWorker = slot.workerId;
 
@@ -463,7 +604,6 @@ bool AssignSpecificWorkerToProfessionSlot(EntityManager& em, const ProfessionSlo
         }
     }
 
-    // If the selected worker already had another slot, release it.
     ReleaseWorkerFromAnySlot(em, workerId, behaviorReg);
 
     slot.workerId = workerId;
@@ -724,6 +864,63 @@ void VillageMenu::Update(EntityManager& em, GameCamera& camera, const Profession
 
         return;
     }
+
+    // =========================================================
+    // Social tab
+    // =========================================================
+    if (m_currentTab == VillageMenuTab::Social) {
+        const std::vector<EntityID> members = GetVillageMembers(em, villageId);
+
+        if (members.empty()) {
+            m_selectedSocialPrimaryIndex = 0;
+            m_selectedSocialTargetIndex = 0;
+            return;
+        }
+
+        if (m_selectedSocialPrimaryIndex >= static_cast<int>(members.size())) {
+            m_selectedSocialPrimaryIndex = static_cast<int>(members.size()) - 1;
+        }
+
+        if (m_selectedSocialTargetIndex >= static_cast<int>(members.size())) {
+            m_selectedSocialTargetIndex = static_cast<int>(members.size()) - 1;
+        }
+
+        if (m_selectedSocialPrimaryIndex < 0) {
+            m_selectedSocialPrimaryIndex = 0;
+        }
+
+        if (m_selectedSocialTargetIndex < 0) {
+            m_selectedSocialTargetIndex = 0;
+        }
+
+        if (IsKeyPressed(KEY_DOWN)) {
+            m_selectedSocialPrimaryIndex = (m_selectedSocialPrimaryIndex + 1) % static_cast<int>(members.size());
+        }
+
+        if (IsKeyPressed(KEY_UP)) {
+            m_selectedSocialPrimaryIndex =
+                (m_selectedSocialPrimaryIndex - 1 + static_cast<int>(members.size())) % static_cast<int>(members.size());
+        }
+
+        if (IsKeyPressed(KEY_S)) {
+            m_selectedSocialTargetIndex = (m_selectedSocialTargetIndex + 1) % static_cast<int>(members.size());
+        }
+
+        if (IsKeyPressed(KEY_W)) {
+            m_selectedSocialTargetIndex =
+                (m_selectedSocialTargetIndex - 1 + static_cast<int>(members.size())) % static_cast<int>(members.size());
+        }
+
+        if (IsKeyPressed(KEY_F)) {
+            const EntityID selected = members[m_selectedSocialPrimaryIndex];
+
+            if (selected < em.active.size() && em.active[selected] && em.hasTransform[selected]) {
+                camera.SetTarget(em.transforms[selected].position);
+            }
+        }
+
+        return;
+    }
 }
 
 void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resourceReg, const TimeSystem& timeSystem,
@@ -768,6 +965,9 @@ void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resour
             break;
         case VillageMenuTab::Storage:
             RenderStorage(em, resourceReg, villageId, contentX, contentY);
+            break;
+        case VillageMenuTab::Social: // Render call for the new tab
+            RenderSocial(em, villageId, contentX, contentY);
             break;
         default:
             break;
@@ -841,7 +1041,6 @@ void VillageMenu::RenderOverview(const EntityManager& em, const ResourceRegistry
         currentY += 28.0f;
     }
 
-    // --- New Housing Capacity UI Integration ---
     const int housingCapacity = CountHousingCapacityForVillage(em, villageId);
     const int freeHousing = GetFreeHousingSlots(em, villageId);
     const int sleepingOccupants = CountSleepingOccupantsForVillage(em, villageId);
@@ -859,7 +1058,6 @@ void VillageMenu::RenderOverview(const EntityManager& em, const ResourceRegistry
     DrawKeyValue("Birth status", GetBirthStatusText(em, resourceReg, villageId), x, currentY,
                  GetFreeHousingSlots(em, villageId) > 0 ? GREEN : ORANGE);
     currentY += 28.0f;
-    // -------------------------------------------
 
     DrawKeyValue("Day", std::to_string(timeSystem.GetDay()), x, currentY);
     currentY += 28.0f;
@@ -1154,6 +1352,145 @@ void VillageMenu::RenderStorage(const EntityManager& em, const ResourceRegistry&
             break;
         }
     }
+}
+
+// Added the RenderSocial function
+void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, float x, float y) const {
+    const std::vector<EntityID> members = GetVillageMembers(em, villageId);
+
+    // Use fallback PINK if standard raylib definition changes (though it should be native).
+    const Color customPink = Color{255, 109, 194, 255};
+
+    DrawText("Social", static_cast<int>(x), static_cast<int>(y), 24, SKYBLUE);
+
+    float currentY = y + 42.0f;
+
+    DrawText("Up/Down: primary villager | W/S: target villager | F: focus primary", static_cast<int>(x), static_cast<int>(currentY), 16,
+             LIGHTGRAY);
+
+    currentY += 34.0f;
+
+    if (members.empty()) {
+        DrawText("No villagers found.", static_cast<int>(x), static_cast<int>(currentY), 18, LIGHTGRAY);
+        return;
+    }
+
+    const int primaryIndex = std::max(0, std::min(m_selectedSocialPrimaryIndex, static_cast<int>(members.size()) - 1));
+
+    const int targetIndex = std::max(0, std::min(m_selectedSocialTargetIndex, static_cast<int>(members.size()) - 1));
+
+    const EntityID primary = members[primaryIndex];
+    const EntityID target = members[targetIndex];
+
+    const float leftX = x;
+    const float centerX = x + 270.0f;
+    const float rightX = x + 550.0f;
+
+    DrawText("Villagers", static_cast<int>(leftX), static_cast<int>(currentY), 20, YELLOW);
+    DrawText("Family", static_cast<int>(centerX), static_cast<int>(currentY), 20, YELLOW);
+    DrawText("Relationship", static_cast<int>(rightX), static_cast<int>(currentY), 20, YELLOW);
+
+    currentY += 32.0f;
+
+    // Left list
+    float listY = currentY;
+    const int visibleMax = 13;
+    const int start = std::max(0, primaryIndex - visibleMax + 1);
+    const int end = std::min(static_cast<int>(members.size()), start + visibleMax);
+
+    for (int row = start; row < end; ++row) {
+        const EntityID entity = members[row];
+
+        const bool isPrimary = row == primaryIndex;
+        const bool isTarget = row == targetIndex;
+
+        Color rowColor = RAYWHITE;
+
+        if (isPrimary) {
+            rowColor = YELLOW;
+        } else if (isTarget) {
+            rowColor = SKYBLUE;
+        }
+
+        if (isPrimary) {
+            DrawRectangle(static_cast<int>(leftX - 8.0f), static_cast<int>(listY - 3.0f), 240, 24, ColorAlpha(DARKGRAY, 0.65f));
+        }
+
+        std::string prefix = "  ";
+
+        if (isPrimary && isTarget) {
+            prefix = "* ";
+        } else if (isPrimary) {
+            prefix = "> ";
+        } else if (isTarget) {
+            prefix = "- ";
+        }
+
+        DrawText((prefix + TruncateText(GetDisplayName(em, entity), 20)).c_str(), static_cast<int>(leftX), static_cast<int>(listY), 16,
+                 rowColor);
+
+        listY += 26.0f;
+    }
+
+    // Family panel
+    float familyY = currentY;
+
+    DrawText(("Selected: " + GetDisplayName(em, primary)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 17, RAYWHITE);
+    familyY += 28.0f;
+
+    DrawText(("Partner: " + GetPartnerName(em, primary)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 16, LIGHTGRAY);
+    familyY += 24.0f;
+
+    DrawText(("Parents: " + TruncateText(GetParentsText(em, primary), 28)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY),
+             16, LIGHTGRAY);
+    familyY += 24.0f;
+
+    DrawText(("Children: " + TruncateText(GetChildrenText(em, primary), 28)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY),
+             16, LIGHTGRAY);
+    familyY += 34.0f;
+
+    if (em.hasSocial[primary]) {
+        DrawText(("Known relations: " + std::to_string(em.socials[primary].relationships.size())).c_str(), static_cast<int>(centerX),
+                 static_cast<int>(familyY), 16, SKYBLUE);
+    } else {
+        DrawText("Known relations: none", static_cast<int>(centerX), static_cast<int>(familyY), 16, DARKGRAY);
+    }
+
+    // Relationship panel
+    float relationY = currentY;
+
+    DrawText(("Target: " + GetDisplayName(em, target)).c_str(), static_cast<int>(rightX), static_cast<int>(relationY), 17, RAYWHITE);
+    relationY += 30.0f;
+
+    const std::string relationLabel = GetSocialRelationLabel(em, primary, target);
+
+    Color relationColor = LIGHTGRAY;
+
+    if (relationLabel == "partner") {
+        relationColor = GREEN;
+    } else if (relationLabel == "romantic interest") {
+        relationColor = customPink;
+    } else if (relationLabel == "friend") {
+        relationColor = SKYBLUE;
+    } else if (relationLabel == "parent" || relationLabel == "child") {
+        relationColor = GOLD;
+    }
+
+    DrawText(("Relation: " + relationLabel).c_str(), static_cast<int>(rightX), static_cast<int>(relationY), 18, relationColor);
+    relationY += 34.0f;
+
+    const float friendship = GetFriendshipValue(em, primary, target);
+    const float romance = GetRomanceValue(em, primary, target);
+
+    DrawText("Friendship", static_cast<int>(rightX), static_cast<int>(relationY), 16, GRAY);
+    DrawCompactProgressBar(friendship, 100.0f, rightX + 110.0f, relationY, 150.0f, SKYBLUE);
+    relationY += 28.0f;
+
+    DrawText("Romance", static_cast<int>(rightX), static_cast<int>(relationY), 16, GRAY);
+    DrawCompactProgressBar(romance, 100.0f, rightX + 110.0f, relationY, 150.0f, customPink);
+    relationY += 36.0f;
+
+    DrawText("Enemy/hostility is not implemented yet.", static_cast<int>(rightX), static_cast<int>(relationY), 15, DARKGRAY);
 }
 
 EntityID VillageMenu::GetSelectedVillager(const EntityManager& em, EntityID villageId) const {

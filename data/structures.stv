@@ -42,3 +42,11 @@ min_area = 4
 max_area = 4
 requirements = SMALL_BED:1
 granted_buffs = rest
+
+
+[LARGE_BEDROOM]
+name = Large bedroom
+min_area = 4
+max_area = 8
+requirements = DOUBLE_BED:1
+granted_buffs = rest
