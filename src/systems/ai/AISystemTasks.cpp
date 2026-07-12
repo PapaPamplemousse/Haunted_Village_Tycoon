@@ -110,11 +110,12 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
                 em.DestroyEntity(target);
                 // L'arbre est mort. Le code va descendre naturellement et atteindre
                 // le ResetBehaviorState(behavior); global situé à la fin de la fonction !
-            } else {
-                // 5. L'arbre est encore en vie ! On boucle.
-                behavior.stateTimer = 1.0f; // Prochain coup de hache dans 1 seconde
-                return;                     // TRÈS IMPORTANT : On sort pour NE PAS appeler le ResetBehaviorState() global !
             }
+            // else {
+            //     // 5. L'arbre est encore en vie ! On boucle.
+            //     behavior.stateTimer = 1.0f; // Prochain coup de hache dans 1 seconde
+            //     return;                     // TRÈS IMPORTANT : On sort pour NE PAS appeler le ResetBehaviorState() global !
+            // }
         }
     } else if (behavior.currentTask == "depositing") {
         EntityID storage = behavior.currentJobTarget;

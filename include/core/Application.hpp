@@ -35,6 +35,7 @@
 #include "systems/VillageSystem.hpp"
 #include "systems/WorldRenderSystem.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/VillageMenu.hpp"
 #include "world/EntitySpatialGrid.hpp"
 #include "world/WorldMap.hpp"
 
@@ -98,4 +99,5 @@ private:
     GameCamera m_camera;
     InputManager m_inputManager;
     UIManager m_uiManager;
+    VillageMenu m_villageMenu;
 };

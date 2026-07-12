@@ -109,6 +109,12 @@ void Application::Run() {
 }
 
 void Application::Update(float deltaTime) {
+    m_villageMenu.Update(m_entityManager, m_camera, m_professionRegistry, m_behaviorRegistry);
+
+    if (m_villageMenu.IsOpen()) {
+        return;
+    }
+
     m_uiManager.Update();
 
     if (m_uiManager.IsMenuOpen()) {
@@ -180,7 +186,11 @@ void Application::Render() {
 
     m_uiManager.Render();
 
-    m_inspectionSystem.Render(m_inputManager, m_entityManager, m_spatialGrid, m_resourceRegistry);
+    if (!m_villageMenu.IsOpen()) {
+        m_inspectionSystem.Render(m_inputManager, m_entityManager, m_spatialGrid, m_resourceRegistry);
+    }
+
+    m_villageMenu.Render(m_entityManager, m_resourceRegistry, m_timeSystem);
 
     EndDrawing();
 }
