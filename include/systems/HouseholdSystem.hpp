@@ -1,6 +1,6 @@
 /**
  * @file HouseholdSystem.hpp
- * @brief Assigns private beds to couples and manages lightweight household capacity.
+ * @brief Assigns private family bedrooms and beds to stable couples.
  * @author Hugo Reif Faudemer (PapaPamplemousse)
  */
 #pragma once
@@ -9,13 +9,16 @@
 
 /**
  * @class HouseholdSystem
- * @brief Assigns available public rest spots to couples.
+ * @brief Handles lightweight household ownership.
  *
- * V1 design:
- * - a family is identified by min(partnerA, partnerB);
- * - public beds can be claimed by a couple's family;
- * - claimed beds become private and keep ownerVillageId and ownerFamilyId;
- * - reproduction can later use family-owned bed capacity.
+ * V1 responsibilities:
+ * - detect stable couples from FamilyComponent::partnerId;
+ * - assign an available bedroom to the couple;
+ * - mark all valid beds inside that bedroom as private family beds;
+ * - store ownership through RestSpotComponent::ownerFamilyId and RoomComponent::ownerFamilyId.
+ *
+ * This system does not create rooms or furniture.
+ * It only assigns ownership to already existing detected rooms and beds.
  */
 class HouseholdSystem {
 public:

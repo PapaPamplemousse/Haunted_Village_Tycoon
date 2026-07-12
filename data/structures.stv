@@ -50,3 +50,17 @@ min_area = 4
 max_area = 8
 requirements = DOUBLE_BED:1
 granted_buffs = rest
+
+[FAMILY_BEDROOM_SMALL]
+name = Small family bedroom
+min_area = 6
+max_area = 8
+requirements = DOUBLE_BED:1, SMALL_BED:1
+granted_buffs = rest
+
+[FAMILY_BEDROOM_LARGE]
+name = Large family bedroom
+min_area = 8
+max_area = 12
+requirements = DOUBLE_BED:1, SMALL_BED:2
+granted_buffs = rest
