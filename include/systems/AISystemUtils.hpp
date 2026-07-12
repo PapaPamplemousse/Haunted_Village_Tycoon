@@ -81,6 +81,12 @@ bool ShouldRest(EntityID entity, const EntityManager& em, const BehaviorComponen
 
 bool IsFullyRested(EntityID entity, const EntityManager& em);
 
+bool IsEntityInFamily(EntityID entity, EntityID familyKey, const EntityManager& em);
+
+bool CanEntityUseRestSpot(EntityID sleeper, EntityID restSpotEntity, const EntityManager& em);
+
+int GetRestSpotAccessPriority(EntityID sleeper, EntityID restSpotEntity, const EntityManager& em);
+
 void CleanRestSpotOccupants(RestSpotComponent& restSpot, const EntityManager& em);
 
 bool RestSpotHasCapacity(EntityID restSpotEntity, EntityManager& em);

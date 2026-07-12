@@ -197,6 +197,7 @@ bool AISystem::TryFindRestJob(EntityID entity, EntityManager& em, const WorldMap
     const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
 
     EntityID bestRestSpot = static_cast<EntityID>(-1);
+    int bestAccessPriority = 1000;
     float bestDistanceSq = std::numeric_limits<float>::infinity();
 
     for (EntityID candidate : candidates) {
@@ -208,16 +209,20 @@ bool AISystem::TryFindRestJob(EntityID entity, EntityManager& em, const WorldMap
             continue;
         }
 
-        // Future private property hook:
-        // if em.restSpots[candidate].isPrivate, check family/village ownership here.
+        if (!AISystemUtils::CanEntityUseRestSpot(entity, candidate, em)) {
+            continue;
+        }
 
         if (!AISystemUtils::RestSpotHasCapacity(candidate, em)) {
             continue;
         }
 
+        const int accessPriority = AISystemUtils::GetRestSpotAccessPriority(entity, candidate, em);
+
         const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
 
-        if (distanceSq < bestDistanceSq) {
+        if (accessPriority < bestAccessPriority || (accessPriority == bestAccessPriority && distanceSq < bestDistanceSq)) {
+            bestAccessPriority = accessPriority;
             bestDistanceSq = distanceSq;
             bestRestSpot = candidate;
         }

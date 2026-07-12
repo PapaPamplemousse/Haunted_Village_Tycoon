@@ -478,6 +478,138 @@ bool IsFullyRested(EntityID entity, const EntityManager& em) {
     return fatigueRatio <= Config::FATIGUE_FULLY_RESTED_RATIO;
 }
 
+bool IsEntityMemberOfVillage(EntityID entity, EntityID villageId, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasVillageMember[entity]) {
+        return false;
+    }
+
+    return em.villageMembers[entity].villageId == villageId;
+}
+
+bool HasValidEntity(const EntityManager& em, EntityID entity) {
+    return entity < em.active.size() && em.active[entity];
+}
+
+EntityID GetCoupleFamilyKey(EntityID a, EntityID b) {
+    return std::min(a, b);
+}
+
+bool IsEntityInFamily(EntityID entity, EntityID familyKey, const EntityManager& em) {
+    if (!HasValidEntity(em, entity) || familyKey == static_cast<EntityID>(-1)) {
+        return false;
+    }
+
+    // The family key can directly be one of the parents.
+    if (entity == familyKey) {
+        return true;
+    }
+
+    if (!em.hasFamily[entity]) {
+        return false;
+    }
+
+    const FamilyComponent& family = em.families[entity];
+
+    // Adult partner case:
+    // if entity has a partner and min(entity, partner) matches the family key,
+    // both partners are considered part of that family.
+    if (family.partnerId != static_cast<EntityID>(-1) && HasValidEntity(em, family.partnerId)) {
+        const EntityID coupleKey = GetCoupleFamilyKey(entity, family.partnerId);
+
+        if (coupleKey == familyKey) {
+            return true;
+        }
+    }
+
+    // Child case:
+    // if parentA/parentB define the same family key, the child belongs to that family.
+    if (family.parentA != static_cast<EntityID>(-1) && family.parentB != static_cast<EntityID>(-1) && HasValidEntity(em, family.parentA) &&
+        HasValidEntity(em, family.parentB)) {
+        const EntityID parentKey = GetCoupleFamilyKey(family.parentA, family.parentB);
+
+        if (parentKey == familyKey) {
+            return true;
+        }
+    }
+
+    // Defensive fallback:
+    // if the family owner has a children list containing the entity, accept it.
+    if (familyKey < em.active.size() && em.active[familyKey] && em.hasFamily[familyKey]) {
+        const std::vector<EntityID>& children = em.families[familyKey].children;
+
+        if (std::find(children.begin(), children.end(), entity) != children.end()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool CanEntityUseRestSpot(EntityID sleeper, EntityID restSpotEntity, const EntityManager& em) {
+    if (sleeper >= em.active.size() || restSpotEntity >= em.active.size() || !em.active[sleeper] || !em.active[restSpotEntity] ||
+        !em.hasRestSpot[restSpotEntity]) {
+        return false;
+    }
+
+    if (em.hasBlueprint[restSpotEntity] && !em.blueprints[restSpotEntity].isFinished) {
+        return false;
+    }
+
+    const RestSpotComponent& restSpot = em.restSpots[restSpotEntity];
+
+    // 1. Family-owned bed:
+    // only members of that family may use it.
+    if (restSpot.ownerFamilyId != static_cast<EntityID>(-1)) {
+        return IsEntityInFamily(sleeper, restSpot.ownerFamilyId, em);
+    }
+
+    // 2. Private village-owned bed:
+    // usable only by members of the owning village.
+    if (restSpot.isPrivate) {
+        if (restSpot.ownerVillageId == static_cast<EntityID>(-1)) {
+            return false;
+        }
+
+        return IsEntityMemberOfVillage(sleeper, restSpot.ownerVillageId, em);
+    }
+
+    // 3. Village-owned public bed:
+    // usable by members of that village.
+    if (restSpot.ownerVillageId != static_cast<EntityID>(-1)) {
+        return IsEntityMemberOfVillage(sleeper, restSpot.ownerVillageId, em);
+    }
+
+    // 4. Fully public bed:
+    // no owner, no private flag.
+    return true;
+}
+
+int GetRestSpotAccessPriority(EntityID sleeper, EntityID restSpotEntity, const EntityManager& em) {
+    if (!CanEntityUseRestSpot(sleeper, restSpotEntity, em)) {
+        return 1000;
+    }
+
+    const RestSpotComponent& restSpot = em.restSpots[restSpotEntity];
+
+    // Best case: own family bed.
+    if (restSpot.ownerFamilyId != static_cast<EntityID>(-1) && IsEntityInFamily(sleeper, restSpot.ownerFamilyId, em)) {
+        return 0;
+    }
+
+    // Private village bed.
+    if (restSpot.isPrivate && restSpot.ownerVillageId != static_cast<EntityID>(-1)) {
+        return 1;
+    }
+
+    // Village-owned public bed.
+    if (restSpot.ownerVillageId != static_cast<EntityID>(-1)) {
+        return 2;
+    }
+
+    // Fully public fallback.
+    return 3;
+}
+
 void CleanRestSpotOccupants(RestSpotComponent& restSpot, const EntityManager& em) {
     std::vector<EntityID> validOccupants;
 
@@ -502,6 +634,10 @@ bool RestSpotHasCapacity(EntityID restSpotEntity, EntityManager& em) {
 }
 
 bool ReserveRestSpot(EntityID restSpotEntity, EntityID sleeper, EntityManager& em) {
+    if (!CanEntityUseRestSpot(sleeper, restSpotEntity, em)) {
+        return false;
+    }
+
     if (!RestSpotHasCapacity(restSpotEntity, em)) {
         return false;
     }
