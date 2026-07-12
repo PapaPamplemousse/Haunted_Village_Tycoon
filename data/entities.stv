@@ -19,8 +19,8 @@ sprite_sheet_columns = 4
 sprite_sheet_rows = 2
 sprite_row_gap = 10
 sprite_frame_size = 114, 110
-sprite_variants_male = assets/entities/villager-man-A.png, assets/entities/villager-man-B.png
-sprite_variants_female = assets/entities/villager-woman-A.png, assets/entities/villager-woman-B.png
+sprite_variants_male = assets/entities/villager-man-A.png
+sprite_variants_female = assets/entities/villager-woman-B.png
 drops = FLESH:2:0.5
 
 [CANNIBAL]
