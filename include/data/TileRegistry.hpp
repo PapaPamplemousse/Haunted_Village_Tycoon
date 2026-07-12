@@ -1,3 +1,8 @@
+/**
+ * @file TileRegistry.hpp
+ * @brief Parses and stores world map tile definitions.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <raylib.h>
 #include <string>

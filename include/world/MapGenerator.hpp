@@ -1,3 +1,8 @@
+/**
+ * @file MapGenerator.hpp
+ * @brief Handles procedural generation of the terrain, biomes, and flora.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "world/WorldMap.hpp"

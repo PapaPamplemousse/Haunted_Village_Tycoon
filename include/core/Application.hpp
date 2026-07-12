@@ -1,3 +1,8 @@
+/**
+ * @file Application.hpp
+ * @brief Main game application class that owns high-level systems, registries, and orchestrates the update/render loop.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "core/Chronicle.hpp"

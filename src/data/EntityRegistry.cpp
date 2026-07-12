@@ -1,3 +1,8 @@
+/**
+ * @file EntityRegistry.cpp
+ * @brief Implementation of the EntityRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/EntityRegistry.hpp"
 
 #include "data/BehaviorRegistry.hpp"

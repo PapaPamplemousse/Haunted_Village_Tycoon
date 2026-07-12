@@ -1,3 +1,8 @@
+/**
+ * @file BuildPlacementSystem.cpp
+ * @brief Implementation of the build placement system.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/BuildPlacementSystem.hpp"
 
 #include "core/Config.hpp"

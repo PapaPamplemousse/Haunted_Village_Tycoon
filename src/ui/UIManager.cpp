@@ -1,3 +1,8 @@
+/**
+ * @file UIManager.cpp
+ * @brief Implementation of the UI interactions and rendering.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "ui/UIManager.hpp"
 
 #include "core/Config.hpp"

@@ -1,3 +1,8 @@
+/**
+ * @file ConstructionRegistry.cpp
+ * @brief Implementation of the ConstructionRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/ConstructionRegistry.hpp"
 
 #include "data/STVParser.hpp"

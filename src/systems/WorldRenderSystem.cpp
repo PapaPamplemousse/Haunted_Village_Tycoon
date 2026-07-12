@@ -1,3 +1,8 @@
+/**
+ * @file WorldRenderSystem.cpp
+ * @brief Implementation of world and terrain rendering.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/WorldRenderSystem.hpp"
 
 #include "core/Config.hpp"

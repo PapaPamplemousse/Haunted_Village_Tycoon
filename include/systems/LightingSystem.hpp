@@ -1,3 +1,8 @@
+/**
+ * @file LightingSystem.hpp
+ * @brief Handles the visual day/night color overlay based on the current time and season.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include <raylib.h>

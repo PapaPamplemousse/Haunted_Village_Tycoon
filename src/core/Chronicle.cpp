@@ -1,3 +1,8 @@
+/**
+ * @file Chronicle.cpp
+ * @brief Implementation of the Chronicle event logger.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "core/Chronicle.hpp"
 
 #include <iostream>

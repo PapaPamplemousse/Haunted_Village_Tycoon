@@ -1,3 +1,8 @@
+/**
+ * @file EventSystemUtils.cpp
+ * @brief Helper functions for parsing day phases used by the event system.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/EventSystem.hpp"
 
 EventDayPhase EventSystem::GetCurrentPhase(float hour) const {

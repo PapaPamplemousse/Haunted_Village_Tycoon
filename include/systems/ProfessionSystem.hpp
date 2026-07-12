@@ -1,3 +1,8 @@
+/**
+ * @file ProfessionSystem.hpp
+ * @brief Manages worker assignment and validates profession slots for workplaces.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "data/BehaviorRegistry.hpp"

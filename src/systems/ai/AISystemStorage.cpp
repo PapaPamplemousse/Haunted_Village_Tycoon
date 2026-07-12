@@ -1,3 +1,8 @@
+/**
+ * @file AISystemStorage.cpp
+ * @brief AI logic for managing inventory limits and finding valid storage deposits.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"

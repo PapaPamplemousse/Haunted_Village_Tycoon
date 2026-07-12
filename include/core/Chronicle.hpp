@@ -1,3 +1,8 @@
+/**
+ * @file Chronicle.hpp
+ * @brief Stores important simulation events and history.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include <string>

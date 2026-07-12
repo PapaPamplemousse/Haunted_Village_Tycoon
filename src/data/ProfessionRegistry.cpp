@@ -1,3 +1,8 @@
+/**
+ * @file ProfessionRegistry.cpp
+ * @brief Implementation of the ProfessionRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/ProfessionRegistry.hpp"
 
 #include "data/STVParser.hpp"

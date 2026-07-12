@@ -1,3 +1,8 @@
+/**
+ * @file StructureRegistry.cpp
+ * @brief Implementation of the StructureRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/StructureRegistry.hpp"
 
 #include "data/STVParser.hpp"

@@ -1,4 +1,10 @@
+/**
+ * @file STVParser.cpp
+ * @brief Implementation of the custom STV file parser.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/STVParser.hpp"
+
 #include <fstream>
 #include <iostream>
 

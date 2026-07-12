@@ -1,3 +1,8 @@
+/**
+ * @file WorldRenderSystem.hpp
+ * @brief Renders terrain layers, room floors, hover tiles, and world labels.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "data/TileRegistry.hpp"

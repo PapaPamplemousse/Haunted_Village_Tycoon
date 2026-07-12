@@ -1,3 +1,8 @@
+/**
+ * @file BehaviorRegistry.cpp
+ * @brief Implementation of the BehaviorRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/BehaviorRegistry.hpp"
 
 #include "data/STVParser.hpp"

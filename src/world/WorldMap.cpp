@@ -1,3 +1,8 @@
+/**
+ * @file WorldMap.cpp
+ * @brief Implementation of the 2D world map data structure.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "world/WorldMap.hpp"
 
 void WorldMap::Initialize(int width, int height) {

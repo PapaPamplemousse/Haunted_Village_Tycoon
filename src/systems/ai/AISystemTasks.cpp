@@ -1,3 +1,8 @@
+/**
+ * @file AISystemTasks.cpp
+ * @brief Processes the completion and mechanical execution of active AI tasks.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "core/Config.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"

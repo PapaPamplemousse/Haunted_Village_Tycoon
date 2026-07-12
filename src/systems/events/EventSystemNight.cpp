@@ -1,3 +1,8 @@
+/**
+ * @file EventSystemNight.cpp
+ * @brief Logic for triggering random and systemic night-time events.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/EventSystem.hpp"
 
 #include <raylib.h>

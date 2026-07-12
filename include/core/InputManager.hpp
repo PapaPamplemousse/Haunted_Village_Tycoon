@@ -1,3 +1,8 @@
+/**
+ * @file InputManager.hpp
+ * @brief Handles global user inputs and world intersections to keep the Application class clean.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include "core/GameCamera.hpp"
 

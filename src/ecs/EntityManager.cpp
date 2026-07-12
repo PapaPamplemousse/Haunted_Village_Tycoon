@@ -1,4 +1,9 @@
-#include "ecs/EntityManager.hpp" // Assure-toi que le chemin correspond à ton projet
+/**
+ * @file EntityManager.cpp
+ * @brief Implementation of the ECS EntityManager.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
+#include "ecs/EntityManager.hpp"
 
 #include <initializer_list>
 #include <vector>

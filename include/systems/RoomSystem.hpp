@@ -1,3 +1,8 @@
+/**
+ * @file RoomSystem.hpp
+ * @brief Detects enclosed areas and classifies them into structured rooms via flood-fill.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include "data/StructureRegistry.hpp"
 #include "ecs/EntityManager.hpp"

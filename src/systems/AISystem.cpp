@@ -1,3 +1,8 @@
+/**
+ * @file AISystem.cpp
+ * @brief Implementation of core AI updates and state management.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/AISystem.hpp"
 
 #include "systems/AISystemUtils.hpp"

@@ -1,3 +1,8 @@
+/**
+ * @file BiomeRegistry.cpp
+ * @brief Implementation of the BiomeRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/BiomeRegistry.hpp"
 
 #include "data/STVParser.hpp"

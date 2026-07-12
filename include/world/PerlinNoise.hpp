@@ -1,3 +1,8 @@
+/**
+ * @file PerlinNoise.hpp
+ * @brief Standard C++ implementation of 2D Perlin Noise for map generation.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <algorithm>
 #include <cmath>

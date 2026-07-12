@@ -1,3 +1,8 @@
+/**
+ * @file EntitySpatialGrid.cpp
+ * @brief Implementation of the spatial partitioning grid.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "world/EntitySpatialGrid.hpp"
 
 #include "core/Config.hpp"

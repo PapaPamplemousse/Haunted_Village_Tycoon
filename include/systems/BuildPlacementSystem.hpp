@@ -1,3 +1,8 @@
+/**
+ * @file BuildPlacementSystem.hpp
+ * @brief Handles player-driven blueprint placement and deconstruction logic.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "core/InputManager.hpp"

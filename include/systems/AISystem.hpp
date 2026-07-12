@@ -1,3 +1,8 @@
+/**
+ * @file AISystem.hpp
+ * @brief Main AI system responsible for entity state machines and task delegation.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "data/ResourceRegistry.hpp"

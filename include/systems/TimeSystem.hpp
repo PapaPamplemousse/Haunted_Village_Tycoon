@@ -2,10 +2,6 @@
 
 #include "ecs/EntityManager.hpp"
 
-/**
- * @class TimeSystem
- * @brief Manages the global game clock, seasons and passive over-time mechanics.
- */
 class TimeSystem {
 public:
     TimeSystem() = default;
@@ -31,6 +27,4 @@ private:
 
     int m_day = 1;
     float m_hour = 8.0f;
-
-    void ApplySeasonAging(EntityManager& em);
 };

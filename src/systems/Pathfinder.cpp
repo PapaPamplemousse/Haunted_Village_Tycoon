@@ -1,3 +1,8 @@
+/**
+ * @file Pathfinder.cpp
+ * @brief Implementation of the A* pathfinding algorithm.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/Pathfinder.hpp"
 
 #include "core/Config.hpp"

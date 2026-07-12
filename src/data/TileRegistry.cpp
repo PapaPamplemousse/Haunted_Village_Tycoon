@@ -1,3 +1,8 @@
+/**
+ * @file TileRegistry.cpp
+ * @brief Implementation of the TileRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/TileRegistry.hpp"
 
 #include "data/STVParser.hpp"

@@ -1,3 +1,8 @@
+/**
+ * @file BehaviorRegistry.hpp
+ * @brief Parses and stores AI behavior mappings and rules.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include "ecs/Components.hpp"
 

@@ -1,3 +1,8 @@
+/**
+ * @file ChronicleRenderSystem.hpp
+ * @brief Draws settlement metrics and recent event entries on the HUD.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "core/Chronicle.hpp"

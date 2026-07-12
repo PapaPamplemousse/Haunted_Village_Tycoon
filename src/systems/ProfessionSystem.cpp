@@ -1,3 +1,8 @@
+/**
+ * @file ProfessionSystem.cpp
+ * @brief Implementation of the profession validation and assignment logic.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/ProfessionSystem.hpp"
 
 #include "core/Config.hpp"

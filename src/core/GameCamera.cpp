@@ -1,3 +1,8 @@
+/**
+ * @file GameCamera.cpp
+ * @brief Implementation of the 2D game camera controls.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "core/GameCamera.hpp"
 
 #include <raymath.h>

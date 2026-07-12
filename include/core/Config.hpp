@@ -1,3 +1,8 @@
+/**
+ * @file Config.hpp
+ * @brief Global compile-time constants and settings for the game engine.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 /**

@@ -1,3 +1,8 @@
+/**
+ * @file VillageSystem.hpp
+ * @brief Handles village initialization, population tracking, and dynamic reproduction.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "data/BehaviorRegistry.hpp"

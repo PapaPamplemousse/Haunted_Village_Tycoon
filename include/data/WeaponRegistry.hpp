@@ -1,3 +1,8 @@
+/**
+ * @file WeaponRegistry.hpp
+ * @brief Parses and stores weapon and tool definitions.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <string>
 #include <unordered_map>

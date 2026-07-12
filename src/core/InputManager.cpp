@@ -1,3 +1,8 @@
+/**
+ * @file InputManager.cpp
+ * @brief Implementation of global input handling and mouse picking.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "core/InputManager.hpp"
 
 #include "core/Config.hpp"

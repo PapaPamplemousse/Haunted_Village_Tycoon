@@ -1,3 +1,8 @@
+/**
+ * @file VillageSystem.cpp
+ * @brief Implementation of village and population management logic.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/VillageSystem.hpp"
 
 #include "core/Config.hpp"
@@ -400,14 +405,20 @@ void VillageSystem::Update(float, EntityManager& em, EntityRegistry& entityReg, 
     m_lastProcessedSeasonNumber = currentSeasonNumber;
 
     for (EntityID villageId = 0; villageId < em.active.size(); ++villageId) {
-        if (!em.active[villageId] || !em.hasVillage[villageId] || !em.hasInventory[villageId]) {
+        if (!em.active[villageId] || !em.hasVillage[villageId]) {
             continue;
         }
 
+        // Aging is village/lifecycle logic and must not depend on storage availability.
         AgeVillageMembersOneSeason(em, villageId);
         RecomputeVillagePopulation(em, villageId);
 
         VillageComponent& village = em.villages[villageId];
+
+        // Reproduction requires storage because food is consumed from the Village Core.
+        if (!em.hasInventory[villageId]) {
+            continue;
+        }
 
         if (village.currentPopulation >= village.populationLimit) {
             continue;

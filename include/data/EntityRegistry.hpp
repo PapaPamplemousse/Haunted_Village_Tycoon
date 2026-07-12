@@ -1,3 +1,8 @@
+/**
+ * @file EntityRegistry.hpp
+ * @brief Parses static entity templates and handles their instantiation into the ECS.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include "data/NameRegistry.hpp"
 #include "ecs/Components.hpp"

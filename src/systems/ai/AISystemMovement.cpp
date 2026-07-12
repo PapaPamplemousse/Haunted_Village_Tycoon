@@ -1,3 +1,8 @@
+/**
+ * @file AISystemMovement.cpp
+ * @brief Handles physical entity movement along paths and door interactions.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 
@@ -11,9 +16,14 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
     const float speed = em.stats[i].maxSpeed;
 
     if (behavior.currentPath.empty() || behavior.currentPathIndex >= behavior.currentPath.size()) {
+        if (behavior.currentTask == "moving_to_rest" || behavior.currentTask == "resting") {
+            AISystemUtils::ReleaseRestSpotReservation(i, em);
+        }
+
         behavior.isMoving = false;
         behavior.currentPath.clear();
         behavior.currentPathIndex = 0;
+        behavior.reservedRestSpot = static_cast<EntityID>(-1);
         return;
     }
 

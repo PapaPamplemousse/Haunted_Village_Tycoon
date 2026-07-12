@@ -1,3 +1,8 @@
+/**
+ * @file MapGenerator.cpp
+ * @brief Implementation of the procedural map generation.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "world/MapGenerator.hpp"
 
 #include "core/Config.hpp"

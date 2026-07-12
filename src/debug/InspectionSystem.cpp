@@ -1,3 +1,8 @@
+/**
+ * @file InspectionSystem.cpp
+ * @brief Implementation of the debug entity inspector rendering.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "debug/InspectionSystem.hpp"
 
 #include "core/Config.hpp"
@@ -191,7 +196,7 @@ std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& e
     bool hasHarv = entityManager.hasHarvestable[i];
     bool hasRes = entityManager.hasRestSpot[i];
 
-    if (hasDoor || hasEquip || hasInv || hasHarv) {
+    if (hasDoor || hasEquip || hasInv || hasHarv || hasRes) {
         AddHeader(lines, "Equipment & Cargo");
 
         if (hasDoor) {
@@ -332,7 +337,7 @@ void DrawTooltipBox(const std::vector<TooltipLine>& lines) {
 } // namespace
 
 void InspectionSystem::Render(const InputManager& inputManager, const EntityManager& entityManager, const EntitySpatialGrid& spatialGrid,
-                              const ResourceRegistry& resourceReg) {
+                              const ResourceRegistry& resourceReg) const {
     if (!inputManager.IsInspectPressed()) {
         return;
     }

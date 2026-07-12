@@ -1,3 +1,8 @@
+/**
+ * @file EnvironmentRegistry.hpp
+ * @brief Parses and stores natural environment definitions (trees, bushes).
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "ecs/Components.hpp"

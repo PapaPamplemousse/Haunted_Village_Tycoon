@@ -1,3 +1,8 @@
+/**
+ * @file BiomeRegistry.hpp
+ * @brief Parses and stores all climate and patch biome definitions.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <string>
 #include <vector>

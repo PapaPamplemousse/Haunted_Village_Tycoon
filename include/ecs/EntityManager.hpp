@@ -1,3 +1,8 @@
+/**
+ * @file EntityManager.hpp
+ * @brief Manages entity creation, destruction, and Structure of Arrays (SoA) component storage.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "ecs/Components.hpp"

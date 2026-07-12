@@ -1,3 +1,8 @@
+/**
+ * @file AISystemNeeds.cpp
+ * @brief Evaluates and delegates tasks for satisfying vital needs (eating, resting).
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"

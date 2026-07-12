@@ -1,3 +1,8 @@
+/**
+ * @file ConstructionRegistry.hpp
+ * @brief Parses and stores static construction blueprints (walls, doors, etc.).
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include "ecs/Components.hpp"
 

@@ -1,3 +1,8 @@
+/**
+ * @file Pathfinder.hpp
+ * @brief A* Pathfinding system for entities to navigate the world map.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "data/TileRegistry.hpp"

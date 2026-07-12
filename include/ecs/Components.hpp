@@ -1,3 +1,8 @@
+/**
+ * @file Components.hpp
+ * @brief Definitions for all ECS components (Tag, Transform, Logistics, AI, Needs, etc.).
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <raylib.h>
 #include <string>

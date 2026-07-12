@@ -1,3 +1,8 @@
+/**
+ * @file ProfessionRegistry.hpp
+ * @brief Parses and stores profession requirements and definitions.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <string>
 #include <unordered_map>

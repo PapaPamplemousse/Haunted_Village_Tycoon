@@ -1,3 +1,8 @@
+/**
+ * @file AISystemUtils.cpp
+ * @brief Implementation of AI utility functions.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/AISystemUtils.hpp"
 
 #include "core/Config.hpp"

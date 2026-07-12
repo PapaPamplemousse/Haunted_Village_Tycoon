@@ -1,14 +1,19 @@
+/**
+ * @file STVParser.hpp
+ * @brief Utility class for reading custom .stv files and extracting structured data blocks.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 /**
  * @struct STVBlock
  * @brief Represents a single parsed block from an .stv file.
  */
 struct STVBlock {
-    std::string id;                                        // E.g., "VILLAGER"
+    std::string id;                                          // E.g., "VILLAGER"
     std::unordered_map<std::string, std::string> properties; // Key-value pairs inside the block
 };
 

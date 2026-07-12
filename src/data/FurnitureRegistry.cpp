@@ -1,3 +1,8 @@
+/**
+ * @file FurnitureRegistry.cpp
+ * @brief Implementation of the FurnitureRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/FurnitureRegistry.hpp"
 
 #include "data/STVParser.hpp"

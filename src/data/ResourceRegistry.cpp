@@ -1,3 +1,8 @@
+/**
+ * @file ResourceRegistry.cpp
+ * @brief Implementation of the ResourceRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/ResourceRegistry.hpp"
 
 #include "data/STVParser.hpp"

@@ -1,3 +1,8 @@
+/**
+ * @file UIManager.hpp
+ * @brief Manages the interactive build menu and HUD elements.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <raylib.h>
 #include <string>

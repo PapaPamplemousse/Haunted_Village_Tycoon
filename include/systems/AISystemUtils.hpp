@@ -1,3 +1,8 @@
+/**
+ * @file AISystemUtils.hpp
+ * @brief Shared utility functions for AI queries, validation, and logistics.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "data/ResourceRegistry.hpp"
@@ -6,6 +11,8 @@
 
 #include <raylib.h>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace AISystemUtils {
 
@@ -59,8 +66,6 @@ bool ShouldDepositInventory(EntityID entity, const EntityManager& em, const Beha
 int GetItemCount(const InventoryComponent& inventory, const std::string& itemId);
 
 int RemoveItemFromInventory(InventoryComponent& inventory, const std::string& itemId, int amount);
-
-std::vector<EntityID> GetAccessibleStorageEntities(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid);
 
 int CountAccessibleItem(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid, const std::string& itemId);
 

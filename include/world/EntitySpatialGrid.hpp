@@ -1,3 +1,8 @@
+/**
+ * @file EntitySpatialGrid.hpp
+ * @brief Lightweight spatial index for fast entity lookups by world position.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "ecs/EntityManager.hpp"

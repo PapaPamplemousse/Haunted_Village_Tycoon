@@ -1,3 +1,8 @@
+/**
+ * @file GameCamera.hpp
+ * @brief Manages the 2D view of the game world, allowing panning and zooming.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <raylib.h>
 

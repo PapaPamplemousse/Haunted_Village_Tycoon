@@ -1,3 +1,11 @@
+// ---------------------------------------------------------
+// src/main.cpp
+// ---------------------------------------------------------
+/**
+ * @file main.cpp
+ * @brief Main entry point of the Haunted Village Tycoon application.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "core/Application.hpp"
 
 #include <iostream>

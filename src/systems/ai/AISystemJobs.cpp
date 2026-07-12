@@ -1,3 +1,8 @@
+/**
+ * @file AISystemJobs.cpp
+ * @brief Logic for AI job search and assignment (hunting, building, dismantling, harvesting, etc.).
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "core/Config.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"

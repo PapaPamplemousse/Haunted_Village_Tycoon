@@ -1,3 +1,8 @@
+/**
+ * @file RoomSystem.cpp
+ * @brief Implementation of the room detection and evaluation logic.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/RoomSystem.hpp"
 
 #include "core/Config.hpp"

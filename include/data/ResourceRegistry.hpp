@@ -1,3 +1,8 @@
+/**
+ * @file ResourceRegistry.hpp
+ * @brief Parses and stores resource and item definitions.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include <string>

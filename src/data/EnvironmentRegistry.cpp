@@ -1,3 +1,8 @@
+/**
+ * @file EnvironmentRegistry.cpp
+ * @brief Implementation of the EnvironmentRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/EnvironmentRegistry.hpp"
 
 #include "data/STVParser.hpp"

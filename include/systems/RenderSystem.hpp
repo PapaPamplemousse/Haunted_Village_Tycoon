@@ -1,3 +1,8 @@
+/**
+ * @file RenderSystem.hpp
+ * @brief Responsible for drawing all visible entities and sprites to the screen.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "ecs/EntityManager.hpp"

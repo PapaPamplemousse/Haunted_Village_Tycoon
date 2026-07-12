@@ -1,3 +1,8 @@
+/**
+ * @file NameRegistry.hpp
+ * @brief Loads and provides randomized names grouped by species.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <string>
 #include <unordered_map>

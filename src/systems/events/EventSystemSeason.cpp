@@ -1,3 +1,8 @@
+/**
+ * @file EventSystemSeason.cpp
+ * @brief Logic for handling global events triggered by seasonal changes.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/EventSystem.hpp"
 
 void EventSystem::HandleSeasonEvents(const TimeSystem& timeSystem, SettlementMetrics& metrics, Chronicle& chronicle) {

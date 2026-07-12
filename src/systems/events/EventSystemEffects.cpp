@@ -1,3 +1,8 @@
+/**
+ * @file EventSystemEffects.cpp
+ * @brief Implements direct settlement impacts (adding fear, corruption, stealing food).
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/EventSystem.hpp"
 
 #include <algorithm>

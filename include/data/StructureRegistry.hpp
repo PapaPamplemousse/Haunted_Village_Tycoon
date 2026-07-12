@@ -1,3 +1,8 @@
+/**
+ * @file StructureRegistry.hpp
+ * @brief Parses and stores definitions for enclosed rooms and structures.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <string>
 #include <unordered_map>

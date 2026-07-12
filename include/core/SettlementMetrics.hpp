@@ -1,3 +1,8 @@
+/**
+ * @file SettlementMetrics.hpp
+ * @brief Global settlement-level social and supernatural meters (Faith, Fear, Corruption, etc.).
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 /**

@@ -1,3 +1,8 @@
+/**
+ * @file EventSystem.hpp
+ * @brief Orchestrates simulation events driven by time, seasons, and settlement state.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 
 #include "core/Chronicle.hpp"

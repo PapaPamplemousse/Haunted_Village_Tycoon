@@ -1,3 +1,8 @@
+/**
+ * @file WeaponRegistry.cpp
+ * @brief Implementation of the WeaponRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/WeaponRegistry.hpp"
 
 #include "data/STVParser.hpp"

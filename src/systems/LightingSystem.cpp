@@ -1,3 +1,8 @@
+/**
+ * @file LightingSystem.cpp
+ * @brief Implementation of the day/night visual lighting system.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/LightingSystem.hpp"
 
 #include <algorithm>

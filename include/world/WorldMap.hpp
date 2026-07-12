@@ -1,3 +1,8 @@
+/**
+ * @file WorldMap.hpp
+ * @brief Represents the 2D grid of the game world and stores tile IDs continuously.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include <vector>
 

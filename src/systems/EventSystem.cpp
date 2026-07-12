@@ -1,3 +1,8 @@
+/**
+ * @file EventSystem.cpp
+ * @brief Main event system loop implementation.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/EventSystem.hpp"
 
 void EventSystem::Update(EntityManager& em, const TimeSystem& timeSystem, const ResourceRegistry& resourceReg, SettlementMetrics& metrics,

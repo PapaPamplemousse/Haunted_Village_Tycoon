@@ -1,3 +1,8 @@
+/**
+ * @file NameRegistry.cpp
+ * @brief Implementation of the NameRegistry.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "data/NameRegistry.hpp"
 
 #include "data/STVParser.hpp"

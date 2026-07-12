@@ -1,3 +1,8 @@
+/**
+ * @file Application.cpp
+ * @brief Implementation of the main game application and system orchestration.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "core/Application.hpp"
 
 #include "core/Config.hpp"

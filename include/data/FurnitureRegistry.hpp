@@ -1,9 +1,15 @@
+/**
+ * @file FurnitureRegistry.hpp
+ * @brief Parses and stores furniture templates and handles their creation.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #pragma once
 #include "ecs/Components.hpp"
 
 #include <raylib.h>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class EntityManager;
 

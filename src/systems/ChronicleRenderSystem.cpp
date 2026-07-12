@@ -1,3 +1,8 @@
+/**
+ * @file ChronicleRenderSystem.cpp
+ * @brief Implementation of the chronicle UI renderer.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/ChronicleRenderSystem.hpp"
 
 #include <algorithm>

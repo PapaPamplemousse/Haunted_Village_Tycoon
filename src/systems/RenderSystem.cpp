@@ -1,3 +1,8 @@
+/**
+ * @file RenderSystem.cpp
+ * @brief Implementation of entity rendering.
+ * @author Hugo Reif Faudemer (PapaPamplemousse)
+ */
 #include "systems/RenderSystem.hpp"
 
 #include "core/Config.hpp"
