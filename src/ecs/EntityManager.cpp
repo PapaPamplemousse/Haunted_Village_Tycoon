@@ -1,183 +1,102 @@
-#include "ecs/EntityManager.hpp"
+#include "ecs/EntityManager.hpp" // Assure-toi que le chemin correspond à ton projet
 
-EntityManager::EntityManager() {
-    // Pre-allocate memory to prevent runtime reallocations (performance boost)
-    active.reserve(INITIAL_CAPACITY);
+#include <initializer_list>
+#include <vector>
 
-    hasTag.reserve(INITIAL_CAPACITY);
-    tags.reserve(INITIAL_CAPACITY);
+namespace {
 
-    hasTransform.reserve(INITIAL_CAPACITY);
-    transforms.reserve(INITIAL_CAPACITY);
-
-    hasInventory.reserve(INITIAL_CAPACITY);
-    inventories.reserve(INITIAL_CAPACITY);
-
-    hasStorage.reserve(INITIAL_CAPACITY);
-    storages.reserve(INITIAL_CAPACITY);
-
-    hasRestSpot.reserve(INITIAL_CAPACITY);
-    restSpots.reserve(INITIAL_CAPACITY);
-
-    hasVillage.reserve(INITIAL_CAPACITY);
-    villages.reserve(INITIAL_CAPACITY);
-
-    hasVillageMember.reserve(INITIAL_CAPACITY);
-    villageMembers.reserve(INITIAL_CAPACITY);
-
-    hasFamily.reserve(INITIAL_CAPACITY);
-    families.reserve(INITIAL_CAPACITY);
-
-    hasBlueprint.reserve(INITIAL_CAPACITY);
-    blueprints.reserve(INITIAL_CAPACITY);
-
-    hasHealth.reserve(INITIAL_CAPACITY);
-    healths.reserve(INITIAL_CAPACITY);
-
-    hasNeeds.reserve(INITIAL_CAPACITY);
-    needs.reserve(INITIAL_CAPACITY);
-
-    hasProfession.reserve(INITIAL_CAPACITY);
-    professions.reserve(INITIAL_CAPACITY);
-
-    hasBehavior.reserve(INITIAL_CAPACITY);
-    behaviors.reserve(INITIAL_CAPACITY);
-
-    hasSprite.reserve(INITIAL_CAPACITY);
-    sprites.reserve(INITIAL_CAPACITY);
-
-    hasStats.reserve(INITIAL_CAPACITY);
-    stats.reserve(INITIAL_CAPACITY);
-
-    hasConstruction.reserve(INITIAL_CAPACITY);
-    constructions.reserve(INITIAL_CAPACITY);
-
-    hasRoom.reserve(INITIAL_CAPACITY);
-    rooms.reserve(INITIAL_CAPACITY);
-
-    hasCost.reserve(INITIAL_CAPACITY);
-    costs.reserve(INITIAL_CAPACITY);
-
-    hasDeconstruct.reserve(INITIAL_CAPACITY);
-    deconstructs.reserve(INITIAL_CAPACITY);
-
-    hasDoor.reserve(INITIAL_CAPACITY);
-    doors.reserve(INITIAL_CAPACITY);
-
-    hasHarvestable.reserve(INITIAL_CAPACITY);
-    harvestables.reserve(INITIAL_CAPACITY);
-
-    hasEquipment.reserve(INITIAL_CAPACITY);
-    equipments.reserve(INITIAL_CAPACITY);
-    hasWorkplace.reserve(INITIAL_CAPACITY);
-    workplaces.reserve(INITIAL_CAPACITY);
-
-    hasLoot.reserve(INITIAL_CAPACITY);
-    loots.reserve(INITIAL_CAPACITY);
+void ReserveFlagArrays(std::size_t capacity, std::initializer_list<std::vector<bool>*> flags) {
+    for (std::vector<bool>* flagArray : flags) {
+        flagArray->reserve(capacity);
+    }
 }
 
-EntityID EntityManager::CreateEntity() {
-    EntityID id = 0;
-    bool foundDead = false;
+void PushInactiveFlags(std::initializer_list<std::vector<bool>*> flags) {
+    for (std::vector<bool>* flagArray : flags) {
+        flagArray->push_back(false);
+    }
+}
 
-    // 1. Try to find a dead entity slot to recycle (keeps arrays small)
-    for (size_t i = 0; i < active.size(); ++i) {
-        if (!active[i]) {
-            id = i;
-            foundDead = true;
-            break;
+void ResetFlags(EntityID id, std::initializer_list<std::vector<bool>*> flags) {
+    for (std::vector<bool>* flagArray : flags) {
+        (*flagArray)[id] = false;
+    }
+}
+
+template <typename... Vectors> void ReserveComponentArrays(std::size_t capacity, Vectors&... vectors) {
+    (vectors.reserve(capacity), ...);
+}
+
+template <typename... Vectors> void PushDefaultComponents(Vectors&... vectors) {
+    (vectors.push_back({}), ...);
+}
+
+} // namespace
+
+EntityManager::EntityManager() {
+    active.reserve(INITIAL_CAPACITY);
+    ReserveComponentStorage(INITIAL_CAPACITY);
+}
+
+EntityID EntityManager::FindReusableSlot() const {
+    for (EntityID id = 0; id < active.size(); ++id) {
+        if (!active[id]) {
+            return id;
         }
     }
 
-    // 2. If no dead slot is found, expand the arrays
-    if (!foundDead) {
-        id = active.size();
+    return static_cast<EntityID>(-1);
+}
 
-        active.push_back(false);
-        hasTag.push_back(false);
-        tags.push_back({});
-        hasTransform.push_back(false);
-        transforms.push_back({});
-        hasInventory.push_back(false);
-        inventories.push_back({});
-        hasStorage.push_back(false);
-        storages.push_back({});
-        hasRestSpot.push_back(false);
-        restSpots.push_back({});
-        hasVillage.push_back(false);
-        villages.push_back({});
-        hasVillageMember.push_back(false);
-        villageMembers.push_back({});
-        hasFamily.push_back(false);
-        families.push_back({});
-        hasBlueprint.push_back(false);
-        blueprints.push_back({});
-        hasHealth.push_back(false);
-        healths.push_back({});
-        hasNeeds.push_back(false);
-        needs.push_back({});
-        hasProfession.push_back(false);
-        professions.push_back({});
-        hasBehavior.push_back(false);
-        behaviors.push_back({});
-        hasSprite.push_back(false);
-        sprites.push_back({});
-        hasStats.push_back(false);
-        stats.push_back({});
-        hasConstruction.push_back(false);
-        constructions.push_back({});
-        hasRoom.push_back(false);
-        rooms.push_back({});
-        hasCost.push_back(false);
-        costs.push_back({});
-        hasDeconstruct.push_back(false);
-        deconstructs.push_back({});
-        hasDoor.push_back(false);
-        doors.push_back({});
-        hasHarvestable.push_back(false);
-        harvestables.push_back({});
-        hasEquipment.push_back(false);
-        equipments.push_back({});
-        hasWorkplace.push_back(false);
-        workplaces.push_back({});
-        hasLoot.push_back(false);
-        loots.push_back({});
+void EntityManager::ReserveComponentStorage(std::size_t capacity) {
+    ReserveFlagArrays(capacity, {&hasTag,         &hasTransform,    &hasSprite,     &hasInventory,     &hasStorage,     &hasRestSpot,
+                                 &hasBlueprint,   &hasConstruction, &hasRoom,       &hasCost,          &hasDeconstruct, &hasDoor,
+                                 &hasHarvestable, &hasLoot,         &hasVillage,    &hasVillageMember, &hasFamily,      &hasWorkplace,
+                                 &hasHealth,      &hasNeeds,        &hasProfession, &hasBehavior,      &hasStats,       &hasEquipment});
+
+    ReserveComponentArrays(capacity, tags, transforms, sprites, inventories, storages, restSpots, blueprints, constructions, rooms, costs,
+                           deconstructs, doors, harvestables, loots, villages, villageMembers, families, workplaces, healths, needs,
+                           professions, behaviors, stats, equipments);
+}
+
+void EntityManager::AppendEntitySlot() {
+    active.push_back(false);
+
+    PushInactiveFlags({&hasTag,         &hasTransform,    &hasSprite,     &hasInventory,     &hasStorage,     &hasRestSpot,
+                       &hasBlueprint,   &hasConstruction, &hasRoom,       &hasCost,          &hasDeconstruct, &hasDoor,
+                       &hasHarvestable, &hasLoot,         &hasVillage,    &hasVillageMember, &hasFamily,      &hasWorkplace,
+                       &hasHealth,      &hasNeeds,        &hasProfession, &hasBehavior,      &hasStats,       &hasEquipment});
+
+    PushDefaultComponents(tags, transforms, sprites, inventories, storages, restSpots, blueprints, constructions, rooms, costs,
+                          deconstructs, doors, harvestables, loots, villages, villageMembers, families, workplaces, healths, needs,
+                          professions, behaviors, stats, equipments);
+}
+
+void EntityManager::ResetComponentFlags(EntityID id) {
+    ResetFlags(id,
+               {&hasTag,    &hasTransform, &hasSprite,      &hasInventory, &hasStorage,     &hasRestSpot, &hasBlueprint, &hasConstruction,
+                &hasRoom,   &hasCost,      &hasDeconstruct, &hasDoor,      &hasHarvestable, &hasLoot,     &hasVillage,   &hasVillageMember,
+                &hasFamily, &hasWorkplace, &hasHealth,      &hasNeeds,     &hasProfession,  &hasBehavior, &hasStats,     &hasEquipment});
+}
+
+EntityID EntityManager::CreateEntity() {
+    EntityID id = FindReusableSlot();
+
+    if (id == static_cast<EntityID>(-1)) {
+        id = active.size();
+        AppendEntitySlot();
     }
 
-    // 3. Initialize the new entity
     active[id] = true;
-
-    // Reset all "hasComponent" flags to false
-    hasTag[id] = false;
-    hasTransform[id] = false;
-    hasInventory[id] = false;
-    hasStorage[id] = false;
-    hasRestSpot[id] = false;
-    hasVillage[id] = false;
-    hasVillageMember[id] = false;
-    hasFamily[id] = false;
-    hasBlueprint[id] = false;
-    hasHealth[id] = false;
-    hasNeeds[id] = false;
-    hasProfession[id] = false;
-    hasBehavior[id] = false;
-    hasSprite[id] = false;
-    hasStats[id] = false;
-    hasConstruction[id] = false;
-    hasRoom[id] = false;
-    hasCost[id] = false;
-    hasDeconstruct[id] = false;
-    hasDoor[id] = false;
-    hasHarvestable[id] = false;
-    hasEquipment[id] = false;
-    hasWorkplace[id] = false;
-    hasLoot[id] = false;
+    ResetComponentFlags(id);
 
     return id;
 }
 
 void EntityManager::DestroyEntity(EntityID id) {
-    if (id < active.size()) {
-        active[id] = false; // The slot is now available for recycling
+    if (id >= active.size()) {
+        return;
     }
+
+    active[id] = false;
 }
