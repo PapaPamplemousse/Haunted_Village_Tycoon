@@ -100,21 +100,28 @@ EntityID GetHoveredEntity(int hoverX, int hoverY, const EntitySpatialGrid& spati
     return firstEntity;
 }
 
-std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& entityManager, const ResourceRegistry& resourceReg) {
+std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& entityManager, const ResourceRegistry&) {
     std::vector<TooltipLine> lines;
 
-    // 1. Titre & Identité
+    // =========================================================
+    // Identity
+    // =========================================================
     std::string title = "Entity #" + std::to_string(i);
+
     if (entityManager.hasTag[i]) {
-        const auto& tag = entityManager.tags[i];
-        title = tag.firstName.empty() ? tag.name : (tag.firstName + " the " + tag.name);
+        const TagComponent& tag = entityManager.tags[i];
+
+        title = tag.firstName.empty() ? tag.name : tag.firstName;
+
         AddTitle(lines, title);
 
-        if (!tag.species.empty())
+        if (!tag.species.empty()) {
             AddKV(lines, "Species", tag.species);
-        if (!tag.gender.empty() && tag.gender != "undefined")
-            AddKV(lines, "Gender", tag.gender);
-        AddKV(lines, "Age", std::to_string(tag.age));
+        }
+
+        if (tag.age > 0) {
+            AddKV(lines, "Age", std::to_string(tag.age));
+        }
     } else {
         AddTitle(lines, title);
     }
@@ -122,136 +129,113 @@ std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& e
     if (entityManager.hasTransform[i]) {
         const int tileX = WorldToTile(entityManager.transforms[i].position.x);
         const int tileY = WorldToTile(entityManager.transforms[i].position.y);
-        AddKV(lines, "Position", std::to_string(tileX) + ", " + std::to_string(tileY));
+
+        AddKV(lines, "Tile", std::to_string(tileX) + ", " + std::to_string(tileY));
     }
 
-    // 2. Barres de Vies et Stats
-    if (entityManager.hasHealth[i] || entityManager.hasNeeds[i] || entityManager.hasStats[i]) {
-        AddHeader(lines, "Vitals & Stats");
+    // =========================================================
+    // Vitals
+    // =========================================================
+    if (entityManager.hasHealth[i] || entityManager.hasNeeds[i]) {
+        AddHeader(lines, "Status");
 
         if (entityManager.hasHealth[i]) {
             AddBar(lines, "HP", entityManager.healths[i].current, entityManager.healths[i].max, RED);
         }
+
         if (entityManager.hasNeeds[i]) {
             AddBar(lines, "Hunger", entityManager.needs[i].hunger, entityManager.needs[i].maxHunger, ORANGE);
             AddBar(lines, "Fatigue", entityManager.needs[i].fatigue, entityManager.needs[i].maxFatigue, SKYBLUE);
         }
-        if (entityManager.hasStats[i]) {
-            AddKV(lines, "Speed", TextFormat("%.0f", entityManager.stats[i].maxSpeed));
-            AddKV(lines, "Base ATK", TextFormat("%.0f", entityManager.stats[i].baseAttack));
-            AddKV(lines, "Action Radius", TextFormat("%.0f", entityManager.stats[i].actionRadiusTiles));
-        }
     }
 
-    // 3. IA & Profession
-    if (entityManager.hasBehavior[i] || entityManager.hasProfession[i]) {
-        AddHeader(lines, "Behavior");
+    // =========================================================
+    // AI / job
+    // =========================================================
+    if (entityManager.hasProfession[i] || entityManager.hasBehavior[i]) {
+        AddHeader(lines, "AI");
+
         if (entityManager.hasProfession[i]) {
             const ProfessionComponent& profession = entityManager.professions[i];
 
-            std::string prof = profession.currentProfession;
-
-            if (!prof.empty() && prof != "none") {
-                prof[0] = static_cast<char>(std::toupper(prof[0]));
-            }
-
-            AddKV(lines, "Profession", prof);
+            AddKV(lines, "Job", profession.currentProfession);
 
             const std::string mode = profession.assignmentMode == ProfessionAssignmentMode::Manual ? "manual" : "auto";
 
-            AddKV(lines, "Assignment", mode);
+            AddKV(lines, "Mode", mode);
         }
+
         if (entityManager.hasBehavior[i]) {
-            AddKV(lines, "Current Task", entityManager.behaviors[i].currentTask);
-        }
-    }
+            const BehaviorComponent& behavior = entityManager.behaviors[i];
 
-    // 4. Famille & Société
-    if (entityManager.hasFamily[i] || entityManager.hasVillage[i] || entityManager.hasVillageMember[i]) {
-        AddHeader(lines, "Social & Family");
+            AddKV(lines, "Task", behavior.currentTask);
 
-        if (entityManager.hasVillageMember[i]) {
-            AddKV(lines, "Village ID", std::to_string(entityManager.villageMembers[i].villageId));
-        }
-
-        if (entityManager.hasVillage[i]) {
-            const auto& village = entityManager.villages[i];
-            AddKV(lines, "Village Name", village.name);
-            AddKV(lines, "Population", std::to_string(village.currentPopulation) + " / " + std::to_string(village.populationLimit));
-            AddKV(lines, "Adults / Children", std::to_string(village.adultPopulation) + " / " + std::to_string(village.childPopulation));
-
-            if (entityManager.hasInventory[i]) {
-                int foodNutrition = static_cast<int>(ComputeFoodNutrition(entityManager.inventories[i], resourceReg));
-                AddKV(lines, "Food Nutrition", std::to_string(foodNutrition));
+            if (behavior.currentJobTarget != 0 && behavior.currentJobTarget < entityManager.active.size() &&
+                entityManager.active[behavior.currentJobTarget]) {
+                AddKV(lines, "Target", "#" + std::to_string(behavior.currentJobTarget));
             }
         }
-
-        if (entityManager.hasFamily[i]) {
-            const auto& family = entityManager.families[i];
-            if (family.partnerId != static_cast<EntityID>(-1))
-                AddKV(lines, "Partner ID", std::to_string(family.partnerId));
-            if (family.parentA != static_cast<EntityID>(-1))
-                AddKV(lines, "Parent A", std::to_string(family.parentA));
-            if (family.parentB != static_cast<EntityID>(-1))
-                AddKV(lines, "Parent B", std::to_string(family.parentB));
-            AddKV(lines, "Children Count", std::to_string(family.children.size()));
-        }
     }
 
-    // 5. Inventaire & Equipement & Portes
-    bool hasDoor = entityManager.hasDoor[i];
-    bool hasEquip = entityManager.hasEquipment[i];
-    bool hasInv = entityManager.hasInventory[i];
-    bool hasHarv = entityManager.hasHarvestable[i];
-    bool hasRes = entityManager.hasRestSpot[i];
+    // =========================================================
+    // Inventory / storage summary
+    // =========================================================
+    if (entityManager.hasInventory[i]) {
+        int itemCount = 0;
+        int distinctItems = 0;
 
-    if (hasDoor || hasEquip || hasInv || hasHarv || hasRes) {
-        AddHeader(lines, "Equipment & Cargo");
+        for (const auto& item : entityManager.inventories[i].items) {
+            if (item.second <= 0) {
+                continue;
+            }
 
-        if (hasDoor) {
-            const auto& door = entityManager.doors[i];
-            AddKV(lines, "Door State", DoorStateToString(door.state));
-            AddKV(lines, "Owner ID", std::to_string(door.ownerId));
+            itemCount += item.second;
+            distinctItems++;
         }
 
-        if (hasEquip) {
-            const auto& equip = entityManager.equipments[i];
-            AddKV(lines, "Tool", equip.rightHandToolType);
-            AddKV(lines, "Weapon DMG", TextFormat("%.0f", equip.rightHandDamage));
-        }
+        if (itemCount > 0 || entityManager.hasStorage[i]) {
+            AddHeader(lines, "Inventory");
 
-        if (hasInv) {
+            AddKV(lines, "Items", std::to_string(itemCount));
+            AddKV(lines, "Types", std::to_string(distinctItems));
+
             if (entityManager.hasStorage[i]) {
                 AddKV(lines, "Capacity", std::to_string(entityManager.storages[i].capacity));
             }
-            for (const auto& item : entityManager.inventories[i].items) {
-                AddKV(lines, item.first, std::to_string(item.second));
-            }
         }
-        if (hasRes) {
-            const auto& rest = entityManager.restSpots[i];
+    }
 
-            AddHeader(lines, "Rest Spot");
-            AddKV(lines, "Capacity", std::to_string(rest.occupants.size()) + " / " + std::to_string(rest.capacity));
+    // =========================================================
+    // Furniture / special object summary
+    // =========================================================
+    if (entityManager.hasRestSpot[i] || entityManager.hasDoor[i] || entityManager.hasConstruction[i]) {
+        AddHeader(lines, "Object");
 
-            if (rest.isPrivate) {
-                AddKV(lines, "Private", "true");
-            }
+        if (entityManager.hasRestSpot[i]) {
+            const RestSpotComponent& rest = entityManager.restSpots[i];
+
+            AddKV(lines, "Bed", std::to_string(rest.occupants.size()) + " / " + std::to_string(rest.capacity));
 
             if (rest.ownerFamilyId != static_cast<EntityID>(-1)) {
-                AddKV(lines, "Owner Family", std::to_string(rest.ownerFamilyId));
-            }
-
-            if (rest.ownerVillageId != static_cast<EntityID>(-1)) {
-                AddKV(lines, "Owner Village", std::to_string(rest.ownerVillageId));
+                AddKV(lines, "Owner", "family #" + std::to_string(rest.ownerFamilyId));
+            } else if (rest.ownerVillageId != static_cast<EntityID>(-1)) {
+                AddKV(lines, "Owner", "village #" + std::to_string(rest.ownerVillageId));
+            } else {
+                AddKV(lines, "Owner", rest.isPrivate ? "private" : "public");
             }
         }
 
-        if (hasHarv) {
-            for (const DropEntry& drop : entityManager.harvestables[i].drops) {
-                if (drop.amount > 0 && !drop.itemId.empty()) {
-                    AddKV(lines, drop.itemId, std::to_string(drop.amount) + " (Yield)");
-                }
+        if (entityManager.hasDoor[i]) {
+            AddKV(lines, "Door", DoorStateToString(entityManager.doors[i].state));
+        }
+
+        if (entityManager.hasConstruction[i]) {
+            const ConstructionComponent& construction = entityManager.constructions[i];
+
+            if (construction.isDoor) {
+                AddKV(lines, "Type", "door");
+            } else if (construction.isWall) {
+                AddKV(lines, "Type", "wall");
             }
         }
     }
@@ -263,7 +247,7 @@ void DrawTooltipBox(const std::vector<TooltipLine>& lines) {
     if (lines.empty())
         return;
 
-    const float boxWidth = 350.0f;
+    const float boxWidth = 300.0f;
     const float padding = 15.0f;
     const float baseLineHeight = 22.0f;
 
