@@ -126,12 +126,6 @@ void AddStartingResources(EntityManager& em, EntityID villageCore) {
     inventory.items["BUSH_BERRY"] += 10;
 }
 
-bool IsFoodResource(const ResourceRegistry& resourceReg, const std::string& itemId) {
-    const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
-
-    return resource != nullptr && resource->isConsumable && resource->nutrition > 0.0f;
-}
-
 float ComputeFoodNutritionInInventory(const InventoryComponent& inventory, const ResourceRegistry& resourceReg) {
     float totalNutrition = 0.0f;
 
@@ -281,6 +275,83 @@ void AgeVillageMembersOneSeason(EntityManager& em, EntityID villageId) {
     }
 }
 
+/**
+ * @brief Checks if a given rest spot entity can be used by the specified village.
+ */
+bool IsRestSpotUsableByVillage(const EntityManager& em, EntityID restSpotEntity, EntityID villageId) {
+    if (restSpotEntity >= em.active.size() || !em.active[restSpotEntity] || !em.hasRestSpot[restSpotEntity]) {
+        return false;
+    }
+
+    // Unfinished blueprints cannot be used
+    if (em.hasBlueprint[restSpotEntity] && !em.blueprints[restSpotEntity].isFinished) {
+        return false;
+    }
+
+    const RestSpotComponent& restSpot = em.restSpots[restSpotEntity];
+
+    // Future private ownership hook:
+    // - Private beds should later be validated against family ownership.
+    // - For now, a private bed only counts for a village if explicitly owned by that village.
+    if (restSpot.isPrivate) {
+        return restSpot.ownerVillageId == villageId;
+    }
+
+    // Public beds with no explicit owner are usable by any village
+    if (restSpot.ownerVillageId == static_cast<EntityID>(-1)) {
+        return true;
+    }
+
+    // Village-owned beds are usable only by their specific village
+    return restSpot.ownerVillageId == villageId;
+}
+
+/**
+ * @brief Calculates the total housing capacity available for the village.
+ */
+int CountVillageHousingCapacity(const EntityManager& em, EntityID villageId) {
+    int capacity = 0;
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!IsRestSpotUsableByVillage(em, entity, villageId)) {
+            continue;
+        }
+
+        capacity += std::max(0, em.restSpots[entity].capacity);
+    }
+
+    return capacity;
+}
+
+/**
+ * @brief Returns the effective population limit (bounded by available housing).
+ */
+int GetEffectivePopulationLimit(const EntityManager& em, EntityID villageId) {
+    if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
+        return 0;
+    }
+
+    const VillageComponent& village = em.villages[villageId];
+    const int housingCapacity = CountVillageHousingCapacity(em, villageId);
+
+    // The village cannot grow past its structural limit or its housing capacity
+    return std::min(village.populationLimit, housingCapacity);
+}
+
+/**
+ * @brief Evaluates whether there is enough housing space to support a new birth.
+ */
+bool HasHousingCapacityForNewChild(const EntityManager& em, EntityID villageId) {
+    if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
+        return false;
+    }
+
+    const VillageComponent& village = em.villages[villageId];
+    const int effectiveLimit = GetEffectivePopulationLimit(em, villageId);
+
+    return village.currentPopulation + 1 <= effectiveLimit;
+}
+
 bool TrySpawnHumanChild(EntityManager& em, EntityRegistry& entityReg, const NameRegistry& nameReg, const BehaviorRegistry& behaviorReg,
                         const WorldMap& map, const TileRegistry& tileReg, EntityID villageId, EntityID parentA, EntityID parentB) {
     if (villageId >= em.active.size() || !em.active[villageId] || !em.hasTransform[villageId]) {
@@ -420,7 +491,8 @@ void VillageSystem::Update(float, EntityManager& em, EntityRegistry& entityReg, 
             continue;
         }
 
-        if (village.currentPopulation >= village.populationLimit) {
+        // Reproduction is blocked if the village lacks sufficient housing capacity for a new child.
+        if (!HasHousingCapacityForNewChild(em, villageId)) {
             continue;
         }
 

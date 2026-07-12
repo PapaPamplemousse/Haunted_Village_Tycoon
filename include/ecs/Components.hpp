@@ -248,12 +248,23 @@ struct NeedsComponent {
     float fatigue = 0.0f;
     float maxFatigue = 100.0f;
 };
+
+enum class ProfessionAssignmentMode { Auto, Manual };
+
 /**
  * @struct ProfessionComponent
  * @brief Determines what kind of jobs this entity is allowed to take.
+ *
+ * Auto:
+ *   The ProfessionSystem may automatically assign this entity to available slots.
+ *
+ * Manual:
+ *   The player controls the assignment.
+ *   If currentProfession == "none", the entity intentionally remains unemployed.
  */
 struct ProfessionComponent {
     std::string currentProfession = "none"; // e.g., "builder", "lumberjack"
+    ProfessionAssignmentMode assignmentMode = ProfessionAssignmentMode::Auto;
 };
 
 /**170 * @struct BehaviorRule171 * @brief Parsed AI behavior rule.172 *173 * Examples:174 *   "wander"             -> name="wander",

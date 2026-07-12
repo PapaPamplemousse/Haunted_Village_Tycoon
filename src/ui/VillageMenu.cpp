@@ -19,6 +19,7 @@ constexpr int PANEL_WIDTH = 900;
 constexpr int PANEL_HEIGHT = 560;
 constexpr int PANEL_PADDING = 24;
 constexpr int TAB_COUNT = 4;
+constexpr float BIRTH_FOOD_NUTRITION_COST = 80.0f; // Sourced from VillageSystem
 
 const char* TabName(VillageMenuTab tab) {
     switch (tab) {
@@ -67,48 +68,114 @@ int CountInventoryItems(const InventoryComponent& inventory) {
     return total;
 }
 
-int CountUsedBedsForVillage(const EntityManager& em, EntityID villageId) {
-    int used = 0;
-
-    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
-        if (!em.active[entity] || !em.hasRestSpot[entity]) {
-            continue;
-        }
-
-        const RestSpotComponent& restSpot = em.restSpots[entity];
-
-        if (restSpot.ownerVillageId != static_cast<EntityID>(-1) && restSpot.ownerVillageId != villageId) {
-            continue;
-        }
-
-        used += static_cast<int>(restSpot.occupants.size());
+/**
+ * @brief Shared check to ensure a bed is actually available for use by a village.
+ */
+bool IsRestSpotUsableByVillage(const EntityManager& em, EntityID restSpotEntity, EntityID villageId) {
+    if (restSpotEntity >= em.active.size() || !em.active[restSpotEntity] || !em.hasRestSpot[restSpotEntity]) {
+        return false;
     }
 
-    return used;
+    if (em.hasBlueprint[restSpotEntity] && !em.blueprints[restSpotEntity].isFinished) {
+        return false;
+    }
+
+    const RestSpotComponent& restSpot = em.restSpots[restSpotEntity];
+
+    if (restSpot.isPrivate) {
+        return restSpot.ownerVillageId == villageId;
+    }
+
+    if (restSpot.ownerVillageId == static_cast<EntityID>(-1)) {
+        return true;
+    }
+
+    return restSpot.ownerVillageId == villageId;
 }
 
-int CountTotalBedsForVillage(const EntityManager& em, EntityID villageId) {
-    int total = 0;
+/**
+ * @brief Computes the total valid housing capacity for the given village.
+ */
+int CountHousingCapacityForVillage(const EntityManager& em, EntityID villageId) {
+    int capacity = 0;
 
     for (EntityID entity = 0; entity < em.active.size(); ++entity) {
-        if (!em.active[entity] || !em.hasRestSpot[entity]) {
+        if (!IsRestSpotUsableByVillage(em, entity, villageId)) {
             continue;
         }
 
-        if (em.hasBlueprint[entity] && !em.blueprints[entity].isFinished) {
-            continue;
-        }
-
-        const RestSpotComponent& restSpot = em.restSpots[entity];
-
-        if (restSpot.ownerVillageId != static_cast<EntityID>(-1) && restSpot.ownerVillageId != villageId) {
-            continue;
-        }
-
-        total += restSpot.capacity;
+        capacity += std::max(0, em.restSpots[entity].capacity);
     }
 
-    return total;
+    return capacity;
+}
+
+/**
+ * @brief Returns the number of villagers currently sleeping in usable beds.
+ */
+int CountSleepingOccupantsForVillage(const EntityManager& em, EntityID villageId) {
+    int sleeping = 0;
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!IsRestSpotUsableByVillage(em, entity, villageId)) {
+            continue;
+        }
+
+        sleeping += static_cast<int>(em.restSpots[entity].occupants.size());
+    }
+
+    return sleeping;
+}
+
+/**
+ * @brief Calculates how many available housing slots the village has left.
+ */
+int GetFreeHousingSlots(const EntityManager& em, EntityID villageId) {
+    if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
+        return 0;
+    }
+
+    const int housingCapacity = CountHousingCapacityForVillage(em, villageId);
+    const int population = em.villages[villageId].currentPopulation;
+
+    return std::max(0, housingCapacity - population);
+}
+
+/**
+ * @brief Analyzes village conditions to provide human-readable feedback on population growth.
+ */
+std::string GetBirthStatusText(const EntityManager& em, const ResourceRegistry& resourceReg, EntityID villageId) {
+    if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId]) {
+        return "no village";
+    }
+
+    const VillageComponent& village = em.villages[villageId];
+
+    if (village.currentPopulation >= village.populationLimit) {
+        return "blocked: population limit";
+    }
+
+    const int housingCapacity = CountHousingCapacityForVillage(em, villageId);
+
+    if (village.currentPopulation + 1 > housingCapacity) {
+        return "blocked: no free housing";
+    }
+
+    if (!em.hasInventory[villageId]) {
+        return "blocked: no village storage";
+    }
+
+    const float foodNutrition = ComputeFoodNutrition(em.inventories[villageId], resourceReg);
+
+    if (foodNutrition < BIRTH_FOOD_NUTRITION_COST) {
+        return "blocked: not enough food";
+    }
+
+    if (village.adultPopulation < 2) {
+        return "blocked: not enough adults";
+    }
+
+    return "possible";
 }
 
 std::vector<EntityID> GetVillageMembers(const EntityManager& em, EntityID villageId) {
@@ -360,6 +427,7 @@ bool ReleaseWorkerFromAnySlot(EntityManager& em, EntityID workerId, const Behavi
 
     if (workerId < em.active.size() && em.active[workerId] && em.hasProfession[workerId]) {
         em.professions[workerId].currentProfession = "none";
+        em.professions[workerId].assignmentMode = ProfessionAssignmentMode::Manual;
         ApplyProfessionBehaviorRules(em, workerId, behaviorReg);
     }
 
@@ -390,6 +458,7 @@ bool AssignSpecificWorkerToProfessionSlot(EntityManager& em, const ProfessionSlo
 
         if (previousWorker < em.active.size() && em.active[previousWorker] && em.hasProfession[previousWorker]) {
             em.professions[previousWorker].currentProfession = "none";
+            em.professions[previousWorker].assignmentMode = ProfessionAssignmentMode::Manual;
             ApplyProfessionBehaviorRules(em, previousWorker, behaviorReg);
         }
     }
@@ -399,6 +468,7 @@ bool AssignSpecificWorkerToProfessionSlot(EntityManager& em, const ProfessionSlo
 
     slot.workerId = workerId;
     em.professions[workerId].currentProfession = slot.profession;
+    em.professions[workerId].assignmentMode = ProfessionAssignmentMode::Manual;
 
     ApplyProfessionBehaviorRules(em, workerId, behaviorReg);
 
@@ -464,10 +534,22 @@ bool ReleaseProfessionSlot(EntityManager& em, const ProfessionSlotView& slotView
 
     if (previousWorker < em.active.size() && em.active[previousWorker] && em.hasProfession[previousWorker]) {
         em.professions[previousWorker].currentProfession = "none";
+        em.professions[previousWorker].assignmentMode = ProfessionAssignmentMode::Manual;
         ApplyProfessionBehaviorRules(em, previousWorker, behaviorReg);
     }
 
     return true;
+}
+
+const char* ProfessionModeToString(ProfessionAssignmentMode mode) {
+    switch (mode) {
+        case ProfessionAssignmentMode::Auto:
+            return "auto";
+        case ProfessionAssignmentMode::Manual:
+            return "manual";
+        default:
+            return "unknown";
+    }
 }
 
 } // namespace
@@ -538,6 +620,13 @@ void VillageMenu::Update(EntityManager& em, GameCamera& camera, const Profession
 
         if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressed(KEY_R)) {
             ReleaseWorkerFromAnySlot(em, selected, behaviorReg);
+        }
+
+        if (IsKeyPressed(KEY_A)) {
+            if (selected < em.active.size() && em.active[selected] && em.hasProfession[selected]) {
+                ReleaseWorkerFromAnySlot(em, selected, behaviorReg);
+                em.professions[selected].assignmentMode = ProfessionAssignmentMode::Auto;
+            }
         }
 
         return;
@@ -652,8 +741,8 @@ void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resour
     const float y = static_cast<float>(panelY + PANEL_PADDING);
 
     DrawText("VILLAGE MANAGEMENT", static_cast<int>(x), static_cast<int>(y), 28, GOLD);
-    DrawText("V: close | Left/Right: tabs | Up/Down: select | Enter: focus villager", static_cast<int>(x), static_cast<int>(y + 34), 16,
-             LIGHTGRAY);
+    DrawText("V/Esc: close | Left/Right: tabs | Up/Down: select | W/S: candidate | Enter: action | R: unassign | A: auto",
+             static_cast<int>(x), static_cast<int>(y + 34), 16, LIGHTGRAY);
 
     RenderTabs(x, y + 70.0f);
 
@@ -752,11 +841,25 @@ void VillageMenu::RenderOverview(const EntityManager& em, const ResourceRegistry
         currentY += 28.0f;
     }
 
-    const int usedBeds = CountUsedBedsForVillage(em, villageId);
-    const int totalBeds = CountTotalBedsForVillage(em, villageId);
+    // --- New Housing Capacity UI Integration ---
+    const int housingCapacity = CountHousingCapacityForVillage(em, villageId);
+    const int freeHousing = GetFreeHousingSlots(em, villageId);
+    const int sleepingOccupants = CountSleepingOccupantsForVillage(em, villageId);
 
-    DrawKeyValue("Beds", std::to_string(usedBeds) + " / " + std::to_string(totalBeds), x, currentY, totalBeds > 0 ? RAYWHITE : ORANGE);
+    DrawKeyValue("Housing", std::to_string(village.currentPopulation) + " / " + std::to_string(housingCapacity), x, currentY,
+                 freeHousing > 0 ? GREEN : ORANGE);
     currentY += 28.0f;
+
+    DrawKeyValue("Free beds", std::to_string(freeHousing), x, currentY, freeHousing > 0 ? GREEN : ORANGE);
+    currentY += 28.0f;
+
+    DrawKeyValue("Sleeping now", std::to_string(sleepingOccupants), x, currentY, sleepingOccupants > 0 ? SKYBLUE : LIGHTGRAY);
+    currentY += 28.0f;
+
+    DrawKeyValue("Birth status", GetBirthStatusText(em, resourceReg, villageId), x, currentY,
+                 GetFreeHousingSlots(em, villageId) > 0 ? GREEN : ORANGE);
+    currentY += 28.0f;
+    // -------------------------------------------
 
     DrawKeyValue("Day", std::to_string(timeSystem.GetDay()), x, currentY);
     currentY += 28.0f;
@@ -776,16 +879,19 @@ void VillageMenu::RenderVillagers(const EntityManager& em, EntityID villageId, f
 
     constexpr float COL_NAME = 0.0f;
     constexpr float COL_AGE = 180.0f;
+
     constexpr float COL_PROFESSION = 240.0f;
-    constexpr float COL_HUNGER = 390.0f;
-    constexpr float COL_FATIGUE = 530.0f;
-    constexpr float COL_TASK = 680.0f;
+    constexpr float COL_MODE = 350.0f;
+    constexpr float COL_HUNGER = 430.0f;
+    constexpr float COL_FATIGUE = 560.0f;
+    constexpr float COL_TASK = 700.0f;
 
     constexpr float BAR_WIDTH = 110.0f;
 
     DrawText("Name", static_cast<int>(x + COL_NAME), static_cast<int>(currentY), 16, GRAY);
     DrawText("Age", static_cast<int>(x + COL_AGE), static_cast<int>(currentY), 16, GRAY);
-    DrawText("Profession", static_cast<int>(x + COL_PROFESSION), static_cast<int>(currentY), 16, GRAY);
+    DrawText("Job", static_cast<int>(x + COL_PROFESSION), static_cast<int>(currentY), 16, GRAY);
+    DrawText("Mode", static_cast<int>(x + COL_MODE), static_cast<int>(currentY), 16, GRAY);
     DrawText("Hunger", static_cast<int>(x + COL_HUNGER), static_cast<int>(currentY), 16, GRAY);
     DrawText("Fatigue", static_cast<int>(x + COL_FATIGUE), static_cast<int>(currentY), 16, GRAY);
     DrawText("Task", static_cast<int>(x + COL_TASK), static_cast<int>(currentY), 16, GRAY);
@@ -821,8 +927,15 @@ void VillageMenu::RenderVillagers(const EntityManager& em, EntityID villageId, f
         }
 
         if (em.hasProfession[entity]) {
-            DrawText(TruncateText(em.professions[entity].currentProfession, 14).c_str(), static_cast<int>(x + COL_PROFESSION),
+            const ProfessionComponent& profession = em.professions[entity];
+
+            DrawText(TruncateText(profession.currentProfession, 10).c_str(), static_cast<int>(x + COL_PROFESSION),
                      static_cast<int>(currentY), 16, rowColor);
+
+            const bool isManual = profession.assignmentMode == ProfessionAssignmentMode::Manual;
+
+            DrawText(ProfessionModeToString(profession.assignmentMode), static_cast<int>(x + COL_MODE), static_cast<int>(currentY), 16,
+                     isManual ? ORANGE : SKYBLUE);
         }
 
         if (em.hasNeeds[entity]) {
@@ -932,7 +1045,8 @@ void VillageMenu::RenderProfessions(const EntityManager& em, const ProfessionReg
 
     DrawText("Name", static_cast<int>(rightX), static_cast<int>(candidateY), 16, GRAY);
     DrawText("Age", static_cast<int>(rightX + 170.0f), static_cast<int>(candidateY), 16, GRAY);
-    DrawText("Current Job", static_cast<int>(rightX + 230.0f), static_cast<int>(candidateY), 16, GRAY);
+    DrawText("Current Job", static_cast<int>(rightX + 220.0f), static_cast<int>(candidateY), 16, GRAY);
+    DrawText("Mode", static_cast<int>(rightX + 330.0f), static_cast<int>(candidateY), 16, GRAY);
 
     candidateY += 24.0f;
 
@@ -964,8 +1078,14 @@ void VillageMenu::RenderProfessions(const EntityManager& em, const ProfessionReg
             currentJob = em.professions[candidate].currentProfession;
         }
 
-        DrawText(TruncateText(currentJob, 14).c_str(), static_cast<int>(rightX + 230.0f), static_cast<int>(candidateY), 16,
+        DrawText(TruncateText(currentJob, 12).c_str(), static_cast<int>(rightX + 220.0f), static_cast<int>(candidateY), 16,
                  currentJob == "none" ? LIGHTGRAY : SKYBLUE);
+
+        if (em.hasProfession[candidate]) {
+            const ProfessionAssignmentMode mode = em.professions[candidate].assignmentMode;
+            DrawText(ProfessionModeToString(mode), static_cast<int>(rightX + 330.0f), static_cast<int>(candidateY), 16,
+                     mode == ProfessionAssignmentMode::Manual ? ORANGE : SKYBLUE);
+        }
 
         candidateY += 26.0f;
     }

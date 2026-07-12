@@ -147,10 +147,19 @@ std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& e
     if (entityManager.hasBehavior[i] || entityManager.hasProfession[i]) {
         AddHeader(lines, "Behavior");
         if (entityManager.hasProfession[i]) {
-            std::string prof = entityManager.professions[i].currentProfession;
-            if (!prof.empty() && prof != "none")
+            const ProfessionComponent& profession = entityManager.professions[i];
+
+            std::string prof = profession.currentProfession;
+
+            if (!prof.empty() && prof != "none") {
                 prof[0] = static_cast<char>(std::toupper(prof[0]));
+            }
+
             AddKV(lines, "Profession", prof);
+
+            const std::string mode = profession.assignmentMode == ProfessionAssignmentMode::Manual ? "manual" : "auto";
+
+            AddKV(lines, "Assignment", mode);
         }
         if (entityManager.hasBehavior[i]) {
             AddKV(lines, "Current Task", entityManager.behaviors[i].currentTask);

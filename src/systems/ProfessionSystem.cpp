@@ -29,7 +29,7 @@ void ApplyBehaviorRules(EntityID entity, EntityManager& em, const BehaviorRegist
     }
 }
 
-void ResetProfession(EntityID entity, EntityManager& em, const BehaviorRegistry& behReg) {
+void ResetProfessionKeepMode(EntityID entity, EntityManager& em, const BehaviorRegistry& behReg) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasProfession[entity]) {
         return;
     }
@@ -111,7 +111,11 @@ void ProfessionSystem::Update(float deltaTime, EntityManager& em, const Professi
         }
 
         if (assignedWorkers.count(entity) == 0) {
-            ResetProfession(entity, em, behReg);
+            // The entity has a profession but no active slot.
+            // Keep assignmentMode unchanged:
+            // - Auto remains Auto and may be reassigned later.
+            // - Manual remains Manual and stays intentionally controlled by the player.
+            ResetProfessionKeepMode(entity, em, behReg);
         }
     }
 
@@ -162,6 +166,10 @@ void ProfessionSystem::Update(float deltaTime, EntityManager& em, const Professi
 
                 auto& tag = em.tags[candidate];
                 auto& prof = em.professions[candidate];
+
+                if (prof.assignmentMode != ProfessionAssignmentMode::Auto) {
+                    continue;
+                }
 
                 if (prof.currentProfession != "none") {
                     continue;
