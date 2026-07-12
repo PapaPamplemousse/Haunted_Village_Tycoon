@@ -7,7 +7,30 @@
 #include "systems/AISystemUtils.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <raymath.h>
+
+namespace {
+
+void UpdateSpriteFacingFromDirection(EntityID entity, EntityManager& em, Vector2 direction) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasSprite[entity]) {
+        return;
+    }
+
+    if (std::fabs(direction.x) < 0.001f && std::fabs(direction.y) < 0.001f) {
+        return;
+    }
+
+    SpriteComponent& sprite = em.sprites[entity];
+
+    if (std::fabs(direction.x) > std::fabs(direction.y)) {
+        sprite.facing = direction.x >= 0.0f ? SpriteFacing::Right : SpriteFacing::Left;
+    } else {
+        sprite.facing = direction.y >= 0.0f ? SpriteFacing::Down : SpriteFacing::Up;
+    }
+}
+
+} // namespace
 
 void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em) {
     auto& behavior = em.behaviors[i];
@@ -43,6 +66,8 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
     }
 
     Vector2 dir = Vector2Subtract(behavior.currentTarget, transform.position);
+    UpdateSpriteFacingFromDirection(i, em, dir);
+
     const float distanceToTarget = Vector2Length(dir);
     const float step = speed * deltaTime;
 

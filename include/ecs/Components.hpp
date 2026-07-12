@@ -42,6 +42,10 @@ struct TransformComponent {
     Vector2 position = {0.0f, 0.0f};
 };
 
+enum class SpriteFacing { Down, Up, Right, Left };
+
+enum class SpritePose { Normal, Action };
+
 /**
  * @struct SpriteComponent
  * @brief Holds visual data for rendering. Supports primitive shapes for prototyping and texture paths for final assets.
@@ -52,6 +56,19 @@ struct SpriteComponent {
     float width = 32.0f;
     float height = 32.0f;
     bool isAnimated = false; // If true, applies a mathematical idle bounce effect
+
+    bool useSpriteSheet = false;
+    int sheetColumns = 1;
+    int sheetRows = 1;
+
+    float frameWidth = 0.0f;
+    float frameHeight = 0.0f;
+
+    // Gap in pixels between rows in the source image.
+    float rowGap = 0.0f;
+
+    SpriteFacing facing = SpriteFacing::Down;
+    SpritePose pose = SpritePose::Normal;
 };
 
 // =========================================================

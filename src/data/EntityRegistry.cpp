@@ -55,6 +55,57 @@ Color ParseColor(const std::string& value) {
     return c;
 }
 
+std::vector<std::string> ParseStringList(const std::string& value) {
+    std::vector<std::string> result;
+
+    std::stringstream ss(value);
+    std::string token;
+
+    while (std::getline(ss, token, ',')) {
+        token = Trim(token);
+
+        if (!token.empty()) {
+            result.push_back(token);
+        }
+    }
+    return result;
+}
+
+std::string PickRandomString(const std::vector<std::string>& values) {
+    if (values.empty()) {
+        return "";
+    }
+
+    const int index = GetRandomValue(0, static_cast<int>(values.size()) - 1);
+    return values[static_cast<size_t>(index)];
+}
+
+std::string SelectSpriteTexturePath(const EntityDef& def, const std::string& gender) {
+    if (gender == "male") {
+        const std::string selected = PickRandomString(def.spriteVariantsMale);
+
+        if (!selected.empty()) {
+            return selected;
+        }
+    }
+
+    if (gender == "female") {
+        const std::string selected = PickRandomString(def.spriteVariantsFemale);
+
+        if (!selected.empty()) {
+            return selected;
+        }
+    }
+
+    const std::string undefinedSelected = PickRandomString(def.spriteVariantsUndefined);
+
+    if (!undefinedSelected.empty()) {
+        return undefinedSelected;
+    }
+
+    return def.texturePath;
+}
+
 /**
  * @brief Splits a behavior list while ignoring commas inside parentheses.
  *
@@ -261,6 +312,48 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
             }
         }
 
+        if (block.properties.count("sprite_mode")) {
+            const std::string mode = Trim(block.properties.at("sprite_mode"));
+            def.useSpriteSheet = mode == "spritesheet";
+        }
+
+        if (block.properties.count("sprite_sheet_columns")) {
+            def.spriteSheetColumns = std::stoi(Trim(block.properties.at("sprite_sheet_columns")));
+        }
+
+        if (block.properties.count("sprite_sheet_rows")) {
+            def.spriteSheetRows = std::stoi(Trim(block.properties.at("sprite_sheet_rows")));
+        }
+
+        if (block.properties.count("sprite_row_gap")) {
+            def.spriteRowGap = std::stof(Trim(block.properties.at("sprite_row_gap")));
+        }
+
+        if (block.properties.count("sprite_frame_size")) {
+            std::stringstream ss(block.properties.at("sprite_frame_size"));
+            std::string token;
+
+            if (std::getline(ss, token, ',')) {
+                def.spriteFrameWidth = std::stof(Trim(token));
+            }
+
+            if (std::getline(ss, token, ',')) {
+                def.spriteFrameHeight = std::stof(Trim(token));
+            }
+        }
+
+        if (block.properties.count("sprite_variants_male")) {
+            def.spriteVariantsMale = ParseStringList(block.properties.at("sprite_variants_male"));
+        }
+
+        if (block.properties.count("sprite_variants_female")) {
+            def.spriteVariantsFemale = ParseStringList(block.properties.at("sprite_variants_female"));
+        }
+
+        if (block.properties.count("sprite_variants_undefined")) {
+            def.spriteVariantsUndefined = ParseStringList(block.properties.at("sprite_variants_undefined"));
+        }
+
         m_templates[block.id] = def;
     }
 
@@ -337,7 +430,19 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
 
     // 5. Visual representation
     em.hasSprite[id] = true;
-    em.sprites[id] = {def.texturePath, def.color, def.spriteWidth, def.spriteHeight, true};
+
+    const std::string selectedTexturePath = SelectSpriteTexturePath(def, generatedGender);
+
+    em.sprites[id] = {selectedTexturePath, def.color, def.spriteWidth, def.spriteHeight, true};
+
+    em.sprites[id].useSpriteSheet = def.useSpriteSheet;
+    em.sprites[id].sheetColumns = std::max(1, def.spriteSheetColumns);
+    em.sprites[id].sheetRows = std::max(1, def.spriteSheetRows);
+    em.sprites[id].frameWidth = def.spriteFrameWidth;
+    em.sprites[id].frameHeight = def.spriteFrameHeight;
+    em.sprites[id].rowGap = def.spriteRowGap;
+    em.sprites[id].facing = SpriteFacing::Down;
+    em.sprites[id].pose = SpritePose::Normal;
 
     // 6. Stats
     em.hasStats[id] = true;

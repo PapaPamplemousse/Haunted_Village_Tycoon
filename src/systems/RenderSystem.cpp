@@ -243,7 +243,68 @@ void DrawResolvedWorldLabels(const std::vector<WorldLabel>& labels) {
     }
 }
 
+bool IsActionTask(const std::string& task) {
+    return task == "building" || task == "dismantling" || task == "harvesting" || task == "attacking" || task == "eating" ||
+           task == "eating_from_storage" || task == "depositing";
+}
+
+int FacingToColumn(SpriteFacing facing) {
+    switch (facing) {
+        case SpriteFacing::Down:
+            return 0;
+        case SpriteFacing::Up:
+            return 1;
+        case SpriteFacing::Right:
+            return 2;
+        case SpriteFacing::Left:
+            return 3;
+        default:
+            return 0;
+    }
+}
+
+SpritePose GetVisualPose(EntityID entity, const EntityManager& em, const SpriteComponent& sprite) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity]) {
+        return sprite.pose;
+    }
+
+    return IsActionTask(em.behaviors[entity].currentTask) ? SpritePose::Action : SpritePose::Normal;
+}
+
 } // namespace
+
+RenderSystem::~RenderSystem() {
+    for (auto& pair : m_textureCache) {
+        if (pair.second.id != 0) {
+            UnloadTexture(pair.second);
+        }
+    }
+
+    m_textureCache.clear();
+}
+
+const Texture2D* RenderSystem::GetTexture(const std::string& texturePath) const {
+    if (texturePath.empty() || texturePath == "square" || texturePath == "circle" || texturePath == "triangle") {
+        return nullptr;
+    }
+
+    auto it = m_textureCache.find(texturePath);
+
+    if (it != m_textureCache.end()) {
+        return &it->second;
+    }
+
+    Texture2D texture = LoadTexture(texturePath.c_str());
+
+    if (texture.id == 0) {
+        return nullptr;
+    }
+
+    SetTextureFilter(texture, TEXTURE_FILTER_POINT);
+
+    auto inserted = m_textureCache.emplace(texturePath, texture);
+    return &inserted.first->second;
+}
 
 void RenderSystem::Render(const EntityManager& em, const EntitySpatialGrid& spatialGrid, const Camera2D& camera, bool showNames) const {
     double time = GetTime();
@@ -276,6 +337,44 @@ void RenderSystem::Render(const EntityManager& em, const EntitySpatialGrid& spat
         if (sprite.isAnimated) {
             float bounceOffset = std::sin(time * 5.0f + static_cast<float>(i)) * 3.0f;
             drawPos.y += bounceOffset;
+        }
+
+        if (sprite.useSpriteSheet) {
+            const Texture2D* texture = GetTexture(sprite.texturePath);
+
+            if (texture != nullptr) {
+                const int columns = std::max(1, sprite.sheetColumns);
+                const int rows = std::max(1, sprite.sheetRows);
+
+                const float frameWidth =
+                    sprite.frameWidth > 0.0f ? sprite.frameWidth : static_cast<float>(texture->width) / static_cast<float>(columns);
+
+                const float frameHeight =
+                    sprite.frameHeight > 0.0f
+                        ? sprite.frameHeight
+                        : (static_cast<float>(texture->height) - sprite.rowGap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
+
+                const SpritePose pose = GetVisualPose(i, em, sprite);
+
+                const int col = std::max(0, std::min(columns - 1, FacingToColumn(sprite.facing)));
+                const int row = std::max(0, std::min(rows - 1, pose == SpritePose::Action ? 1 : 0));
+
+                const Rectangle source = {static_cast<float>(col) * frameWidth, static_cast<float>(row) * (frameHeight + sprite.rowGap),
+                                          frameWidth, frameHeight};
+
+                const Rectangle destination = {drawPos.x, drawPos.y, sprite.width, sprite.height};
+
+                const Vector2 origin = {sprite.width * 0.5f, sprite.height * 0.5f};
+
+                DrawTexturePro(*texture, source, destination, origin, 0.0f, sprite.tint);
+                continue;
+            }
+
+            // Fallback if texture loading failed.
+            DrawRectangle(static_cast<int>(drawPos.x - sprite.width * 0.5f), static_cast<int>(drawPos.y - sprite.height * 0.5f),
+                          static_cast<int>(sprite.width), static_cast<int>(sprite.height), MAGENTA);
+
+            continue;
         }
 
         if (sprite.texturePath == "square") {
