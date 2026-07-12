@@ -27,6 +27,7 @@
 #include "systems/BuildPlacementSystem.hpp"
 #include "systems/ChronicleRenderSystem.hpp"
 #include "systems/EventSystem.hpp"
+#include "systems/HouseholdSystem.hpp"
 #include "systems/LightingSystem.hpp"
 #include "systems/ProfessionSystem.hpp"
 #include "systems/RenderSystem.hpp"
@@ -92,6 +93,7 @@ private:
     TimeSystem m_timeSystem;
     VillageSystem m_villageSystem;
     SocialSystem m_socialSystem;
+    HouseholdSystem m_householdSystem;
     AISystem m_aiSystem;
     RoomSystem m_roomSystem;
     ProfessionSystem m_professionSystem;

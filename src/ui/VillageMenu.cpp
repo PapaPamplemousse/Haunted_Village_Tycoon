@@ -692,6 +692,96 @@ const char* ProfessionModeToString(ProfessionAssignmentMode mode) {
     }
 }
 
+EntityID GetFamilyKeyForEntity(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasFamily[entity]) {
+        return static_cast<EntityID>(-1);
+    }
+
+    const EntityID partner = em.families[entity].partnerId;
+
+    if (partner == static_cast<EntityID>(-1)) {
+        return static_cast<EntityID>(-1);
+    }
+
+    return std::min(entity, partner);
+}
+
+int CountPrivateBedCapacityForFamilyMenu(const EntityManager& em, EntityID familyKey) {
+    int capacity = 0;
+
+    if (familyKey == static_cast<EntityID>(-1)) {
+        return 0;
+    }
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!em.active[entity] || !em.hasRestSpot[entity]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[entity] && !em.blueprints[entity].isFinished) {
+            continue;
+        }
+
+        const RestSpotComponent& restSpot = em.restSpots[entity];
+
+        if (!restSpot.isPrivate || restSpot.ownerFamilyId != familyKey) {
+            continue;
+        }
+
+        capacity += std::max(0, restSpot.capacity);
+    }
+
+    return capacity;
+}
+
+int CountOwnedBedsForFamilyMenu(const EntityManager& em, EntityID familyKey) {
+    int count = 0;
+
+    if (familyKey == static_cast<EntityID>(-1)) {
+        return 0;
+    }
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!em.active[entity] || !em.hasRestSpot[entity]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[entity] && !em.blueprints[entity].isFinished) {
+            continue;
+        }
+
+        const RestSpotComponent& restSpot = em.restSpots[entity];
+
+        if (restSpot.isPrivate && restSpot.ownerFamilyId == familyKey) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+int CountFamilyMembersForMenu(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasFamily[entity]) {
+        return 1;
+    }
+
+    const EntityID partner = em.families[entity].partnerId;
+
+    if (partner == static_cast<EntityID>(-1)) {
+        return 1;
+    }
+
+    int count = 2;
+
+    for (EntityID child : em.families[entity].children) {
+        if (child < em.active.size() && em.active[child]) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
 } // namespace
 
 void VillageMenu::Update(EntityManager& em, GameCamera& camera, const ProfessionRegistry& professionReg,
@@ -1455,6 +1545,32 @@ void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, floa
     } else {
         DrawText("Known relations: none", static_cast<int>(centerX), static_cast<int>(familyY), 16, DARKGRAY);
     }
+
+    familyY += 28.0f;
+
+    const EntityID familyKey = GetFamilyKeyForEntity(em, primary);
+    const int familyMembers = CountFamilyMembersForMenu(em, primary);
+    const int ownedBeds = CountOwnedBedsForFamilyMenu(em, familyKey);
+    const int familyBedCapacity = CountPrivateBedCapacityForFamilyMenu(em, familyKey);
+
+    DrawText(("Family ID: " + (familyKey == static_cast<EntityID>(-1) ? std::string("none") : std::to_string(familyKey))).c_str(),
+             static_cast<int>(centerX), static_cast<int>(familyY), 16, familyKey == static_cast<EntityID>(-1) ? DARKGRAY : RAYWHITE);
+    familyY += 24.0f;
+
+    DrawText(("Family size: " + std::to_string(familyMembers)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 16,
+             LIGHTGRAY);
+    familyY += 24.0f;
+
+    DrawText(("Owned beds: " + std::to_string(ownedBeds)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 16,
+             ownedBeds > 0 ? SKYBLUE : ORANGE);
+    familyY += 24.0f;
+
+    DrawText(("Family bed capacity: " + std::to_string(familyBedCapacity)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY),
+             16, familyBedCapacity >= familyMembers ? GREEN : ORANGE);
+    familyY += 24.0f;
+
+    DrawText(("Child capacity: " + std::string(familyBedCapacity >= familyMembers + 1 ? "yes" : "no")).c_str(), static_cast<int>(centerX),
+             static_cast<int>(familyY), 16, familyBedCapacity >= familyMembers + 1 ? GREEN : ORANGE);
 
     // Relationship panel
     float relationY = currentY;

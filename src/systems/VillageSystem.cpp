@@ -12,6 +12,8 @@
 #include <vector>
 
 namespace {
+// forward declaratoip,
+bool HasFamilyHousingCapacityForNewChild(const EntityManager& em, EntityID parentA, EntityID parentB);
 
 constexpr int DEFAULT_VILLAGE_POPULATION_LIMIT = 10;
 constexpr float BIRTH_FOOD_NUTRITION_COST = 80.0f;
@@ -290,12 +292,85 @@ bool FindEligibleCoupleForBirth(const EntityManager& em, EntityID villageId, Ent
             continue;
         }
 
+        if (!HasFamilyHousingCapacityForNewChild(em, entity, partner)) {
+            continue;
+        }
+
         outParentA = entity;
         outParentB = partner;
         return true;
     }
 
     return false;
+}
+
+EntityID GetFamilyKey(EntityID a, EntityID b) {
+    return std::min(a, b);
+}
+
+int CountActiveChildrenOfCouple(const EntityManager& em, EntityID parentA, EntityID parentB) {
+    if (parentA >= em.active.size() || !em.active[parentA] || !em.hasFamily[parentA]) {
+        return 0;
+    }
+
+    int count = 0;
+
+    for (EntityID child : em.families[parentA].children) {
+        if (child >= em.active.size() || !em.active[child] || !em.hasFamily[child]) {
+            continue;
+        }
+
+        const FamilyComponent& childFamily = em.families[child];
+
+        const bool sameParents = (childFamily.parentA == parentA && childFamily.parentB == parentB) ||
+                                 (childFamily.parentA == parentB && childFamily.parentB == parentA);
+
+        if (sameParents) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+int CountFamilySize(const EntityManager& em, EntityID parentA, EntityID parentB) {
+    return 2 + CountActiveChildrenOfCouple(em, parentA, parentB);
+}
+
+int CountPrivateBedCapacityForFamily(const EntityManager& em, EntityID familyKey) {
+    int capacity = 0;
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (entity >= em.active.size() || !em.active[entity] || !em.hasRestSpot[entity]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[entity] && !em.blueprints[entity].isFinished) {
+            continue;
+        }
+
+        const RestSpotComponent& restSpot = em.restSpots[entity];
+
+        if (!restSpot.isPrivate) {
+            continue;
+        }
+
+        if (restSpot.ownerFamilyId != familyKey) {
+            continue;
+        }
+
+        capacity += std::max(0, restSpot.capacity);
+    }
+
+    return capacity;
+}
+
+bool HasFamilyHousingCapacityForNewChild(const EntityManager& em, EntityID parentA, EntityID parentB) {
+    const EntityID familyKey = GetFamilyKey(parentA, parentB);
+    const int currentFamilySize = CountFamilySize(em, parentA, parentB);
+    const int familyBedCapacity = CountPrivateBedCapacityForFamily(em, familyKey);
+
+    return currentFamilySize + 1 <= familyBedCapacity;
 }
 
 void EnsureFamilyComponent(EntityManager& em, EntityID entity) {

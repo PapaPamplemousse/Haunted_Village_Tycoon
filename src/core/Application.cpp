@@ -345,10 +345,10 @@ void Application::Update(float deltaTime) {
     m_buildPlacementSystem.Update(m_inputManager, m_uiManager, m_entityManager, m_entityRegistry, m_furnitureRegistry,
                                   m_constructionRegistry, m_nameRegistry, m_behaviorRegistry);
 
-    m_timeSystem.Update(deltaTime, m_entityManager);
+    // m_villageSystem.Update(deltaTime, m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, m_worldMap, m_tileRegistry,
+    //                        m_resourceRegistry, m_timeSystem);
 
-    m_villageSystem.Update(deltaTime, m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, m_worldMap, m_tileRegistry,
-                           m_resourceRegistry, m_timeSystem);
+    m_timeSystem.Update(deltaTime, m_entityManager);
 
     m_eventSystem.Update(m_entityManager, m_timeSystem, m_resourceRegistry, m_settlementMetrics, m_chronicle);
 
@@ -366,6 +366,11 @@ void Application::Update(float deltaTime) {
     m_spatialGrid.Rebuild(m_entityManager);
 
     m_socialSystem.Update(deltaTime, m_entityManager, m_spatialGrid);
+
+    m_householdSystem.Update(deltaTime, m_entityManager);
+
+    m_villageSystem.Update(deltaTime, m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, m_worldMap, m_tileRegistry,
+                           m_resourceRegistry, m_timeSystem);
 }
 
 void Application::Render() {

@@ -14,10 +14,16 @@
 namespace {
 
 constexpr float SOCIAL_UPDATE_INTERVAL = 1.0f;
-constexpr float SOCIAL_RADIUS_TILES = 4.0f;
 
-constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 1.0f;
-constexpr float ROMANCE_GAIN_PER_UPDATE = 0.35f;
+// constexpr float SOCIAL_RADIUS_TILES = 4.0f;
+
+// constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 1.0f;
+// constexpr float ROMANCE_GAIN_PER_UPDATE = 0.35f;
+
+constexpr float SOCIAL_RADIUS_TILES = 40.0f;
+
+constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 4.0f;
+constexpr float ROMANCE_GAIN_PER_UPDATE = 2.0f;
 
 constexpr float FRIENDSHIP_THRESHOLD = 50.0f;
 constexpr float ROMANCE_THRESHOLD = 70.0f;
