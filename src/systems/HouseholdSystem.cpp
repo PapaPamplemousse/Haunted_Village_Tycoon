@@ -126,7 +126,7 @@ bool IsRestSpotFinished(const EntityManager& em, EntityID entity) {
 }
 
 bool IsBedroomRoom(const RoomComponent& room) {
-    return room.structureId == "SMALL_BEDROOM" || room.structureId == "LARGE_BEDROOM";
+    return room.isBedroom;
 }
 
 bool IsDoubleBed(const EntityManager& em, EntityID entity) {

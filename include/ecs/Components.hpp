@@ -196,11 +196,16 @@ struct RoomComponent {
     int area = 0;
     std::vector<Vector2> floorTiles;
 
-    // Ownership fields for future private bedrooms / family rooms.
+    // Semantic tags copied from StructureDef.
+    bool isHousing = false;
+    bool isBedroom = false;
+
+    // Ownership fields for private bedrooms / family rooms.
     bool isPrivate = false;
     EntityID ownerVillageId = static_cast<EntityID>(-1);
     EntityID ownerFamilyId = static_cast<EntityID>(-1);
 };
+
 /**
  * @struct CostComponent
  * @brief Stores the original blueprint cost of the entity to calculate refunds.

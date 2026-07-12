@@ -11,11 +11,19 @@
 struct StructureDef {
     std::string id;
     std::string name;
+
     int minArea = 0;
     int maxArea = 999999;
-    std::unordered_map<std::string, int> requirements; // Ex: {"CAMPFIRE": 1}
+
+    std::unordered_map<std::string, int> requirements;
     std::vector<std::string> grantedBuffs;
     std::unordered_map<std::string, int> jobSlots;
+
+    // Semantic tags used by systems.
+    // isHousing: structure can contribute to population / private ownership logic.
+    // isBedroom: structure can be assigned to a family as a private bedroom.
+    bool isHousing = false;
+    bool isBedroom = false;
 };
 
 class StructureRegistry {

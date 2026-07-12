@@ -389,7 +389,7 @@ void Application::Render() {
 
     m_renderSystem.Render(m_entityManager, m_spatialGrid, camera, showNames);
 
-    m_worldRenderSystem.ShowName(m_entityManager, camera, showNames);
+    // m_worldRenderSystem.ShowName(m_entityManager, camera, showNames);
 
     EndMode2D();
 

@@ -163,6 +163,8 @@ void RoomSystem::Update(EntityManager& em, const WorldMap& map, const StructureR
 
                 if (bestMatch) {
                     em.rooms[roomId] = {bestMatch->id, bestMatch->name, area, roomTiles};
+                    em.rooms[roomId].isHousing = bestMatch->isHousing;
+                    em.rooms[roomId].isBedroom = bestMatch->isBedroom;
 
                     if (!bestMatch->jobSlots.empty()) {
                         em.hasWorkplace[roomId] = true;

@@ -10,6 +10,27 @@
 #include <iostream>
 #include <sstream>
 
+namespace {
+
+std::string Trim(const std::string& value) {
+    const size_t first = value.find_first_not_of(" \t\r\n");
+
+    if (first == std::string::npos) {
+        return "";
+    }
+
+    const size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+bool ParseBool(const std::string& value) {
+    const std::string trimmed = Trim(value);
+
+    return trimmed == "true" || trimmed == "1" || trimmed == "yes" || trimmed == "on";
+}
+
+} // namespace
+
 bool StructureRegistry::LoadFromSTV(const std::string& filepath) {
     auto blocks = STVParser::Parse(filepath);
     if (blocks.empty())
@@ -26,6 +47,14 @@ bool StructureRegistry::LoadFromSTV(const std::string& filepath) {
         if (block.properties.count("max_area"))
             def.maxArea = std::stoi(block.properties.at("max_area"));
 
+        if (block.properties.count("is_housing")) {
+            def.isHousing = ParseBool(block.properties.at("is_housing"));
+        }
+
+        if (block.properties.count("is_bedroom")) {
+            def.isBedroom = ParseBool(block.properties.at("is_bedroom"));
+        }
+
         if (block.properties.count("requirements")) {
             std::stringstream ss(block.properties.at("requirements"));
             std::string reqToken;
@@ -33,8 +62,7 @@ bool StructureRegistry::LoadFromSTV(const std::string& filepath) {
                 std::stringstream pairSS(reqToken);
                 std::string reqId, reqCount;
                 if (std::getline(pairSS, reqId, ':') && std::getline(pairSS, reqCount)) {
-                    reqId.erase(0, reqId.find_first_not_of(" \t"));
-                    reqId.erase(reqId.find_last_not_of(" \t") + 1);
+                    reqId = Trim(reqId);
                     def.requirements[reqId] = std::stoi(reqCount);
                 }
             }

@@ -337,29 +337,126 @@ int CountFamilySize(const EntityManager& em, EntityID parentA, EntityID parentB)
     return 2 + CountActiveChildrenOfCouple(em, parentA, parentB);
 }
 
+bool IsValidEntity(const EntityManager& em, EntityID entity) {
+    return entity < em.active.size() && em.active[entity];
+}
+
+bool IsRoomTile(const RoomComponent& room, int tileX, int tileY) {
+    for (const Vector2& tile : room.floorTiles) {
+        if (static_cast<int>(tile.x) == tileX && static_cast<int>(tile.y) == tileY) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool IsEntityInsideRoom(const EntityManager& em, EntityID entity, const RoomComponent& room) {
+    if (!IsValidEntity(em, entity) || !em.hasTransform[entity]) {
+        return false;
+    }
+
+    const int tileX = WorldToTile(em.transforms[entity].position.x);
+    const int tileY = WorldToTile(em.transforms[entity].position.y);
+
+    return IsRoomTile(room, tileX, tileY);
+}
+
+bool IsRestSpotFinished(const EntityManager& em, EntityID entity) {
+    if (!IsValidEntity(em, entity) || !em.hasRestSpot[entity]) {
+        return false;
+    }
+
+    if (em.hasBlueprint[entity] && !em.blueprints[entity].isFinished) {
+        return false;
+    }
+
+    return true;
+}
+
+bool IsHousingRoomUsableByVillage(const RoomComponent& room, EntityID villageId) {
+    if (!room.isHousing) {
+        return false;
+    }
+
+    if (room.ownerVillageId != static_cast<EntityID>(-1) && room.ownerVillageId != villageId) {
+        return false;
+    }
+
+    return true;
+}
+
+std::vector<EntityID> GetRestSpotsInsideRoom(const EntityManager& em, EntityID roomId) {
+    std::vector<EntityID> beds;
+
+    if (!IsValidEntity(em, roomId) || !em.hasRoom[roomId]) {
+        return beds;
+    }
+
+    const RoomComponent& room = em.rooms[roomId];
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!IsRestSpotFinished(em, entity)) {
+            continue;
+        }
+
+        if (!IsEntityInsideRoom(em, entity, room)) {
+            continue;
+        }
+
+        beds.push_back(entity);
+    }
+
+    return beds;
+}
+
+bool CanRestSpotContributeToVillageHousing(const RestSpotComponent& restSpot, EntityID villageId) {
+    if (restSpot.ownerVillageId != static_cast<EntityID>(-1) && restSpot.ownerVillageId != villageId) {
+        return false;
+    }
+
+    // Family/private beds still contribute to village housing if they belong to that village.
+    // Access control is handled by RestSystem / AISystemUtils.
+    if (restSpot.isPrivate && restSpot.ownerVillageId != villageId) {
+        return false;
+    }
+
+    return true;
+}
+
 int CountPrivateBedCapacityForFamily(const EntityManager& em, EntityID familyKey) {
     int capacity = 0;
 
-    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
-        if (entity >= em.active.size() || !em.active[entity] || !em.hasRestSpot[entity]) {
+    for (EntityID roomId = 0; roomId < em.active.size(); ++roomId) {
+        if (!IsValidEntity(em, roomId) || !em.hasRoom[roomId]) {
             continue;
         }
 
-        if (em.hasBlueprint[entity] && !em.blueprints[entity].isFinished) {
+        const RoomComponent& room = em.rooms[roomId];
+
+        if (!room.isHousing) {
             continue;
         }
 
-        const RestSpotComponent& restSpot = em.restSpots[entity];
-
-        if (!restSpot.isPrivate) {
+        if (room.ownerFamilyId != static_cast<EntityID>(-1) && room.ownerFamilyId != familyKey) {
             continue;
         }
 
-        if (restSpot.ownerFamilyId != familyKey) {
-            continue;
-        }
+        const std::vector<EntityID> beds = GetRestSpotsInsideRoom(em, roomId);
 
-        capacity += std::max(0, restSpot.capacity);
+        for (EntityID bed : beds) {
+            const RestSpotComponent& restSpot = em.restSpots[bed];
+
+            if (!restSpot.isPrivate) {
+                continue;
+            }
+
+            if (restSpot.ownerFamilyId != familyKey) {
+                continue;
+            }
+
+            capacity += std::max(0, restSpot.capacity);
+        }
     }
 
     return capacity;
@@ -455,12 +552,28 @@ bool IsRestSpotUsableByVillage(const EntityManager& em, EntityID restSpotEntity,
 int CountVillageHousingCapacity(const EntityManager& em, EntityID villageId) {
     int capacity = 0;
 
-    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
-        if (!IsRestSpotUsableByVillage(em, entity, villageId)) {
+    for (EntityID roomId = 0; roomId < em.active.size(); ++roomId) {
+        if (!IsValidEntity(em, roomId) || !em.hasRoom[roomId]) {
             continue;
         }
 
-        capacity += std::max(0, em.restSpots[entity].capacity);
+        const RoomComponent& room = em.rooms[roomId];
+
+        if (!IsHousingRoomUsableByVillage(room, villageId)) {
+            continue;
+        }
+
+        const std::vector<EntityID> beds = GetRestSpotsInsideRoom(em, roomId);
+
+        for (EntityID bed : beds) {
+            const RestSpotComponent& restSpot = em.restSpots[bed];
+
+            if (!CanRestSpotContributeToVillageHousing(restSpot, villageId)) {
+                continue;
+            }
+
+            capacity += std::max(0, restSpot.capacity);
+        }
     }
 
     return capacity;
