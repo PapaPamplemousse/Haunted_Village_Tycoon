@@ -34,6 +34,7 @@
 #include "systems/ProfessionSystem.hpp"
 #include "systems/RenderSystem.hpp"
 #include "systems/RoomSystem.hpp"
+#include "systems/SocialEmoteRenderSystem.hpp"
 #include "systems/SocialSystem.hpp"
 #include "systems/TimeSystem.hpp"
 #include "systems/VillageSystem.hpp"
@@ -96,6 +97,7 @@ private:
     TimeSystem m_timeSystem;
     VillageSystem m_villageSystem;
     SocialSystem m_socialSystem;
+    SocialEmoteRenderSystem m_socialEmoteRenderSystem;
     HouseholdSystem m_householdSystem;
     AISystem m_aiSystem;
     RoomSystem m_roomSystem;

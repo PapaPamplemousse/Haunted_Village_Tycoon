@@ -586,6 +586,8 @@ void Application::Render() {
 
     m_renderSystem.Render(m_entityManager, m_spatialGrid, camera, showNames, m_timeSystem.GetSeasonIndex(), m_textureCache);
 
+    m_socialEmoteRenderSystem.Render(m_entityManager);
+
     EndMode2D();
 
     m_lightingSystem.RenderOverlay(m_timeSystem.GetHour(), m_timeSystem.GetSeasonIndex());
