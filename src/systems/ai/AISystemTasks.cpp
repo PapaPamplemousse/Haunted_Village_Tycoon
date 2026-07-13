@@ -151,6 +151,11 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
             em.healths[target].current -= damage;
             attackSucceeded = true;
 
+            if (em.hasAIContext[target]) {
+                em.aiContexts[target].lastThreatId = i;
+                em.aiContexts[target].threatMemoryTimer = 8.0f;
+            }
+
             if (em.healths[target].current <= 0.0f) {
                 AISystemUtils::GiveLootToInventory(i, target, em);
                 em.DestroyEntity(target);

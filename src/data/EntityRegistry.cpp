@@ -440,6 +440,8 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
     em.behaviors[id].workStartHour = def.workStartHour;
     em.behaviors[id].workEndHour = def.workEndHour;
     em.behaviors[id].storeThreshold = def.storeThreshold;
+    em.hasAIContext[id] = true;
+    em.aiContexts[id] = {};
 
     // 4. Inventory
     em.hasInventory[id] = true;

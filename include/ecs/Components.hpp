@@ -372,6 +372,24 @@ struct BehaviorComponent {
     size_t currentPathIndex = 0;
 };
 
+/**
+ * @struct AIContextComponent
+ * @brief Stores short-term AI memory and interruption state.
+ *
+ * This component is intentionally separated from BehaviorComponent:
+ * - BehaviorComponent describes what the entity is doing.
+ * - AIContextComponent stores context used to decide whether the entity should interrupt its current task.
+ */
+struct AIContextComponent {
+    EntityID lastThreatId = static_cast<EntityID>(-1);
+    float threatMemoryTimer = 0.0f;
+
+    float currentTaskPriority = 0.0f;
+    bool currentTaskInterruptible = true;
+
+    EntityID careTargetId = static_cast<EntityID>(-1);
+};
+
 struct JobSlot {
     std::string profession;
     EntityID workerId = static_cast<EntityID>(-1); // -1 signifie "Poste vacant"

@@ -46,6 +46,18 @@ private:
 
     void ResetBehaviorState(BehaviorComponent& behavior);
 
+    // --- Decision / Interruption ---
+    void UpdateAIContextTimers(float deltaTime, EntityManager& em);
+
+    bool TryInterruptCurrentTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                 const EntitySpatialGrid& spatialGrid);
+
+    void CancelCurrentTask(EntityID entity, EntityManager& em);
+
+    bool TryStartFleeFromThreat(EntityID entity, EntityID threat, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+
+    bool TryStartDefendAgainstThreat(EntityID entity, EntityID threat, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+
     // --- Jobs ---
     bool TryFindHuntJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                         const EntitySpatialGrid& spatialGrid);

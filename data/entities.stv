@@ -30,9 +30,9 @@ max_hp = 80
 max_speed = 45
 base_atk = 5
 action_radius = 35
-activity_period = nocturnal
-work_start_hour = 20
-work_end_hour = 6
+activity_period = diurnal
+work_start_hour = 6
+work_end_hour = 20
 store_threshold = 5
 category = humanoid
 species = cannibal
@@ -58,3 +58,22 @@ gender = undefined
 texture = triangle
 color = 80, 0, 120, 255
 sprite_size = 48, 48
+
+
+[ZOMBIE]
+name = Zombie
+max_hp = 80
+max_speed = 45
+base_atk = 5
+action_radius = 35
+activity_period = nocturnal
+work_start_hour = 20
+work_end_hour = 6
+store_threshold = 5
+category = humanoid
+species = zombie
+gender = binary
+texture = triangle
+color = 50, 50, 255, 255
+sprite_size = 28, 28
+drops = FLESH:2:1.0

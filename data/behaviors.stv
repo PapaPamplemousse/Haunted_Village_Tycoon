@@ -46,6 +46,14 @@ species = human
 rule = rest
 species = human
 
+[DEFEND_HUMAN]
+rule = defend
+species = human
+
 [REST_CANNIBAL]
 rule = rest
+species = cannibal
+
+[DEFEND_CANNIBAL]
+rule = defend
 species = cannibal

@@ -12,6 +12,8 @@
 void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                       const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, const Vector2& simulationCenter,
                       float activeRadiusTiles, float currentHour, RoomSystem& roomSys) {
+    UpdateAIContextTimers(deltaTime, em);
+
     for (size_t i = 0; i < em.active.size(); ++i) {
         if (!em.active[i]) {
             continue;
@@ -26,6 +28,10 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
         }
 
         auto& behavior = em.behaviors[i];
+
+        if (TryInterruptCurrentTask(i, em, map, tileReg, spatialGrid)) {
+            continue;
+        }
 
         if (behavior.stateTimer > 0.0f) {
             behavior.stateTimer -= deltaTime;

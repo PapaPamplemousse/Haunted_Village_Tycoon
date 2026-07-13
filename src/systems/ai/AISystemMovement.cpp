@@ -107,6 +107,16 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
         } else if (behavior.currentTask == "moving_to_hunt") {
             behavior.currentTask = "attacking";
             behavior.stateTimer = AISystemUtils::ATTACK_DURATION;
+        } else if (behavior.currentTask == "moving_to_flee") {
+            behavior.currentTask = "idle";
+            behavior.currentJobTarget = 0;
+            behavior.hasJob = false;
+            behavior.stateTimer = 1.0f;
+
+            if (i < em.active.size() && em.active[i] && em.hasAIContext[i]) {
+                em.aiContexts[i].currentTaskPriority = 0.0f;
+                em.aiContexts[i].currentTaskInterruptible = true;
+            }
         } else if (behavior.currentTask == "wandering") {
             behavior.currentTask = "idle";
             behavior.stateTimer = GetRandomValue(10, 40) / 10.0f;
