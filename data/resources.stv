@@ -46,3 +46,47 @@ requirements = BUSH_BERRY:1, WATER_BOTTLE:1
 max_stack = 5
 is_consumable = true
 healing = 50.0
+
+[MUSHROOM]
+name = Mushroom
+max_stack = 20
+is_consumable = true
+nutrition = 12.0
+spoilage_days = 4
+
+[COOKED_MEAT]
+name = Cooked Meat
+max_stack = 20
+is_consumable = true
+nutrition = 55.0
+spoilage_days = 5
+
+[FISH]
+name = Fish
+max_stack = 20
+is_consumable = true
+nutrition = 20.0
+spoilage_days = 3
+
+[HERB]
+name = Herb
+max_stack = 20
+is_consumable = false
+
+[MEDICINE]
+name = Medicine
+requirements = HERB:2, WATER_BOTTLE:1
+max_stack = 10
+is_consumable = false
+
+[IRON_ORE]
+name = Iron Ore
+max_stack = 100
+is_consumable = false
+
+[IRON_INGOT]
+name = Iron Ingot
+requirements = IRON_ORE:2, WOOD:1
+max_stack = 100
+is_consumable = false
+

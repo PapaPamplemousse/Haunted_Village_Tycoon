@@ -16,3 +16,19 @@ name = Iron Sickle
 equipment_slot = right_hand
 damage = 5.0
 tool_type = sickle
+
+
+[HAMMER]
+name = Hammer
+damage = 7.0
+tool_type = hammer
+
+[PICKAXE]
+name = Pickaxe
+damage = 6.0
+tool_type = pickaxe
+
+[SPEAR]
+name = Spear
+damage = 10.0
+tool_type = spear

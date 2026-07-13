@@ -1,5 +1,50 @@
+[builder]
+name = Builder
+min_age = 16
+req_species = human
+
+[demolisher]
+name = Demolisher
+min_age = 16
+req_species = human
+
+[repairer]
+name = Repairer
+min_age = 16
+req_species = human
+
+[carrier]
+name = Carrier
+min_age = 14
+req_species = human
+
+[hauler]
+name = Hauler
+min_age = 16
+req_species = human
+
 [lumberjack]
 name = Lumberjack
+min_age = 16
+req_species = human
+
+[gatherer]
+name = Gatherer
+min_age = 14
+req_species = human
+
+[forager]
+name = Forager
+min_age = 14
+req_species = human
+
+[miner]
+name = Miner
+min_age = 16
+req_species = human
+
+[hunter]
+name = Hunter
 min_age = 16
 req_species = human
 
@@ -8,8 +53,25 @@ name = Town Guard
 min_age = 18
 req_species = human
 
-
-[gatherer]
-name = Gatherer
-min_age = 14
+[watchman]
+name = Watchman
+min_age = 18
 req_species = human
+
+[caretaker]
+name = Caretaker
+min_age = 16
+req_species = human
+
+[cook]
+name = Cook
+min_age = 16
+req_species = human
+
+[firekeeper]
+name = Firekeeper
+min_age = 16
+req_species = human
+
+
+

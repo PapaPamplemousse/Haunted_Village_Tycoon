@@ -121,6 +121,16 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
                 em.aiContexts[i].currentTaskPriority = 0.0f;
                 em.aiContexts[i].currentTaskInterruptible = true;
             }
+        } else if (behavior.currentTask == "moving_to_village_core") {
+            behavior.currentTask = "idle";
+            behavior.currentJobTarget = 0;
+            behavior.hasJob = false;
+            behavior.stateTimer = GetRandomValue(10, 30) / 10.0f;
+
+            if (i < em.active.size() && em.active[i] && em.hasAIContext[i]) {
+                em.aiContexts[i].currentTaskPriority = 0.0f;
+                em.aiContexts[i].currentTaskInterruptible = true;
+            }
         } else if (behavior.currentTask == "wandering") {
             behavior.currentTask = "idle";
             behavior.stateTimer = GetRandomValue(10, 40) / 10.0f;

@@ -97,10 +97,67 @@ grid_size = 1, 1
 interaction_type = rest
 rest_capacity = 2
 blueprint_cost = WOOD:12, ROPE:4
-texture = square
 texture = assets/furniture/double-bed.png
 color = 100, 80, 160, 255
 sprite_size = 32, 32
 sprite_mode = furniture_state
 sprite_sheet_columns = 1
 sprite_sheet_rows = 1
+
+[TOOL_RACK]
+name = Tool Rack
+max_hp = 60
+grid_size = 1, 1
+interaction_type = store, tool
+storage_capacity = 30
+filter = IRON_AXE, IRON_SICKLE, HAMMER, PICKAXE
+blueprint_cost = WOOD:8, ROPE:2
+texture = square
+color = 150, 120, 80, 255
+sprite_size = 32, 32
+
+[WEAPON_RACK]
+name = Weapon Rack
+max_hp = 60
+grid_size = 1, 1
+interaction_type = store, weapon
+storage_capacity = 30
+filter = IRON_AXE, WOOD_BOW, SPEAR
+blueprint_cost = WOOD:8, ROPE:2
+texture = square
+color = 120, 100, 90, 255
+sprite_size = 32, 32
+
+[WATER_BARREL]
+name = Water Barrel
+max_hp = 50
+grid_size = 1, 1
+interaction_type = store, water
+storage_capacity = 100
+filter = WATER_BOTTLE
+blueprint_cost = WOOD:6, ROPE:2
+texture = square
+color = 80, 120, 200, 255
+sprite_size = 32, 32
+
+[REPAIR_BENCH]
+name = Repair Bench
+max_hp = 60
+grid_size = 1, 1
+interaction_type = work
+storage_capacity = 0
+blueprint_cost = WOOD:8, STONE:2
+texture = square
+color = 130, 100, 70, 255
+sprite_size = 32, 32
+
+[TRAINING_DUMMY]
+name = Training Dummy
+max_hp = 40
+grid_size = 1, 1
+interaction_type = training
+storage_capacity = 0
+blueprint_cost = WOOD:4, ROPE:2
+texture = square
+color = 160, 120, 90, 255
+sprite_size = 32, 32

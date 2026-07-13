@@ -72,3 +72,51 @@ requirements = DOUBLE_BED:1, SMALL_BED:2
 granted_buffs = rest
 is_housing = true
 is_bedroom = true
+
+[BUILDERS_YARD]
+name = Builder's Yard
+min_area = 4
+max_area = 25
+requirements = TOOL_RACK:1
+granted_buffs = none
+job_slots = builder:2, demolisher:1, repairer:1
+
+[WAREHOUSE]
+name = Warehouse
+min_area = 6
+max_area = 60
+requirements = WOOD_CHEST:2
+granted_buffs = storage
+job_slots = carrier:2, hauler:2
+
+[GUARD_POST]
+name = Guard Post
+min_area = 4
+max_area = 25
+requirements = WEAPON_RACK:1
+granted_buffs = defense
+job_slots = guard:2, watchman:1
+
+[CHILDCARE_ROOM]
+name = Childcare Room
+min_area = 4
+max_area = 30
+requirements = SMALL_BED:1, WOOD_CHEST:1
+granted_buffs = care
+job_slots = caretaker:1
+
+[KITCHEN]
+name = Kitchen
+min_area = 4
+max_area = 30
+requirements = CAMPFIRE:1, WOOD_CHEST:1
+granted_buffs = food
+job_slots = cook:1
+
+[FIREKEEPER_STATION]
+name = Firekeeper Station
+min_area = 4
+max_area = 20
+requirements = CAMPFIRE:1, WOOD_CHEST:1
+granted_buffs = light
+job_slots = firekeeper:1

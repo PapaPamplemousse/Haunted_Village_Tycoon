@@ -54,6 +54,10 @@ species = human
 rule = care_child
 species = human
 
+[RETURN_VILLAGE_CORE_HUMAN]
+rule = return_village_core
+species = human
+
 [REST_CANNIBAL]
 rule = rest
 species = cannibal
@@ -61,3 +65,39 @@ species = cannibal
 [DEFEND_CANNIBAL]
 rule = defend
 species = cannibal
+
+[HAUL_CARRIER]
+rule = haul
+professions = carrier, hauler
+
+[STORE_CARRIER]
+rule = store
+professions = carrier, hauler
+
+[REPAIR_REPAIRER]
+rule = repair
+professions = repairer
+
+[GUARD_GUARD]
+rule = guard
+professions = guard, watchman
+
+[PATROL_GUARD]
+rule = patrol
+professions = guard, watchman
+
+[CARE_CHILD_CARETAKER]
+rule = care_child
+professions = caretaker
+
+[COOK_COOK]
+rule = cook
+professions = cook
+
+[REFUEL_FIREKEEPER]
+rule = refuel
+professions = firekeeper
+
+[LIGHT_FIRE_FIREKEEPER]
+rule = light_fire
+professions = firekeeper

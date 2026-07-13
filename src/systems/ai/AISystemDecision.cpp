@@ -27,8 +27,22 @@ constexpr float PRIORITY_CARE = 760.0f;
 constexpr float PRIORITY_LOGISTICS = 430.0f;
 constexpr float PRIORITY_WORK = 250.0f;
 constexpr float PRIORITY_IDLE = 10.0f;
+constexpr float PRIORITY_RETURN_TO_VILLAGE = 610.0f;
 
-enum class AIDecisionTaskType { Flee, Defend, SeekFood, Rest, CareChildFood, Store, Hunt, Build, Dismantle, Harvest, Wander };
+enum class AIDecisionTaskType {
+    Flee,
+    Defend,
+    SeekFood,
+    Rest,
+    CareChildFood,
+    ReturnToVillageCore,
+    Store,
+    Hunt,
+    Build,
+    Dismantle,
+    Harvest,
+    Wander
+};
 
 struct AITaskCandidate {
     AIDecisionTaskType type = AIDecisionTaskType::Wander;
@@ -447,6 +461,36 @@ float EstimateCareChildFoodUtility(EntityID entity, const EntityManager& em, con
     return bestScore;
 }
 
+bool IsDawnReturnWindow(float hour) {
+    return hour >= 5.0f && hour < 7.0f;
+}
+
+float EstimateReturnToVillageCoreUtility(EntityID entity, const EntityManager& em, float currentHour) {
+    if (!IsDawnReturnWindow(currentHour)) {
+        return -1.0f;
+    }
+
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasVillageMember[entity] || !em.hasTransform[entity]) {
+        return -1.0f;
+    }
+
+    const EntityID villageId = em.villageMembers[entity].villageId;
+
+    if (villageId >= em.active.size() || !em.active[villageId] || !em.hasVillage[villageId] || !em.hasTransform[villageId]) {
+        return -1.0f;
+    }
+
+    const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[villageId].position);
+
+    const float distanceTiles = std::sqrt(distanceSq) / Config::TILE_SIZE;
+
+    if (distanceTiles < 6.0f) {
+        return -1.0f;
+    }
+
+    return distanceTiles * 10.0f;
+}
+
 } // namespace
 
 void AISystem::UpdateAIContextTimers(float deltaTime, EntityManager& em) {
@@ -686,6 +730,7 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     const bool canDismantle = HasCapability(behavior, "dismantle");
     const bool canHarvest = HasCapability(behavior, "harvest");
     const bool canWander = HasCapability(behavior, "wander");
+    const bool canReturnToVillageCore = HasCapability(behavior, "return_village_core");
 
     const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
 
@@ -737,6 +782,17 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         }
 
         candidates.push_back({AIDecisionTaskType::Rest, priority, score});
+    }
+
+    // =========================================================
+    // Dawn village anchoring
+    // =========================================================
+    if (canReturnToVillageCore) {
+        const float returnScore = EstimateReturnToVillageCoreUtility(entity, em, currentHour);
+
+        if (returnScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::ReturnToVillageCore, PRIORITY_RETURN_TO_VILLAGE, returnScore});
+        }
     }
 
     // =========================================================
@@ -825,6 +881,10 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
                 if (em.hasAIContext[entity]) {
                     started = TryStartDefendAgainstThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
                 }
+                break;
+
+            case AIDecisionTaskType::ReturnToVillageCore:
+                started = TryFindReturnToVillageCoreJob(entity, em, map, tileReg);
                 break;
 
             case AIDecisionTaskType::SeekFood:

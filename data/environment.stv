@@ -27,3 +27,37 @@ sprite_size = 16, 16
 sprite_mode = seasonal
 sprite_sheet_columns = 4
 sprite_sheet_rows = 1
+
+
+[STONE_ROCK]
+name = Stone Rock
+max_hp = 100
+grid_size = 1, 1
+is_obstacle = true
+harvest_tool = pickaxe
+drops = STONE:3:1.0
+texture = square
+color = 100, 100, 100, 255
+sprite_size = 32, 32
+
+[MUSHROOM]
+name = Mushroom
+max_hp = 20
+grid_size = 1, 1
+is_obstacle = false
+harvest_tool = none
+drops = MUSHROOM:1:0.8
+texture = square
+color = 170, 80, 180, 255
+sprite_size = 16, 16
+
+[HERB_BUSH]
+name = Herb Bush
+max_hp = 30
+grid_size = 1, 1
+is_obstacle = false
+harvest_tool = none
+drops = HERB:1:0.75
+texture = square
+color = 80, 180, 90, 255
+sprite_size = 16, 16

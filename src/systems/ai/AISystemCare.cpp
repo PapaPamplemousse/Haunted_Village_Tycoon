@@ -41,9 +41,8 @@ bool IsValidHungryChildOf(EntityID parent, EntityID child, const EntityManager& 
 }
 
 } // namespace
-
 bool AISystem::TryFindCareChildFoodJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                       const ResourceRegistry* resourceReg) {
+                                       const ResourceRegistry& resourceReg) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasFamily[entity] || !em.hasInventory[entity] || !em.hasBehavior[entity] ||
         !em.hasTransform[entity]) {
         return false;

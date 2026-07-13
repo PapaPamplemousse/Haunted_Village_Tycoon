@@ -87,4 +87,17 @@ private:
 
     bool TryFindCareChildFoodJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                  const ResourceRegistry& resourceReg);
+
+    bool TryFindReturnToVillageCoreJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+
+    bool TryFindHaulJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                        const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindRepairJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                          const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindGuardJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                         const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindPatrolJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 };
