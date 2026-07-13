@@ -173,8 +173,37 @@ struct RelationshipEntry {
     float friendship = 0.0f;
     float romance = 0.0f;
 
+    // Social V2.
+    float trust = 0.0f;
+    float respect = 0.0f;
+    float resentment = 0.0f;
+    float fear = 0.0f;
+
     bool friendshipAnnounced = false;
     bool romanceAnnounced = false;
+    bool hatredAnnounced = false;
+};
+
+/**
+ * @struct PersonalityComponent
+ * @brief Stores personality traits and derived social modifiers for an entity.
+ */
+struct PersonalityComponent {
+    std::vector<std::string> traits;
+
+    // Normalized personality dimensions.
+    // 0.0 = very low, 1.0 = very high.
+    float sociability = 0.5f;
+    float bravery = 0.5f;
+    float kindness = 0.5f;
+    float patience = 0.5f;
+    float aggression = 0.0f;
+    float loyalty = 0.5f;
+
+    // Multipliers / modifiers used by systems.
+    float resentmentGainMultiplier = 1.0f;
+    float resentmentDecayMultiplier = 1.0f;
+    float workScoreModifier = 0.0f;
 };
 
 /**

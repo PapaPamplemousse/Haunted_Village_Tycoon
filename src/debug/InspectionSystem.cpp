@@ -220,6 +220,33 @@ std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& e
     }
 
     // =========================================================
+    // Personality
+    // =========================================================
+    if (entityManager.hasPersonality[i]) {
+        const PersonalityComponent& personality = entityManager.personalities[i];
+
+        if (!personality.traits.empty()) {
+            AddHeader(lines, "Personality");
+
+            std::string traitsText;
+
+            for (size_t t = 0; t < personality.traits.size(); ++t) {
+                if (t > 0) {
+                    traitsText += ", ";
+                }
+
+                traitsText += personality.traits[t];
+            }
+
+            AddText(lines, traitsText, LIGHTGRAY);
+
+            AddKV(lines, "Kindness", TextFormat("%.2f", personality.kindness));
+            AddKV(lines, "Aggression", TextFormat("%.2f", personality.aggression));
+            AddKV(lines, "Bravery", TextFormat("%.2f", personality.bravery));
+        }
+    }
+
+    // =========================================================
     // Inventory / storage summary
     // =========================================================
     if (entityManager.hasInventory[i]) {

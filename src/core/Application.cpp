@@ -463,6 +463,10 @@ Application::Application()
         std::cerr << "Failed to load resources!" << std::endl;
     }
 
+    if (!m_traitRegistry.LoadFromSTV("data/traits.stv")) {
+        std::cerr << "Failed to load traits!" << std::endl;
+    }
+
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
 
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
@@ -483,6 +487,8 @@ Application::Application()
     SpawnDebugVillageTestStructures(m_entityManager, m_furnitureRegistry, m_constructionRegistry, m_roomSystem, m_structureRegistry,
                                     m_worldMap, villageCore);
     SpawnDebugVillageTestVillagers(m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, villageCore);
+
+    m_traitRegistry.AssignMissingPersonalities(m_entityManager);
 
     m_spatialGrid.Rebuild(m_entityManager);
 
@@ -559,6 +565,8 @@ void Application::Update(float deltaTime) {
 
     m_villageSystem.Update(deltaTime, m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, m_worldMap, m_tileRegistry,
                            m_resourceRegistry, m_timeSystem);
+
+    m_traitRegistry.AssignMissingPersonalities(m_entityManager);
 }
 
 void Application::Render() {

@@ -117,19 +117,70 @@ void MakePartners(EntityManager& em, EntityID a, EntityID b) {
 
     std::cout << "[SOCIAL] " << GetDisplayName(em, a) << " and " << GetDisplayName(em, b) << " became partners." << std::endl;
 }
+float ClampSocial(float value) {
+    if (value < 0.0f) {
+        return 0.0f;
+    }
+
+    if (value > 100.0f) {
+        return 100.0f;
+    }
+
+    return value;
+}
+
+float GetSociabilityMultiplier(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 1.0f;
+    }
+
+    return 0.75f + em.personalities[entity].sociability * 0.5f;
+}
+
+float GetResentmentDecayMultiplier(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 1.0f;
+    }
+
+    return em.personalities[entity].resentmentDecayMultiplier;
+}
+
+bool IsHatred(const RelationshipEntry& relationship) {
+    return relationship.resentment >= 70.0f && relationship.friendship <= 20.0f;
+}
 
 void UpdateRelationshipPair(EntityManager& em, EntityID a, EntityID b) {
     RelationshipEntry& relAB = GetOrCreateRelationship(em, a, b);
     RelationshipEntry& relBA = GetOrCreateRelationship(em, b, a);
 
-    relAB.friendship = std::min(100.0f, relAB.friendship + Config::FRIENDSHIP_GAIN_PER_UPDATE);
-    relBA.friendship = std::min(100.0f, relBA.friendship + Config::FRIENDSHIP_GAIN_PER_UPDATE);
+    const float gainAB = Config::FRIENDSHIP_GAIN_PER_UPDATE * GetSociabilityMultiplier(em, a);
+    const float gainBA = Config::FRIENDSHIP_GAIN_PER_UPDATE * GetSociabilityMultiplier(em, b);
+
+    relAB.friendship = ClampSocial(relAB.friendship + gainAB);
+    relBA.friendship = ClampSocial(relBA.friendship + gainBA);
+
+    // Nearby peaceful contact slowly reduces resentment.
+    // Vengeful traits reduce this decay via resentmentDecayMultiplier.
+    relAB.resentment = ClampSocial(relAB.resentment - 0.25f * GetResentmentDecayMultiplier(em, a));
+    relBA.resentment = ClampSocial(relBA.resentment - 0.25f * GetResentmentDecayMultiplier(em, b));
 
     if (relAB.friendship >= Config::FRIENDSHIP_THRESHOLD && !relAB.friendshipAnnounced) {
         relAB.friendshipAnnounced = true;
         relBA.friendshipAnnounced = true;
 
         std::cout << "[SOCIAL] " << GetDisplayName(em, a) << " and " << GetDisplayName(em, b) << " became friends." << std::endl;
+    }
+
+    if (IsHatred(relAB) && !relAB.hatredAnnounced) {
+        relAB.hatredAnnounced = true;
+
+        std::cout << "[SOCIAL] " << GetDisplayName(em, a) << " now hates " << GetDisplayName(em, b) << "." << std::endl;
+    }
+
+    if (IsHatred(relBA) && !relBA.hatredAnnounced) {
+        relBA.hatredAnnounced = true;
+
+        std::cout << "[SOCIAL] " << GetDisplayName(em, b) << " now hates " << GetDisplayName(em, a) << "." << std::endl;
     }
 
     if (!AreRomanceCompatible(em, a, b)) {

@@ -20,6 +20,7 @@
 #include "data/ResourceRegistry.hpp"
 #include "data/StructureRegistry.hpp"
 #include "data/TileRegistry.hpp"
+#include "data/TraitRegistry.hpp"
 #include "data/WeaponRegistry.hpp"
 #include "debug/InspectionSystem.hpp"
 #include "ecs/EntityManager.hpp"
@@ -76,6 +77,7 @@ private:
     WeaponRegistry m_weaponRegistry;
     ProfessionRegistry m_professionRegistry;
     ResourceRegistry m_resourceRegistry;
+    TraitRegistry m_traitRegistry;
 
     // World state
     WorldMap m_worldMap;

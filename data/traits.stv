@@ -1,0 +1,85 @@
+[KIND]
+name = Kind
+kindness = 0.35
+sociability = 0.15
+patience = 0.15
+aggression = -0.10
+resentment_gain_multiplier = 0.75
+weight = 12
+
+[SELFISH]
+name = Selfish
+kindness = -0.30
+loyalty = -0.15
+resentment_gain_multiplier = 1.25
+weight = 10
+
+[BRAVE]
+name = Brave
+bravery = 0.35
+respect = 0.0
+weight = 10
+
+[COWARD]
+name = Coward
+bravery = -0.35
+fear_gain_multiplier = 1.25
+weight = 8
+
+[VIOLENT]
+name = Violent
+aggression = 0.45
+kindness = -0.20
+patience = -0.15
+resentment_gain_multiplier = 1.15
+weight = 5
+
+[VENGEFUL]
+name = Vengeful
+aggression = 0.20
+patience = -0.25
+resentment_gain_multiplier = 1.35
+resentment_decay_multiplier = 0.50
+weight = 6
+
+[PATIENT]
+name = Patient
+patience = 0.35
+resentment_gain_multiplier = 0.80
+weight = 10
+
+[IMPATIENT]
+name = Impatient
+patience = -0.30
+resentment_gain_multiplier = 1.20
+weight = 8
+
+[LOYAL]
+name = Loyal
+loyalty = 0.35
+kindness = 0.10
+weight = 9
+
+[SOCIAL]
+name = Social
+sociability = 0.40
+kindness = 0.10
+weight = 10
+
+[SOLITARY]
+name = Solitary
+sociability = -0.35
+patience = 0.10
+weight = 8
+
+[HARD_WORKER]
+name = Hard Worker
+work_score_modifier = 0.25
+patience = 0.10
+weight = 10
+
+[LAZY]
+name = Lazy
+work_score_modifier = -0.25
+patience = -0.10
+weight = 7

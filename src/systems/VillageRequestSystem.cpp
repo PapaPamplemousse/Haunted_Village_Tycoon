@@ -10,6 +10,46 @@
 
 namespace {
 
+float ClampSocial(float value) {
+    if (value < 0.0f) {
+        return 0.0f;
+    }
+
+    if (value > 100.0f) {
+        return 100.0f;
+    }
+
+    return value;
+}
+
+float GetKindnessMultiplier(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 1.0f;
+    }
+
+    const PersonalityComponent& personality = em.personalities[entity];
+
+    return 0.75f + personality.kindness * 0.5f;
+}
+
+float GetResentmentGainMultiplier(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 1.0f;
+    }
+
+    return em.personalities[entity].resentmentGainMultiplier;
+}
+
+float GetAggressionMultiplier(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 1.0f;
+    }
+
+    const PersonalityComponent& personality = em.personalities[entity];
+
+    return 0.75f + personality.aggression * 0.75f;
+}
+
 bool IsValidEntity(const EntityManager& em, EntityID entity) {
     return entity < em.active.size() && em.active[entity];
 }
@@ -197,12 +237,31 @@ void VillageRequestSystem::ApplySocialImpact(EntityManager& em, EntityID request
     RelationshipEntry& requesterToAssignee = GetOrCreateRelationship(em, requesterId, assigneeId);
     RelationshipEntry& assigneeToRequester = GetOrCreateRelationship(em, assigneeId, requesterId);
 
+    const float requesterKindness = GetKindnessMultiplier(em, requesterId);
+    const float assigneeKindness = GetKindnessMultiplier(em, assigneeId);
+    const float requesterResentmentGain = GetResentmentGainMultiplier(em, requesterId);
+    const float requesterAggression = GetAggressionMultiplier(em, requesterId);
+
     if (success) {
-        requesterToAssignee.friendship = std::min(100.0f, requesterToAssignee.friendship + 8.0f);
-        assigneeToRequester.friendship = std::min(100.0f, assigneeToRequester.friendship + 4.0f);
+        requesterToAssignee.friendship = ClampSocial(requesterToAssignee.friendship + 6.0f * requesterKindness);
+        requesterToAssignee.trust = ClampSocial(requesterToAssignee.trust + 10.0f);
+        requesterToAssignee.respect = ClampSocial(requesterToAssignee.respect + 4.0f);
+        requesterToAssignee.resentment = ClampSocial(requesterToAssignee.resentment - 5.0f);
+
+        assigneeToRequester.friendship = ClampSocial(assigneeToRequester.friendship + 3.0f * assigneeKindness);
+        assigneeToRequester.respect = ClampSocial(assigneeToRequester.respect + 2.0f);
+
+        std::cout << "[SOCIAL] Request success improved trust between #" << requesterId << " and #" << assigneeId << "." << std::endl;
     } else {
-        requesterToAssignee.friendship = std::max(0.0f, requesterToAssignee.friendship - 6.0f);
-        assigneeToRequester.friendship = std::max(0.0f, assigneeToRequester.friendship - 2.0f);
+        requesterToAssignee.friendship = ClampSocial(requesterToAssignee.friendship - 3.0f);
+        requesterToAssignee.trust = ClampSocial(requesterToAssignee.trust - 8.0f);
+        requesterToAssignee.resentment =
+            ClampSocial(requesterToAssignee.resentment + 10.0f * requesterResentmentGain * requesterAggression);
+
+        assigneeToRequester.friendship = ClampSocial(assigneeToRequester.friendship - 1.0f);
+        assigneeToRequester.respect = ClampSocial(assigneeToRequester.respect - 2.0f);
+
+        std::cout << "[SOCIAL] Request failure increased resentment between #" << requesterId << " and #" << assigneeId << "." << std::endl;
     }
 }
 
