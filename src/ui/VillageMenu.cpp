@@ -15,11 +15,26 @@
 
 namespace {
 
-constexpr int PANEL_WIDTH = 900;
-constexpr int PANEL_HEIGHT = 560;
 constexpr int PANEL_PADDING = 24;
 constexpr int TAB_COUNT = 5;                       // Updated for Social Tab
 constexpr float BIRTH_FOOD_NUTRITION_COST = 80.0f; // Sourced from VillageSystem
+
+int GetPanelWidth() {
+    return std::min(1180, std::max(860, GetScreenWidth() - 80));
+}
+
+int GetPanelHeight() {
+    return std::min(760, std::max(560, GetScreenHeight() - 80));
+}
+
+float GetContentBottomY() {
+    const int panelY = (GetScreenHeight() - GetPanelHeight()) / 2;
+    return static_cast<float>(panelY + GetPanelHeight() - PANEL_PADDING);
+}
+
+float GetContentHeight(float contentY) {
+    return std::max(0.0f, GetContentBottomY() - contentY);
+}
 
 const char* TabName(VillageMenuTab tab) {
     switch (tab) {
@@ -264,6 +279,186 @@ std::string GetFamilyRelationLabel(const EntityManager& em, EntityID a, EntityID
     return "none";
 }
 
+float Clamp01Ratio(float value) {
+    return std::max(0.0f, std::min(1.0f, value));
+}
+
+float GetTrustValue(const EntityManager& em, EntityID a, EntityID b) {
+    const RelationshipEntry* relationship = FindRelationship(em, a, b);
+    return relationship != nullptr ? relationship->trust : 0.0f;
+}
+
+float GetRespectValue(const EntityManager& em, EntityID a, EntityID b) {
+    const RelationshipEntry* relationship = FindRelationship(em, a, b);
+    return relationship != nullptr ? relationship->respect : 0.0f;
+}
+
+float GetResentmentValue(const EntityManager& em, EntityID a, EntityID b) {
+    const RelationshipEntry* relationship = FindRelationship(em, a, b);
+    return relationship != nullptr ? relationship->resentment : 0.0f;
+}
+
+float GetFearValue(const EntityManager& em, EntityID a, EntityID b) {
+    const RelationshipEntry* relationship = FindRelationship(em, a, b);
+    return relationship != nullptr ? relationship->fear : 0.0f;
+}
+
+bool IsHostileRelationship(const RelationshipEntry& relationship) {
+    return relationship.resentment >= 70.0f && relationship.friendship <= 20.0f;
+}
+
+std::string TruncateText(const std::string& text, std::size_t maxLength) {
+    if (text.size() <= maxLength) {
+        return text;
+    }
+
+    if (maxLength <= 3) {
+        return text.substr(0, maxLength);
+    }
+
+    return text.substr(0, maxLength - 3) + "...";
+}
+
+std::string GetTraitsText(const EntityManager& em, EntityID entity, std::size_t maxLength = 42) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return "none";
+    }
+
+    const PersonalityComponent& personality = em.personalities[entity];
+
+    if (personality.traits.empty()) {
+        return "none";
+    }
+
+    std::string result;
+
+    for (std::size_t i = 0; i < personality.traits.size(); ++i) {
+        if (i > 0) {
+            result += ", ";
+        }
+
+        result += personality.traits[i];
+    }
+
+    return TruncateText(result, maxLength);
+}
+
+struct SocialSummary {
+    int relations = 0;
+    int friends = 0;
+    int hostile = 0;
+    int fearLinks = 0;
+
+    float avgFriendship = 0.0f;
+    float avgTrust = 0.0f;
+    float avgResentment = 0.0f;
+};
+
+SocialSummary ComputeSocialSummary(const EntityManager& em, EntityID entity) {
+    SocialSummary summary;
+
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasSocial[entity]) {
+        return summary;
+    }
+
+    const SocialComponent& social = em.socials[entity];
+
+    float friendshipSum = 0.0f;
+    float trustSum = 0.0f;
+    float resentmentSum = 0.0f;
+
+    for (const RelationshipEntry& relationship : social.relationships) {
+        if (relationship.otherId >= em.active.size() || !em.active[relationship.otherId]) {
+            continue;
+        }
+
+        summary.relations++;
+
+        friendshipSum += relationship.friendship;
+        trustSum += relationship.trust;
+        resentmentSum += relationship.resentment;
+
+        if (relationship.friendship >= 50.0f) {
+            summary.friends++;
+        }
+
+        if (IsHostileRelationship(relationship)) {
+            summary.hostile++;
+        }
+
+        if (relationship.fear >= 50.0f) {
+            summary.fearLinks++;
+        }
+    }
+
+    if (summary.relations > 0) {
+        summary.avgFriendship = friendshipSum / static_cast<float>(summary.relations);
+        summary.avgTrust = trustSum / static_cast<float>(summary.relations);
+        summary.avgResentment = resentmentSum / static_cast<float>(summary.relations);
+    }
+
+    return summary;
+}
+
+struct SocialAlert {
+    EntityID owner = static_cast<EntityID>(-1);
+    EntityID other = static_cast<EntityID>(-1);
+    float score = 0.0f;
+    std::string label;
+};
+
+std::vector<SocialAlert> GetTopSocialAlerts(const EntityManager& em, EntityID villageId, int maxCount) {
+    std::vector<SocialAlert> alerts;
+
+    for (EntityID owner = 0; owner < em.active.size(); ++owner) {
+        if (!em.active[owner] || !em.hasVillageMember[owner] || !em.hasSocial[owner]) {
+            continue;
+        }
+
+        if (em.villageMembers[owner].villageId != villageId) {
+            continue;
+        }
+
+        for (const RelationshipEntry& relationship : em.socials[owner].relationships) {
+            const EntityID other = relationship.otherId;
+
+            if (other >= em.active.size() || !em.active[other] || !em.hasVillageMember[other]) {
+                continue;
+            }
+
+            if (em.villageMembers[other].villageId != villageId) {
+                continue;
+            }
+
+            const float hostilityScore = relationship.resentment + relationship.fear - relationship.friendship * 0.4f;
+
+            if (hostilityScore < 60.0f) {
+                continue;
+            }
+
+            std::string label = "tension";
+
+            if (relationship.resentment >= 90.0f && relationship.friendship <= 10.0f) {
+                label = "critical hatred";
+            } else if (relationship.resentment >= 70.0f) {
+                label = "resentment";
+            } else if (relationship.fear >= 60.0f) {
+                label = "fear";
+            }
+
+            alerts.push_back({owner, other, hostilityScore, label});
+        }
+    }
+
+    std::sort(alerts.begin(), alerts.end(), [](const SocialAlert& lhs, const SocialAlert& rhs) { return lhs.score > rhs.score; });
+
+    if (static_cast<int>(alerts.size()) > maxCount) {
+        alerts.resize(maxCount);
+    }
+
+    return alerts;
+}
+
 std::string GetSocialRelationLabel(const EntityManager& em, EntityID a, EntityID b) {
     const std::string familyRelation = GetFamilyRelationLabel(em, a, b);
 
@@ -277,11 +472,28 @@ std::string GetSocialRelationLabel(const EntityManager& em, EntityID a, EntityID
         return "neutral";
     }
 
+    if (relationship->resentment >= 90.0f && relationship->friendship <= 10.0f) {
+        return "hated";
+    }
+
+    if (relationship->resentment >= 70.0f && relationship->friendship <= 20.0f) {
+        return "hostile";
+    }
+
+    if (relationship->fear >= 60.0f) {
+        return "feared";
+    }
+
     if (relationship->romance >= 50.0f) {
         return "romantic interest";
     }
+
     if (relationship->friendship >= 50.0f) {
         return "friend";
+    }
+
+    if (relationship->trust >= 50.0f) {
+        return "trusted";
     }
 
     return "neutral";
@@ -364,12 +576,15 @@ std::string GetChildrenText(const EntityManager& em, EntityID entity) {
 // ---------------------------------------------------------
 
 void DrawPanelBackground() {
-    const int x = (GetScreenWidth() - PANEL_WIDTH) / 2;
-    const int y = (GetScreenHeight() - PANEL_HEIGHT) / 2;
+    const int panelW = GetPanelWidth();
+    const int panelH = GetPanelHeight();
+
+    const int x = (GetScreenWidth() - panelW) / 2;
+    const int y = (GetScreenHeight() - panelH) / 2;
 
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), ColorAlpha(BLACK, 0.55f));
-    DrawRectangle(x, y, PANEL_WIDTH, PANEL_HEIGHT, ColorAlpha(BLACK, 0.92f));
-    DrawRectangleLines(x, y, PANEL_WIDTH, PANEL_HEIGHT, DARKGRAY);
+    DrawRectangle(x, y, panelW, panelH, ColorAlpha(BLACK, 0.92f));
+    DrawRectangleLines(x, y, panelW, panelH, DARKGRAY);
 }
 
 void DrawKeyValue(const char* key, const std::string& value, float x, float y, Color valueColor = RAYWHITE) {
@@ -413,18 +628,6 @@ void DrawCompactProgressBar(float current, float max, float x, float y, float wi
     const int valueWidth = MeasureText(value.c_str(), 14);
 
     DrawText(value.c_str(), static_cast<int>(x + width - valueWidth - 4.0f), static_cast<int>(y + 3.0f), 14, WHITE);
-}
-
-std::string TruncateText(const std::string& text, std::size_t maxLength) {
-    if (text.size() <= maxLength) {
-        return text;
-    }
-
-    if (maxLength <= 3) {
-        return text.substr(0, maxLength);
-    }
-
-    return text.substr(0, maxLength - 3) + "...";
 }
 
 struct ProfessionSlotView {
@@ -1021,8 +1224,11 @@ void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resour
 
     DrawPanelBackground();
 
-    const int panelX = (GetScreenWidth() - PANEL_WIDTH) / 2;
-    const int panelY = (GetScreenHeight() - PANEL_HEIGHT) / 2;
+    const int panelW = GetPanelWidth();
+    const int panelH = GetPanelHeight();
+
+    const int panelX = (GetScreenWidth() - panelW) / 2;
+    const int panelY = (GetScreenHeight() - panelH) / 2;
 
     const float x = static_cast<float>(panelX + PANEL_PADDING);
     const float y = static_cast<float>(panelY + PANEL_PADDING);
@@ -1043,6 +1249,13 @@ void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resour
     const float contentX = x;
     const float contentY = y + 125.0f;
 
+    const int scissorX = panelX + PANEL_PADDING;
+    const int scissorY = static_cast<int>(contentY);
+    const int scissorW = panelW - PANEL_PADDING * 2;
+    const int scissorH = panelY + panelH - PANEL_PADDING - scissorY;
+
+    BeginScissorMode(scissorX, scissorY, scissorW, scissorH);
+
     switch (m_currentTab) {
         case VillageMenuTab::Overview:
             RenderOverview(em, resourceReg, timeSystem, villageId, contentX, contentY);
@@ -1056,12 +1269,14 @@ void VillageMenu::Render(const EntityManager& em, const ResourceRegistry& resour
         case VillageMenuTab::Storage:
             RenderStorage(em, resourceReg, villageId, contentX, contentY);
             break;
-        case VillageMenuTab::Social: // Render call for the new tab
+        case VillageMenuTab::Social:
             RenderSocial(em, villageId, contentX, contentY);
             break;
         default:
             break;
     }
+
+    EndScissorMode();
 }
 
 EntityID VillageMenu::FindPrimaryVillage(const EntityManager& em) const {
@@ -1091,18 +1306,19 @@ void VillageMenu::SetTabIndex(int index) {
 }
 
 void VillageMenu::RenderTabs(float x, float y) const {
+    const float tabSpacing = static_cast<float>(GetPanelWidth() - PANEL_PADDING * 2) / static_cast<float>(TAB_COUNT);
     for (int i = 0; i < TAB_COUNT; ++i) {
         const VillageMenuTab tab = static_cast<VillageMenuTab>(i);
         const bool selected = tab == m_currentTab;
 
-        const float tabX = x + static_cast<float>(i) * 160.0f;
+        const float tabX = x + static_cast<float>(i) * tabSpacing;
         const Color color = selected ? YELLOW : GRAY;
 
         DrawText(TabName(tab), static_cast<int>(tabX), static_cast<int>(y), 22, color);
 
         if (selected) {
-            DrawLine(static_cast<int>(tabX), static_cast<int>(y + 26.0f), static_cast<int>(tabX + 120.0f), static_cast<int>(y + 26.0f),
-                     color);
+            DrawLine(static_cast<int>(tabX), static_cast<int>(y + 26.0f), static_cast<int>(tabX + tabSpacing - 30.0f),
+                     static_cast<int>(y + 26.0f), color);
         }
     }
 }
@@ -1191,7 +1407,7 @@ void VillageMenu::RenderVillagers(const EntityManager& em, EntityID villageId, f
         return;
     }
 
-    const int visibleMax = 16;
+    const int visibleMax = std::max(6, static_cast<int>((GetContentBottomY() - currentY) / 26.0f));
     const int selected = std::max(0, std::min(m_selectedVillagerIndex, static_cast<int>(members.size()) - 1));
     const int start = std::max(0, selected - visibleMax + 1);
     const int end = std::min(static_cast<int>(members.size()), start + visibleMax);
@@ -1203,7 +1419,7 @@ void VillageMenu::RenderVillagers(const EntityManager& em, EntityID villageId, f
         const Color rowColor = isSelected ? YELLOW : RAYWHITE;
 
         if (isSelected) {
-            DrawRectangle(static_cast<int>(x - 8.0f), static_cast<int>(currentY - 3.0f), PANEL_WIDTH - PANEL_PADDING * 2, 24,
+            DrawRectangle(static_cast<int>(x - 8.0f), static_cast<int>(currentY - 3.0f), GetPanelWidth() - PANEL_PADDING * 2, 24,
                           ColorAlpha(DARKGRAY, 0.65f));
         }
 
@@ -1282,7 +1498,7 @@ void VillageMenu::RenderProfessions(const EntityManager& em, const ProfessionReg
     float slotY = currentY;
     float candidateY = currentY;
 
-    const int visibleSlots = 13;
+    const int visibleSlots = std::max(5, static_cast<int>((GetContentBottomY() - slotY) / 26.0f));
     const int slotStart = std::max(0, selectedSlotIndex - visibleSlots + 1);
     const int slotEnd = std::min(static_cast<int>(slots.size()), slotStart + visibleSlots);
 
@@ -1338,7 +1554,7 @@ void VillageMenu::RenderProfessions(const EntityManager& em, const ProfessionReg
 
     candidateY += 24.0f;
 
-    const int visibleCandidates = 11;
+    const int visibleCandidates = std::max(5, static_cast<int>((GetContentBottomY() - candidateY) / 26.0f));
     const int candidateStart = std::max(0, selectedCandidateIndex - visibleCandidates + 1);
     const int candidateEnd = std::min(static_cast<int>(candidates.size()), candidateStart + visibleCandidates);
 
@@ -1437,28 +1653,25 @@ void VillageMenu::RenderStorage(const EntityManager& em, const ResourceRegistry&
 
         currentY += 12.0f;
 
-        if (currentY > static_cast<float>((GetScreenHeight() + PANEL_HEIGHT) / 2 - 40)) {
+        if (currentY > GetContentBottomY() - 30.0f) {
             DrawText("Storage list truncated.", static_cast<int>(x), static_cast<int>(currentY), 16, ORANGE);
             break;
         }
     }
 }
 
-// Added the RenderSocial function
 void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, float x, float y) const {
     const std::vector<EntityID> members = GetVillageMembers(em, villageId);
 
-    // Use fallback PINK if standard raylib definition changes (though it should be native).
     const Color customPink = Color{255, 109, 194, 255};
 
-    DrawText("Social", static_cast<int>(x), static_cast<int>(y), 24, SKYBLUE);
+    DrawText("Social Monitor", static_cast<int>(x), static_cast<int>(y), 24, SKYBLUE);
 
-    float currentY = y + 42.0f;
+    float currentY = y + 36.0f;
 
-    DrawText("Up/Down: primary villager | W/S: target villager | F: focus primary", static_cast<int>(x), static_cast<int>(currentY), 16,
-             LIGHTGRAY);
+    DrawText("Up/Down: primary | W/S: target | F: focus primary", static_cast<int>(x), static_cast<int>(currentY), 16, LIGHTGRAY);
 
-    currentY += 34.0f;
+    currentY += 30.0f;
 
     if (members.empty()) {
         DrawText("No villagers found.", static_cast<int>(x), static_cast<int>(currentY), 18, LIGHTGRAY);
@@ -1466,25 +1679,60 @@ void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, floa
     }
 
     const int primaryIndex = std::max(0, std::min(m_selectedSocialPrimaryIndex, static_cast<int>(members.size()) - 1));
-
     const int targetIndex = std::max(0, std::min(m_selectedSocialTargetIndex, static_cast<int>(members.size()) - 1));
 
     const EntityID primary = members[primaryIndex];
     const EntityID target = members[targetIndex];
 
+    const float panelW = static_cast<float>(GetPanelWidth() - PANEL_PADDING * 2);
+
     const float leftX = x;
-    const float centerX = x + 270.0f;
-    const float rightX = x + 550.0f;
+    const float midX = x + panelW * 0.31f;
+    const float rightX = x + panelW * 0.64f;
 
-    DrawText("Villagers", static_cast<int>(leftX), static_cast<int>(currentY), 20, YELLOW);
-    DrawText("Family", static_cast<int>(centerX), static_cast<int>(currentY), 20, YELLOW);
-    DrawText("Relationship", static_cast<int>(rightX), static_cast<int>(currentY), 20, YELLOW);
+    const float leftW = panelW * 0.28f;
+    const float midW = panelW * 0.30f;
+    const float rightW = panelW * 0.34f;
 
-    currentY += 32.0f;
+    // =========================================================
+    // Village social overview
+    // =========================================================
+    const std::vector<SocialAlert> alerts = GetTopSocialAlerts(em, villageId, 5);
 
+    DrawText("Alerts", static_cast<int>(rightX), static_cast<int>(currentY), 18, YELLOW);
+
+    float alertY = currentY + 26.0f;
+
+    if (alerts.empty()) {
+        DrawText("No major social tension.", static_cast<int>(rightX), static_cast<int>(alertY), 15, GREEN);
+    } else {
+        for (const SocialAlert& alert : alerts) {
+            const std::string line = TruncateText(GetDisplayName(em, alert.owner), 10) + " -> " +
+                                     TruncateText(GetDisplayName(em, alert.other), 10) + " | " + alert.label;
+
+            Color color = ORANGE;
+
+            if (alert.label == "critical hatred") {
+                color = RED;
+            } else if (alert.label == "fear") {
+                color = PURPLE;
+            }
+
+            DrawText(line.c_str(), static_cast<int>(rightX), static_cast<int>(alertY), 15, color);
+            alertY += 20.0f;
+        }
+    }
+
+    // =========================================================
     // Left list
-    float listY = currentY;
-    const int visibleMax = 13;
+    // =========================================================
+    DrawText("Villagers", static_cast<int>(leftX), static_cast<int>(currentY), 18, YELLOW);
+
+    float listY = currentY + 26.0f;
+
+    const float bottomY = GetContentBottomY();
+    const int visibleMax = std::max(5, static_cast<int>((bottomY - listY) / 24.0f));
+
     const int start = std::max(0, primaryIndex - visibleMax + 1);
     const int end = std::min(static_cast<int>(members.size()), start + visibleMax);
 
@@ -1503,7 +1751,8 @@ void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, floa
         }
 
         if (isPrimary) {
-            DrawRectangle(static_cast<int>(leftX - 8.0f), static_cast<int>(listY - 3.0f), 240, 24, ColorAlpha(DARKGRAY, 0.65f));
+            DrawRectangle(static_cast<int>(leftX - 8.0f), static_cast<int>(listY - 3.0f), static_cast<int>(leftW), 23,
+                          ColorAlpha(DARKGRAY, 0.65f));
         }
 
         std::string prefix = "  ";
@@ -1516,67 +1765,118 @@ void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, floa
             prefix = "- ";
         }
 
-        DrawText((prefix + TruncateText(GetDisplayName(em, entity), 20)).c_str(), static_cast<int>(leftX), static_cast<int>(listY), 16,
-                 rowColor);
+        std::string stateSuffix;
 
-        listY += 26.0f;
+        if (em.hasNeeds[entity] && em.needs[entity].collapsedFromFatigue) {
+            stateSuffix = " [down]";
+        } else if (em.hasBehavior[entity]) {
+            const std::string& task = em.behaviors[entity].currentTask;
+
+            if (task == "confronting_person" || task == "intimidating_person" || task == "fighting_non_lethal") {
+                stateSuffix = " [conflict]";
+            } else if (task == "socializing") {
+                stateSuffix = " [social]";
+            }
+        }
+
+        DrawText((prefix + TruncateText(GetDisplayName(em, entity), 18) + stateSuffix).c_str(), static_cast<int>(leftX),
+                 static_cast<int>(listY), 15, rowColor);
+
+        listY += 24.0f;
     }
 
-    // Family panel
-    float familyY = currentY;
+    if (end < static_cast<int>(members.size())) {
+        DrawText(("... " + std::to_string(static_cast<int>(members.size()) - end) + " more").c_str(), static_cast<int>(leftX),
+                 static_cast<int>(listY), 14, DARKGRAY);
+    }
 
-    DrawText(("Selected: " + GetDisplayName(em, primary)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 17, RAYWHITE);
-    familyY += 28.0f;
+    // =========================================================
+    // Middle: selected villager profile
+    // =========================================================
+    float profileY = currentY;
 
-    DrawText(("Partner: " + GetPartnerName(em, primary)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 16, LIGHTGRAY);
-    familyY += 24.0f;
+    DrawText("Profile", static_cast<int>(midX), static_cast<int>(profileY), 18, YELLOW);
+    profileY += 26.0f;
 
-    DrawText(("Parents: " + TruncateText(GetParentsText(em, primary), 28)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY),
-             16, LIGHTGRAY);
-    familyY += 24.0f;
+    DrawText(("Selected: " + TruncateText(GetDisplayName(em, primary), 22)).c_str(), static_cast<int>(midX), static_cast<int>(profileY), 16,
+             RAYWHITE);
+    profileY += 24.0f;
 
-    DrawText(("Children: " + TruncateText(GetChildrenText(em, primary), 28)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY),
-             16, LIGHTGRAY);
-    familyY += 34.0f;
+    if (em.hasProfession[primary]) {
+        DrawText(("Job: " + TruncateText(em.professions[primary].currentProfession, 18)).c_str(), static_cast<int>(midX),
+                 static_cast<int>(profileY), 15, SKYBLUE);
+        profileY += 22.0f;
+    }
 
-    if (em.hasSocial[primary]) {
-        DrawText(("Known relations: " + std::to_string(em.socials[primary].relationships.size())).c_str(), static_cast<int>(centerX),
-                 static_cast<int>(familyY), 16, SKYBLUE);
+    if (em.hasPersonality[primary]) {
+        const PersonalityComponent& personality = em.personalities[primary];
+
+        DrawText(("Traits: " + GetTraitsText(em, primary, 34)).c_str(), static_cast<int>(midX), static_cast<int>(profileY), 15, LIGHTGRAY);
+        profileY += 24.0f;
+
+        DrawText("Kind", static_cast<int>(midX), static_cast<int>(profileY), 14, GRAY);
+        DrawCompactProgressBar(personality.kindness, 1.0f, midX + 70.0f, profileY, midW - 90.0f, GREEN);
+        profileY += 22.0f;
+
+        DrawText("Aggro", static_cast<int>(midX), static_cast<int>(profileY), 14, GRAY);
+        DrawCompactProgressBar(personality.aggression, 1.0f, midX + 70.0f, profileY, midW - 90.0f, RED);
+        profileY += 22.0f;
+
+        DrawText("Brave", static_cast<int>(midX), static_cast<int>(profileY), 14, GRAY);
+        DrawCompactProgressBar(personality.bravery, 1.0f, midX + 70.0f, profileY, midW - 90.0f, ORANGE);
+        profileY += 22.0f;
+
+        DrawText("Social", static_cast<int>(midX), static_cast<int>(profileY), 14, GRAY);
+        DrawCompactProgressBar(personality.sociability, 1.0f, midX + 70.0f, profileY, midW - 90.0f, SKYBLUE);
+        profileY += 28.0f;
     } else {
-        DrawText("Known relations: none", static_cast<int>(centerX), static_cast<int>(familyY), 16, DARKGRAY);
+        DrawText("Traits: none", static_cast<int>(midX), static_cast<int>(profileY), 15, DARKGRAY);
+        profileY += 28.0f;
     }
 
-    familyY += 28.0f;
+    const SocialSummary summary = ComputeSocialSummary(em, primary);
 
-    const EntityID familyKey = GetFamilyKeyForEntity(em, primary);
-    const int familyMembers = CountFamilyMembersForMenu(em, primary);
-    const int ownedBeds = CountOwnedBedsForFamilyMenu(em, familyKey);
-    const int familyBedCapacity = CountPrivateBedCapacityForFamilyMenu(em, familyKey);
+    DrawText("Social summary", static_cast<int>(midX), static_cast<int>(profileY), 16, YELLOW);
+    profileY += 24.0f;
 
-    DrawText(("Family ID: " + (familyKey == static_cast<EntityID>(-1) ? std::string("none") : std::to_string(familyKey))).c_str(),
-             static_cast<int>(centerX), static_cast<int>(familyY), 16, familyKey == static_cast<EntityID>(-1) ? DARKGRAY : RAYWHITE);
-    familyY += 24.0f;
-
-    DrawText(("Family size: " + std::to_string(familyMembers)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 16,
+    DrawText(("Relations: " + std::to_string(summary.relations)).c_str(), static_cast<int>(midX), static_cast<int>(profileY), 15,
              LIGHTGRAY);
-    familyY += 24.0f;
+    profileY += 20.0f;
 
-    DrawText(("Owned beds: " + std::to_string(ownedBeds)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY), 16,
-             ownedBeds > 0 ? SKYBLUE : ORANGE);
-    familyY += 24.0f;
+    DrawText(("Friends: " + std::to_string(summary.friends)).c_str(), static_cast<int>(midX), static_cast<int>(profileY), 15,
+             summary.friends > 0 ? SKYBLUE : LIGHTGRAY);
+    profileY += 20.0f;
 
-    DrawText(("Family bed capacity: " + std::to_string(familyBedCapacity)).c_str(), static_cast<int>(centerX), static_cast<int>(familyY),
-             16, familyBedCapacity >= familyMembers ? GREEN : ORANGE);
-    familyY += 24.0f;
+    DrawText(("Hostile: " + std::to_string(summary.hostile)).c_str(), static_cast<int>(midX), static_cast<int>(profileY), 15,
+             summary.hostile > 0 ? RED : LIGHTGRAY);
+    profileY += 20.0f;
 
-    DrawText(("Child capacity: " + std::string(familyBedCapacity >= familyMembers + 1 ? "yes" : "no")).c_str(), static_cast<int>(centerX),
-             static_cast<int>(familyY), 16, familyBedCapacity >= familyMembers + 1 ? GREEN : ORANGE);
+    DrawText(("Fear links: " + std::to_string(summary.fearLinks)).c_str(), static_cast<int>(midX), static_cast<int>(profileY), 15,
+             summary.fearLinks > 0 ? PURPLE : LIGHTGRAY);
+    profileY += 26.0f;
 
-    // Relationship panel
-    float relationY = currentY;
+    DrawText("Avg friendship", static_cast<int>(midX), static_cast<int>(profileY), 14, GRAY);
+    DrawCompactProgressBar(summary.avgFriendship, 100.0f, midX + 115.0f, profileY, midW - 135.0f, SKYBLUE);
+    profileY += 22.0f;
 
-    DrawText(("Target: " + GetDisplayName(em, target)).c_str(), static_cast<int>(rightX), static_cast<int>(relationY), 17, RAYWHITE);
-    relationY += 30.0f;
+    DrawText("Avg trust", static_cast<int>(midX), static_cast<int>(profileY), 14, GRAY);
+    DrawCompactProgressBar(summary.avgTrust, 100.0f, midX + 115.0f, profileY, midW - 135.0f, GREEN);
+    profileY += 22.0f;
+
+    DrawText("Avg resentment", static_cast<int>(midX), static_cast<int>(profileY), 14, GRAY);
+    DrawCompactProgressBar(summary.avgResentment, 100.0f, midX + 115.0f, profileY, midW - 135.0f, RED);
+
+    // =========================================================
+    // Right: relationship detail
+    // =========================================================
+    float relationY = alertY + 22.0f;
+
+    DrawText("Selected relationship", static_cast<int>(rightX), static_cast<int>(relationY), 18, YELLOW);
+    relationY += 28.0f;
+
+    DrawText(("Target: " + TruncateText(GetDisplayName(em, target), 22)).c_str(), static_cast<int>(rightX), static_cast<int>(relationY), 16,
+             RAYWHITE);
+    relationY += 26.0f;
 
     const std::string relationLabel = GetSocialRelationLabel(em, primary, target);
 
@@ -1586,27 +1886,61 @@ void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, floa
         relationColor = GREEN;
     } else if (relationLabel == "romantic interest") {
         relationColor = customPink;
-    } else if (relationLabel == "friend") {
+    } else if (relationLabel == "friend" || relationLabel == "trusted") {
         relationColor = SKYBLUE;
     } else if (relationLabel == "parent" || relationLabel == "child") {
         relationColor = GOLD;
+    } else if (relationLabel == "hostile" || relationLabel == "hated") {
+        relationColor = RED;
+    } else if (relationLabel == "feared") {
+        relationColor = PURPLE;
     }
 
-    DrawText(("Relation: " + relationLabel).c_str(), static_cast<int>(rightX), static_cast<int>(relationY), 18, relationColor);
-    relationY += 34.0f;
+    DrawText(("Relation: " + relationLabel).c_str(), static_cast<int>(rightX), static_cast<int>(relationY), 17, relationColor);
+    relationY += 30.0f;
 
     const float friendship = GetFriendshipValue(em, primary, target);
     const float romance = GetRomanceValue(em, primary, target);
+    const float trust = GetTrustValue(em, primary, target);
+    const float respect = GetRespectValue(em, primary, target);
+    const float resentment = GetResentmentValue(em, primary, target);
+    const float fear = GetFearValue(em, primary, target);
 
-    DrawText("Friendship", static_cast<int>(rightX), static_cast<int>(relationY), 16, GRAY);
-    DrawCompactProgressBar(friendship, 100.0f, rightX + 110.0f, relationY, 150.0f, SKYBLUE);
-    relationY += 28.0f;
+    DrawText("Friend", static_cast<int>(rightX), static_cast<int>(relationY), 14, GRAY);
+    DrawCompactProgressBar(friendship, 100.0f, rightX + 95.0f, relationY, rightW - 120.0f, SKYBLUE);
+    relationY += 23.0f;
 
-    DrawText("Romance", static_cast<int>(rightX), static_cast<int>(relationY), 16, GRAY);
-    DrawCompactProgressBar(romance, 100.0f, rightX + 110.0f, relationY, 150.0f, customPink);
-    relationY += 36.0f;
+    DrawText("Romance", static_cast<int>(rightX), static_cast<int>(relationY), 14, GRAY);
+    DrawCompactProgressBar(romance, 100.0f, rightX + 95.0f, relationY, rightW - 120.0f, customPink);
+    relationY += 23.0f;
 
-    DrawText("Enemy/hostility is not implemented yet.", static_cast<int>(rightX), static_cast<int>(relationY), 15, DARKGRAY);
+    DrawText("Trust", static_cast<int>(rightX), static_cast<int>(relationY), 14, GRAY);
+    DrawCompactProgressBar(trust, 100.0f, rightX + 95.0f, relationY, rightW - 120.0f, GREEN);
+    relationY += 23.0f;
+
+    DrawText("Respect", static_cast<int>(rightX), static_cast<int>(relationY), 14, GRAY);
+    DrawCompactProgressBar(respect, 100.0f, rightX + 95.0f, relationY, rightW - 120.0f, GOLD);
+    relationY += 23.0f;
+
+    DrawText("Resent", static_cast<int>(rightX), static_cast<int>(relationY), 14, GRAY);
+    DrawCompactProgressBar(resentment, 100.0f, rightX + 95.0f, relationY, rightW - 120.0f, RED);
+    relationY += 23.0f;
+
+    DrawText("Fear", static_cast<int>(rightX), static_cast<int>(relationY), 14, GRAY);
+    DrawCompactProgressBar(fear, 100.0f, rightX + 95.0f, relationY, rightW - 120.0f, PURPLE);
+    relationY += 30.0f;
+
+    if (primary == target) {
+        DrawText("Select another target to inspect relationship.", static_cast<int>(rightX), static_cast<int>(relationY), 15, DARKGRAY);
+    } else if (resentment >= 95.0f && friendship <= 5.0f) {
+        DrawText("Risk: extreme hostility.", static_cast<int>(rightX), static_cast<int>(relationY), 16, RED);
+    } else if (resentment >= 70.0f) {
+        DrawText("Risk: confrontation likely.", static_cast<int>(rightX), static_cast<int>(relationY), 16, ORANGE);
+    } else if (fear >= 60.0f) {
+        DrawText("Risk: avoidance likely.", static_cast<int>(rightX), static_cast<int>(relationY), 16, PURPLE);
+    } else {
+        DrawText("No major risk detected.", static_cast<int>(rightX), static_cast<int>(relationY), 15, GREEN);
+    }
 }
 
 EntityID VillageMenu::GetSelectedVillager(const EntityManager& em, EntityID villageId) const {
