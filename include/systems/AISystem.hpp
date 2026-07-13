@@ -84,4 +84,7 @@ private:
 
     bool TryFindRestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                         const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindCareChildFoodJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                 const ResourceRegistry& resourceReg);
 };

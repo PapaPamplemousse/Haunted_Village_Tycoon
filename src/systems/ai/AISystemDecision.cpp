@@ -23,11 +23,12 @@ constexpr float PRIORITY_THREAT = 1000.0f;
 constexpr float PRIORITY_CRITICAL_NEED = 900.0f;
 constexpr float PRIORITY_HIGH_NEED = 700.0f;
 constexpr float PRIORITY_REST = 520.0f;
+constexpr float PRIORITY_CARE = 760.0f;
 constexpr float PRIORITY_LOGISTICS = 430.0f;
 constexpr float PRIORITY_WORK = 250.0f;
 constexpr float PRIORITY_IDLE = 10.0f;
 
-enum class AIDecisionTaskType { Flee, Defend, SeekFood, Rest, Store, Hunt, Build, Dismantle, Harvest, Wander };
+enum class AIDecisionTaskType { Flee, Defend, SeekFood, Rest, CareChildFood, Store, Hunt, Build, Dismantle, Harvest, Wander };
 
 struct AITaskCandidate {
     AIDecisionTaskType type = AIDecisionTaskType::Wander;
@@ -148,6 +149,302 @@ Vector2 Rotate(Vector2 v, float radians) {
     const float s = std::sin(radians);
 
     return {v.x * c - v.y * s, v.x * s + v.y * c};
+}
+
+float DistanceScore(float distanceSq) {
+    const float distance = std::sqrt(distanceSq);
+    const float distanceTiles = distance / Config::TILE_SIZE;
+
+    return std::max(0.0f, 100.0f - distanceTiles * 4.0f);
+}
+
+const BehaviorRule* FindRule(const BehaviorComponent& behavior, const std::string& ruleName) {
+    for (const BehaviorRule& rule : behavior.innateBehaviorRules) {
+        if (rule.name == ruleName) {
+            return &rule;
+        }
+    }
+
+    return nullptr;
+}
+
+bool RuleTargetsPrefab(const BehaviorRule& rule, const std::string& prefabId) {
+    for (const std::string& arg : rule.arguments) {
+        if (arg == prefabId) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+float EstimateStoreUtility(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasInventory[entity] || !em.hasTransform[entity]) {
+        return -1.0f;
+    }
+
+    const InventoryComponent& inventory = em.inventories[entity];
+
+    if (!AISystemUtils::HasAnyInventoryItem(inventory)) {
+        return -1.0f;
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    float bestScore = -1.0f;
+
+    for (EntityID candidate : candidates) {
+        if (candidate == entity || candidate >= em.active.size() || !em.active[candidate] || !em.hasTransform[candidate] ||
+            !em.hasInventory[candidate] || !em.hasStorage[candidate]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[candidate] && !em.blueprints[candidate].isFinished) {
+            continue;
+        }
+
+        if (em.hasBehavior[candidate]) {
+            continue;
+        }
+
+        if (!AISystemUtils::StorageCanAcceptFromInventory(candidate, inventory, em)) {
+            continue;
+        }
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        const float carriedScore = static_cast<float>(AISystemUtils::GetInventoryItemCount(inventory)) * 3.0f;
+
+        const float score = carriedScore + DistanceScore(distanceSq);
+
+        bestScore = std::max(bestScore, score);
+    }
+
+    return bestScore;
+}
+
+float EstimateBuildUtility(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTransform[entity]) {
+        return -1.0f;
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    float bestScore = -1.0f;
+
+    for (EntityID candidate : candidates) {
+        if (candidate >= em.active.size() || !em.active[candidate] || !em.hasBlueprint[candidate] || em.blueprints[candidate].isFinished ||
+            !em.hasTransform[candidate]) {
+            continue;
+        }
+
+        const auto& required = em.blueprints[candidate].requiredMaterials;
+
+        if (!AISystemUtils::HasAccessibleMaterials(entity, em, spatialGrid, required)) {
+            continue;
+        }
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        // Full material readiness matters more than distance.
+        const float score = 120.0f + DistanceScore(distanceSq);
+
+        bestScore = std::max(bestScore, score);
+    }
+
+    return bestScore;
+}
+
+float EstimateDismantleUtility(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTransform[entity]) {
+        return -1.0f;
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    float bestScore = -1.0f;
+
+    for (EntityID candidate : candidates) {
+        if (candidate >= em.active.size() || !em.active[candidate] || !em.hasDeconstruct[candidate] || !em.hasTransform[candidate]) {
+            continue;
+        }
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        bestScore = std::max(bestScore, DistanceScore(distanceSq));
+    }
+
+    return bestScore;
+}
+
+float EstimateHuntUtility(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity] || !em.hasTransform[entity]) {
+        return -1.0f;
+    }
+
+    const BehaviorComponent& behavior = em.behaviors[entity];
+    const BehaviorRule* huntRule = FindRule(behavior, "hunt");
+
+    if (huntRule == nullptr || huntRule->arguments.empty()) {
+        return -1.0f;
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    float bestScore = -1.0f;
+
+    for (EntityID candidate : candidates) {
+        if (candidate == entity || candidate >= em.active.size() || !em.active[candidate] || !em.hasTag[candidate] ||
+            !em.hasTransform[candidate] || !em.hasHealth[candidate] || em.healths[candidate].current <= 0.0f) {
+            continue;
+        }
+
+        bool targeted = false;
+
+        for (const std::string& species : huntRule->arguments) {
+            if (species == em.tags[candidate].species) {
+                targeted = true;
+                break;
+            }
+        }
+
+        if (!targeted) {
+            continue;
+        }
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        bestScore = std::max(bestScore, 80.0f + DistanceScore(distanceSq));
+    }
+
+    return bestScore;
+}
+
+float GetDropUsefulness(const DropEntry& drop, const ResourceRegistry& resourceReg) {
+    const ResourceDef* resource = resourceReg.GetResourceDef(drop.itemId);
+
+    if (resource != nullptr && resource->isConsumable && resource->nutrition > 0.0f) {
+        return 80.0f;
+    }
+
+    if (drop.itemId == "WOOD") {
+        return 60.0f;
+    }
+
+    if (drop.itemId == "STONE" || drop.itemId == "ROPE") {
+        return 45.0f;
+    }
+
+    return 20.0f;
+}
+
+float EstimateHarvestUtility(EntityID entity, const EntityManager& em, const ResourceRegistry& resourceReg,
+                             const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity] || !em.hasTransform[entity]) {
+        return -1.0f;
+    }
+
+    const BehaviorComponent& behavior = em.behaviors[entity];
+    const BehaviorRule* harvestRule = FindRule(behavior, "harvest");
+
+    if (harvestRule == nullptr || harvestRule->arguments.empty()) {
+        return -1.0f;
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    float bestScore = -1.0f;
+
+    for (EntityID candidate : candidates) {
+        if (candidate == entity || candidate >= em.active.size() || !em.active[candidate] || !em.hasTag[candidate] ||
+            !em.hasTransform[candidate] || !em.hasHarvestable[candidate]) {
+            continue;
+        }
+
+        if (!RuleTargetsPrefab(*harvestRule, em.tags[candidate].prefabId)) {
+            continue;
+        }
+
+        const HarvestableComponent& harvestable = em.harvestables[candidate];
+
+        if (!AISystemUtils::HasRequiredHarvestTool(entity, harvestable, em)) {
+            continue;
+        }
+
+        float resourceScore = 0.0f;
+
+        for (const DropEntry& drop : harvestable.drops) {
+            if (drop.amount <= 0 || drop.itemId.empty()) {
+                continue;
+            }
+
+            resourceScore = std::max(resourceScore, GetDropUsefulness(drop, resourceReg));
+        }
+
+        const float hungerRatio = GetHungerRatio(entity, em);
+
+        // If hungry, food harvest becomes even more useful.
+        if (hungerRatio < 0.6f && AISystemUtils::HarvestableHasFoodDrop(harvestable, resourceReg)) {
+            resourceScore += 60.0f;
+        }
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[candidate].position);
+
+        const float score = resourceScore + DistanceScore(distanceSq);
+
+        bestScore = std::max(bestScore, score);
+    }
+
+    return bestScore;
+}
+
+float EstimateCareChildFoodUtility(EntityID entity, const EntityManager& em, const ResourceRegistry& resourceReg) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasFamily[entity] || !em.hasInventory[entity] || !em.hasTransform[entity]) {
+        return -1.0f;
+    }
+
+    const std::string foodItem = AISystemUtils::FindFirstFoodItemInInventory(em.inventories[entity], resourceReg);
+
+    if (foodItem.empty()) {
+        return -1.0f;
+    }
+
+    const FamilyComponent& family = em.families[entity];
+
+    float bestScore = -1.0f;
+
+    for (EntityID child : family.children) {
+        if (child >= em.active.size() || !em.active[child] || !em.hasNeeds[child] || !em.hasTransform[child]) {
+            continue;
+        }
+
+        const NeedsComponent& needs = em.needs[child];
+
+        if (needs.maxHunger <= 0.0f) {
+            continue;
+        }
+
+        const float hungerRatio = needs.hunger / needs.maxHunger;
+
+        if (hungerRatio >= 0.5f) {
+            continue;
+        }
+
+        const float urgencyScore = (1.0f - hungerRatio) * 160.0f;
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[child].position);
+
+        const float score = urgencyScore + DistanceScore(distanceSq);
+
+        bestScore = std::max(bestScore, score);
+    }
+
+    return bestScore;
 }
 
 } // namespace
@@ -382,6 +679,7 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     const bool canDefend = HasCapability(behavior, "defend") || HasCapability(behavior, "hunt");
     const bool canSeekFood = HasCapability(behavior, "seek_food");
     const bool canRest = HasCapability(behavior, "rest");
+    const bool canCareChild = HasCapability(behavior, "care_child");
     const bool canStore = HasCapability(behavior, "store");
     const bool canHunt = HasCapability(behavior, "hunt");
     const bool canBuild = HasCapability(behavior, "build");
@@ -442,13 +740,25 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     }
 
     // =========================================================
+    // Family care
+    // =========================================================
+    if (canCareChild) {
+        const float careScore = EstimateCareChildFoodUtility(entity, em, resourceReg);
+
+        if (careScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::CareChildFood, PRIORITY_CARE, careScore});
+        }
+    }
+
+    // =========================================================
     // Logistics
     // =========================================================
     if (canStore && AISystemUtils::ShouldDepositInventory(entity, em, behavior, currentHour)) {
-        const int itemCount = GetInventoryItemCountSafe(entity, em);
-        const float score = static_cast<float>(itemCount);
+        const float storeScore = EstimateStoreUtility(entity, em, spatialGrid);
 
-        candidates.push_back({AIDecisionTaskType::Store, PRIORITY_LOGISTICS, score});
+        if (storeScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::Store, PRIORITY_LOGISTICS, storeScore});
+        }
     }
 
     // =========================================================
@@ -456,19 +766,35 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     // =========================================================
     if (canStartWork) {
         if (canHunt) {
-            candidates.push_back({AIDecisionTaskType::Hunt, PRIORITY_WORK + 40.0f, 40.0f});
+            const float huntScore = EstimateHuntUtility(entity, em, spatialGrid);
+
+            if (huntScore > 0.0f) {
+                candidates.push_back({AIDecisionTaskType::Hunt, PRIORITY_WORK + 40.0f, huntScore});
+            }
         }
 
         if (canBuild) {
-            candidates.push_back({AIDecisionTaskType::Build, PRIORITY_WORK + 30.0f, 30.0f});
+            const float buildScore = EstimateBuildUtility(entity, em, spatialGrid);
+
+            if (buildScore > 0.0f) {
+                candidates.push_back({AIDecisionTaskType::Build, PRIORITY_WORK + 30.0f, buildScore});
+            }
         }
 
         if (canDismantle) {
-            candidates.push_back({AIDecisionTaskType::Dismantle, PRIORITY_WORK + 20.0f, 20.0f});
+            const float dismantleScore = EstimateDismantleUtility(entity, em, spatialGrid);
+
+            if (dismantleScore > 0.0f) {
+                candidates.push_back({AIDecisionTaskType::Dismantle, PRIORITY_WORK + 20.0f, dismantleScore});
+            }
         }
 
         if (canHarvest) {
-            candidates.push_back({AIDecisionTaskType::Harvest, PRIORITY_WORK + 10.0f, 10.0f});
+            const float harvestScore = EstimateHarvestUtility(entity, em, resourceReg, spatialGrid);
+
+            if (harvestScore > 0.0f) {
+                candidates.push_back({AIDecisionTaskType::Harvest, PRIORITY_WORK + 10.0f, harvestScore});
+            }
         }
     }
 
@@ -507,6 +833,10 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
 
             case AIDecisionTaskType::Rest:
                 started = TryFindRestJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::CareChildFood:
+                started = TryFindCareChildFoodJob(entity, em, map, tileReg, resourceReg);
                 break;
 
             case AIDecisionTaskType::Store:

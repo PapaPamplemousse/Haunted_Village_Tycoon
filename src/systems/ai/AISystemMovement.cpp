@@ -100,6 +100,10 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
         } else if (behavior.currentTask == "moving_to_food_storage") {
             behavior.currentTask = "eating_from_storage";
             behavior.stateTimer = AISystemUtils::EAT_DURATION;
+        } else if (behavior.currentTask == "moving_to_feed_child") {
+            behavior.currentTask = "feeding_child";
+            behavior.stateTimer = AISystemUtils::EAT_DURATION;
+
         } else if (behavior.currentTask == "moving_to_harvest") {
             behavior.currentTask = "harvesting";
             behavior.stateTimer = 1.0f;

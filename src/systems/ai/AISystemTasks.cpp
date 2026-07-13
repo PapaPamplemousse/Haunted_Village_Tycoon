@@ -176,6 +176,17 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
             !behavior.currentItemTarget.empty()) {
             AISystemUtils::ConsumeFoodFromInventory(em.inventories[storage], em.needs[i], behavior.currentItemTarget, resourceReg);
         }
+    } else if (behavior.currentTask == "feeding_child") {
+        EntityID child = behavior.currentJobTarget;
+
+        if (child < em.active.size() && em.active[child] && em.hasNeeds[child] && em.hasInventory[i] &&
+            !behavior.currentItemTarget.empty()) {
+            AISystemUtils::ConsumeFoodFromInventory(em.inventories[i], em.needs[child], behavior.currentItemTarget, resourceReg);
+        }
+
+        if (em.hasAIContext[i]) {
+            em.aiContexts[i].careTargetId = static_cast<EntityID>(-1);
+        }
     }
 
     ResetBehaviorState(behavior);

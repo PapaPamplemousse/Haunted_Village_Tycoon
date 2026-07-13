@@ -50,6 +50,10 @@ species = human
 rule = defend
 species = human
 
+[CARE_CHILD_HUMAN]
+rule = care_child
+species = human
+
 [REST_CANNIBAL]
 rule = rest
 species = cannibal
