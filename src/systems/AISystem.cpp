@@ -29,7 +29,7 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
 
         auto& behavior = em.behaviors[i];
 
-        if (TryInterruptCurrentTask(i, em, map, tileReg, spatialGrid)) {
+        if (TryInterruptCurrentTask(i, em, map, tileReg, resourceReg, spatialGrid)) {
             continue;
         }
 
@@ -50,64 +50,12 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
 
 void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour) {
-    auto& behavior = em.behaviors[i];
-
-    const bool canHunt = HasCapability(behavior, "hunt");
-    const bool canHarvest = HasCapability(behavior, "harvest");
-    const bool canBuild = HasCapability(behavior, "build");
-    const bool canDismantle = HasCapability(behavior, "dismantle");
-    const bool canWander = HasCapability(behavior, "wander");
-    const bool canSeekFood = HasCapability(behavior, "seek_food");
-    const bool canStore = HasCapability(behavior, "store");
-    const bool canRest = HasCapability(behavior, "rest");
-
-    const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
-
-    // Survival has priority and is always allowed.
-    if (canSeekFood && TryFindSeekFoodJob(i, em, map, tileReg, resourceReg, spatialGrid)) {
+    if (SelectAndStartBestTask(i, em, map, tileReg, resourceReg, spatialGrid, currentHour)) {
         return;
     }
 
-    // Deposit if threshold reached or work day is over.
-    if (canStore && AISystemUtils::ShouldDepositInventory(i, em, behavior, currentHour)) {
-        if (TryFindStoreJob(i, em, map, tileReg, spatialGrid)) {
-            return;
-        }
-    }
-
-    if (canRest && AISystemUtils::ShouldRest(i, em, behavior, currentHour)) {
-        if (TryFindRestJob(i, em, map, tileReg, spatialGrid)) {
-            return;
-        }
-    }
-
-    // Outside work hours: do not start productive jobs.
-    if (!canStartWork) {
-        if (canWander && TryFindWanderJob(i, em, map, tileReg)) {
-            return;
-        }
-
-        behavior.stateTimer = 1.0f;
-        return;
-    }
-    if (canHunt && TryFindHuntJob(i, em, map, tileReg, spatialGrid)) {
-        return;
-    }
-
-    if (canBuild && TryFindBuildJob(i, em, map, tileReg, spatialGrid)) {
-        return;
-    }
-
-    if (canDismantle && TryFindDismantleJob(i, em, map, tileReg, spatialGrid)) {
-        return;
-    }
-
-    if (canHarvest && TryFindHarvestJob(i, em, map, tileReg, spatialGrid)) {
-        return;
-    }
-
-    if (canWander && TryFindWanderJob(i, em, map, tileReg)) {
-        return;
+    if (em.hasBehavior[i]) {
+        em.behaviors[i].stateTimer = 1.0f;
     }
 }
 

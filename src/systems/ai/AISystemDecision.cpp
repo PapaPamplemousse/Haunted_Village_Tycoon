@@ -8,20 +8,110 @@
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <string>
 #include <utility>
 #include <vector>
 
 namespace {
 
-constexpr float THREAT_RESPONSE_PRIORITY = 1000.0f;
 constexpr float THREAT_MEMORY_DURATION = 8.0f;
 constexpr float FLEE_DISTANCE_TILES = 8.0f;
 constexpr int FLEE_PATH_ATTEMPTS = 10;
+constexpr float PRIORITY_THREAT = 1000.0f;
+constexpr float PRIORITY_CRITICAL_NEED = 900.0f;
+constexpr float PRIORITY_HIGH_NEED = 700.0f;
+constexpr float PRIORITY_REST = 520.0f;
+constexpr float PRIORITY_LOGISTICS = 430.0f;
+constexpr float PRIORITY_WORK = 250.0f;
+constexpr float PRIORITY_IDLE = 10.0f;
+
+enum class AIDecisionTaskType { Flee, Defend, SeekFood, Rest, Store, Hunt, Build, Dismantle, Harvest, Wander };
+
+struct AITaskCandidate {
+    AIDecisionTaskType type = AIDecisionTaskType::Wander;
+    float priority = 0.0f;
+    float score = 0.0f;
+};
+
+float Clamp01(float value) {
+    if (value < 0.0f) {
+        return 0.0f;
+    }
+
+    if (value > 1.0f) {
+        return 1.0f;
+    }
+
+    return value;
+}
+
+float GetHungerRatio(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity]) {
+        return 1.0f;
+    }
+
+    const NeedsComponent& needs = em.needs[entity];
+
+    if (needs.maxHunger <= 0.0f) {
+        return 1.0f;
+    }
+
+    return Clamp01(needs.hunger / needs.maxHunger);
+}
+
+float GetFatigueRatio(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity]) {
+        return 0.0f;
+    }
+
+    const NeedsComponent& needs = em.needs[entity];
+
+    if (needs.maxFatigue <= 0.0f) {
+        return 0.0f;
+    }
+
+    return Clamp01(needs.fatigue / needs.maxFatigue);
+}
+
+int GetInventoryItemCountSafe(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasInventory[entity]) {
+        return 0;
+    }
+
+    int total = 0;
+
+    for (const auto& item : em.inventories[entity].items) {
+        if (item.second > 0) {
+            total += item.second;
+        }
+    }
+
+    return total;
+}
 
 bool IsValidThreat(EntityID threat, const EntityManager& em) {
     return threat < em.active.size() && em.active[threat] && em.hasTransform[threat] && em.hasHealth[threat] &&
            em.healths[threat].current > 0.0f;
+}
+
+bool HasThreatMemory(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasAIContext[entity]) {
+        return false;
+    }
+
+    const AIContextComponent& context = em.aiContexts[entity];
+
+    return context.lastThreatId != static_cast<EntityID>(-1) && context.threatMemoryTimer > 0.0f && IsValidThreat(context.lastThreatId, em);
+}
+
+bool CandidateSortPredicate(const AITaskCandidate& a, const AITaskCandidate& b) {
+    if (a.priority != b.priority) {
+        return a.priority > b.priority;
+    }
+
+    return a.score > b.score;
 }
 
 bool IsCurrentThreatResponseTask(const BehaviorComponent& behavior, EntityID threat) {
@@ -141,7 +231,7 @@ bool AISystem::TryStartFleeFromThreat(EntityID entity, EntityID threat, EntityMa
         behavior.stateTimer = 0.0f;
 
         if (em.hasAIContext[entity]) {
-            em.aiContexts[entity].currentTaskPriority = THREAT_RESPONSE_PRIORITY;
+            em.aiContexts[entity].currentTaskPriority = PRIORITY_THREAT;
             em.aiContexts[entity].currentTaskInterruptible = true;
         }
 
@@ -170,7 +260,7 @@ bool AISystem::TryStartDefendAgainstThreat(EntityID entity, EntityID threat, Ent
         behavior.stateTimer = AISystemUtils::ATTACK_DURATION;
 
         if (em.hasAIContext[entity]) {
-            em.aiContexts[entity].currentTaskPriority = THREAT_RESPONSE_PRIORITY;
+            em.aiContexts[entity].currentTaskPriority = PRIORITY_THREAT;
             em.aiContexts[entity].currentTaskInterruptible = false;
         }
 
@@ -194,7 +284,7 @@ bool AISystem::TryStartDefendAgainstThreat(EntityID entity, EntityID threat, Ent
     behavior.stateTimer = 0.0f;
 
     if (em.hasAIContext[entity]) {
-        em.aiContexts[entity].currentTaskPriority = THREAT_RESPONSE_PRIORITY;
+        em.aiContexts[entity].currentTaskPriority = PRIORITY_THREAT;
         em.aiContexts[entity].currentTaskInterruptible = true;
     }
 
@@ -202,7 +292,7 @@ bool AISystem::TryStartDefendAgainstThreat(EntityID entity, EntityID threat, Ent
 }
 
 bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                       const EntitySpatialGrid&) {
+                                       const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity] || !em.hasAIContext[entity]) {
         return false;
     }
@@ -210,38 +300,249 @@ bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const
     BehaviorComponent& behavior = em.behaviors[entity];
     AIContextComponent& context = em.aiContexts[entity];
 
-    const EntityID threat = context.lastThreatId;
-
-    if (threat == static_cast<EntityID>(-1) || context.threatMemoryTimer <= 0.0f || !IsValidThreat(threat, em)) {
-        return false;
-    }
-
-    if (IsCurrentThreatResponseTask(behavior, threat)) {
-        return false;
-    }
-
     if (!context.currentTaskInterruptible || !IsInterruptibleTask(behavior)) {
         return false;
     }
 
-    if (context.currentTaskPriority >= THREAT_RESPONSE_PRIORITY) {
+    // =========================================================
+    // 1. Threat response has absolute priority.
+    // =========================================================
+    const EntityID threat = context.lastThreatId;
+
+    const bool hasValidThreat = threat != static_cast<EntityID>(-1) && context.threatMemoryTimer > 0.0f && IsValidThreat(threat, em);
+
+    if (hasValidThreat && !IsCurrentThreatResponseTask(behavior, threat) && context.currentTaskPriority < PRIORITY_THREAT) {
+        const bool canFlee = HasCapability(behavior, "flee");
+        const bool canDefend = HasCapability(behavior, "defend") || HasCapability(behavior, "hunt");
+
+        if (canFlee || canDefend) {
+            CancelCurrentTask(entity, em);
+
+            if (canFlee && TryStartFleeFromThreat(entity, threat, em, map, tileReg)) {
+                return true;
+            }
+
+            if (canDefend && TryStartDefendAgainstThreat(entity, threat, em, map, tileReg)) {
+                return true;
+            }
+        }
+    }
+
+    // =========================================================
+    // 2. Critical hunger can interrupt productive / long tasks.
+    // =========================================================
+    const float hungerRatio = GetHungerRatio(entity, em);
+
+    if (hungerRatio <= 0.15f && HasCapability(behavior, "seek_food") && context.currentTaskPriority < PRIORITY_CRITICAL_NEED) {
+        CancelCurrentTask(entity, em);
+
+        if (TryFindSeekFoodJob(entity, em, map, tileReg, resourceReg, spatialGrid)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = PRIORITY_CRITICAL_NEED;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+
+            return true;
+        }
+    }
+
+    // =========================================================
+    // 3. Extreme fatigue can interrupt work, but stays below
+    //    threat and critical hunger.
+    // =========================================================
+    const float fatigueRatio = GetFatigueRatio(entity, em);
+
+    if (fatigueRatio >= 0.95f && HasCapability(behavior, "rest") && context.currentTaskPriority < PRIORITY_REST) {
+        CancelCurrentTask(entity, em);
+
+        if (TryFindRestJob(entity, em, map, tileReg, spatialGrid)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = PRIORITY_REST;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                      const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity] || !em.hasTransform[entity]) {
         return false;
     }
+
+    BehaviorComponent& behavior = em.behaviors[entity];
+
+    std::vector<AITaskCandidate> candidates;
 
     const bool canFlee = HasCapability(behavior, "flee");
     const bool canDefend = HasCapability(behavior, "defend") || HasCapability(behavior, "hunt");
+    const bool canSeekFood = HasCapability(behavior, "seek_food");
+    const bool canRest = HasCapability(behavior, "rest");
+    const bool canStore = HasCapability(behavior, "store");
+    const bool canHunt = HasCapability(behavior, "hunt");
+    const bool canBuild = HasCapability(behavior, "build");
+    const bool canDismantle = HasCapability(behavior, "dismantle");
+    const bool canHarvest = HasCapability(behavior, "harvest");
+    const bool canWander = HasCapability(behavior, "wander");
 
-    if (!canFlee && !canDefend) {
+    const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
+
+    // =========================================================
+    // Threat response
+    // =========================================================
+    if (HasThreatMemory(entity, em)) {
+        if (canFlee) {
+            candidates.push_back({AIDecisionTaskType::Flee, PRIORITY_THREAT, 100.0f});
+        }
+
+        if (canDefend) {
+            candidates.push_back({AIDecisionTaskType::Defend, PRIORITY_THREAT - 20.0f, 90.0f});
+        }
+    }
+
+    // =========================================================
+    // Survival needs
+    // =========================================================
+    if (canSeekFood && em.hasNeeds[entity]) {
+        const float hungerRatio = GetHungerRatio(entity, em);
+
+        if (hungerRatio < AISystemUtils::SEEK_FOOD_THRESHOLD_RATIO) {
+            float priority = PRIORITY_HIGH_NEED;
+            float score = (1.0f - hungerRatio) * 100.0f;
+
+            if (hungerRatio <= 0.15f) {
+                priority = PRIORITY_CRITICAL_NEED;
+                score += 100.0f;
+            }
+
+            candidates.push_back({AIDecisionTaskType::SeekFood, priority, score});
+        }
+    }
+
+    if (canRest && AISystemUtils::ShouldRest(entity, em, behavior, currentHour)) {
+        const float fatigueRatio = GetFatigueRatio(entity, em);
+
+        float priority = PRIORITY_REST;
+        float score = fatigueRatio * 100.0f;
+
+        if (!canStartWork) {
+            score += 25.0f;
+        }
+
+        if (fatigueRatio >= 0.95f) {
+            priority = PRIORITY_HIGH_NEED;
+            score += 75.0f;
+        }
+
+        candidates.push_back({AIDecisionTaskType::Rest, priority, score});
+    }
+
+    // =========================================================
+    // Logistics
+    // =========================================================
+    if (canStore && AISystemUtils::ShouldDepositInventory(entity, em, behavior, currentHour)) {
+        const int itemCount = GetInventoryItemCountSafe(entity, em);
+        const float score = static_cast<float>(itemCount);
+
+        candidates.push_back({AIDecisionTaskType::Store, PRIORITY_LOGISTICS, score});
+    }
+
+    // =========================================================
+    // Productive work
+    // =========================================================
+    if (canStartWork) {
+        if (canHunt) {
+            candidates.push_back({AIDecisionTaskType::Hunt, PRIORITY_WORK + 40.0f, 40.0f});
+        }
+
+        if (canBuild) {
+            candidates.push_back({AIDecisionTaskType::Build, PRIORITY_WORK + 30.0f, 30.0f});
+        }
+
+        if (canDismantle) {
+            candidates.push_back({AIDecisionTaskType::Dismantle, PRIORITY_WORK + 20.0f, 20.0f});
+        }
+
+        if (canHarvest) {
+            candidates.push_back({AIDecisionTaskType::Harvest, PRIORITY_WORK + 10.0f, 10.0f});
+        }
+    }
+
+    // =========================================================
+    // Idle fallback
+    // =========================================================
+    if (canWander) {
+        candidates.push_back({AIDecisionTaskType::Wander, PRIORITY_IDLE, 0.0f});
+    }
+
+    if (candidates.empty()) {
         return false;
     }
 
-    CancelCurrentTask(entity, em);
+    std::sort(candidates.begin(), candidates.end(), CandidateSortPredicate);
 
-    if (canFlee && TryStartFleeFromThreat(entity, threat, em, map, tileReg)) {
-        return true;
-    }
+    for (const AITaskCandidate& candidate : candidates) {
+        bool started = false;
 
-    if (canDefend && TryStartDefendAgainstThreat(entity, threat, em, map, tileReg)) {
+        switch (candidate.type) {
+            case AIDecisionTaskType::Flee:
+                if (em.hasAIContext[entity]) {
+                    started = TryStartFleeFromThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
+                }
+                break;
+
+            case AIDecisionTaskType::Defend:
+                if (em.hasAIContext[entity]) {
+                    started = TryStartDefendAgainstThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
+                }
+                break;
+
+            case AIDecisionTaskType::SeekFood:
+                started = TryFindSeekFoodJob(entity, em, map, tileReg, resourceReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Rest:
+                started = TryFindRestJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Store:
+                started = TryFindStoreJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Hunt:
+                started = TryFindHuntJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Build:
+                started = TryFindBuildJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Dismantle:
+                started = TryFindDismantleJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Harvest:
+                started = TryFindHarvestJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Wander:
+                started = TryFindWanderJob(entity, em, map, tileReg);
+                break;
+        }
+
+        if (!started) {
+            continue;
+        }
+
+        if (em.hasAIContext[entity]) {
+            em.aiContexts[entity].currentTaskPriority = candidate.priority;
+            em.aiContexts[entity].currentTaskInterruptible = true;
+        }
+
         return true;
     }
 

@@ -50,7 +50,10 @@ private:
     void UpdateAIContextTimers(float deltaTime, EntityManager& em);
 
     bool TryInterruptCurrentTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                 const EntitySpatialGrid& spatialGrid);
+                                 const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
+
+    bool SelectAndStartBestTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour);
 
     void CancelCurrentTask(EntityID entity, EntityManager& em);
 
