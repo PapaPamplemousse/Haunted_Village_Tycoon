@@ -11,6 +11,8 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -55,6 +57,137 @@ void SpawnDebugConstruction(EntityManager& em, ConstructionRegistry& constructio
 void SpawnDebugFurniture(EntityManager& em, FurnitureRegistry& furnitureReg, const std::string& prefabId, int tileX, int tileY) {
     const Vector2 position = TileToWorldCenter(tileX, tileY);
     furnitureReg.SpawnFurniture(em, prefabId, position, false);
+}
+
+void RefreshDebugEntityBehaviors(EntityManager& em, EntityID entity, const BehaviorRegistry& behaviorReg) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTag[entity] || !em.hasBehavior[entity]) {
+        return;
+    }
+
+    std::string profession = "none";
+
+    if (em.hasProfession[entity]) {
+        profession = em.professions[entity].currentProfession;
+    }
+
+    const TagComponent& tag = em.tags[entity];
+
+    std::vector<BehaviorRule> rules = behaviorReg.GetBehaviorsFor(tag.category, tag.species, profession);
+
+    std::vector<std::string> capabilities;
+
+    for (const BehaviorRule& rule : rules) {
+        capabilities.push_back(rule.name);
+    }
+
+    em.behaviors[entity].innateBehaviorRules = rules;
+    em.behaviors[entity].innateCapabilities = capabilities;
+}
+
+void RecomputeDebugVillagePopulation(EntityManager& em, EntityID villageCore) {
+    if (villageCore >= em.active.size() || !em.active[villageCore] || !em.hasVillage[villageCore]) {
+        return;
+    }
+
+    int population = 0;
+    int adults = 0;
+    int children = 0;
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!em.active[entity] || !em.hasVillageMember[entity] || !em.hasTag[entity]) {
+            continue;
+        }
+
+        if (em.villageMembers[entity].villageId != villageCore) {
+            continue;
+        }
+
+        population++;
+
+        if (em.tags[entity].age >= 16) {
+            adults++;
+        } else {
+            children++;
+        }
+    }
+
+    em.villages[villageCore].currentPopulation = population;
+    em.villages[villageCore].adultPopulation = adults;
+    em.villages[villageCore].childPopulation = children;
+}
+
+void SpawnDebugVillager(EntityManager& em, EntityRegistry& entityReg, const NameRegistry& nameReg, const BehaviorRegistry& behaviorReg,
+                        EntityID villageCore, const std::string& profession, int tileX, int tileY) {
+    if (villageCore >= em.active.size() || !em.active[villageCore]) {
+        return;
+    }
+
+    const Vector2 position = TileToWorldCenter(tileX, tileY);
+
+    EntityID villager = entityReg.SpawnEntity(em, "VILLAGER", position, nameReg, behaviorReg);
+
+    if (villager >= em.active.size() || !em.active[villager]) {
+        return;
+    }
+
+    if (em.hasTag[villager]) {
+        em.tags[villager].age = GetRandomValue(18, 40);
+    }
+
+    em.hasVillageMember[villager] = true;
+    em.villageMembers[villager] = {villageCore};
+
+    if (em.hasProfession[villager]) {
+        em.professions[villager].currentProfession = profession;
+        em.professions[villager].assignmentMode = ProfessionAssignmentMode::Auto;
+    }
+
+    RefreshDebugEntityBehaviors(em, villager, behaviorReg);
+
+    std::cout << "[DEBUG] Spawned test villager #" << villager << " as " << profession << "." << std::endl;
+}
+
+void SpawnDebugVillageTestVillagers(EntityManager& em, EntityRegistry& entityReg, const NameRegistry& nameReg,
+                                    const BehaviorRegistry& behaviorReg, EntityID villageCore) {
+    if (villageCore >= em.active.size() || !em.active[villageCore] || !em.hasTransform[villageCore]) {
+        return;
+    }
+
+    const int coreX = WorldToTile(em.transforms[villageCore].position.x);
+    const int coreY = WorldToTile(em.transforms[villageCore].position.y);
+
+    // Workers near their expected areas.
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "lumberjack", coreX + 10, coreY - 7);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "lumberjack", coreX + 11, coreY - 7);
+
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "gatherer", coreX + 10, coreY + 7);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "gatherer", coreX + 11, coreY + 7);
+
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "builder", coreX - 2, coreY - 10);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "builder", coreX - 1, coreY - 10);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "demolisher", coreX, coreY - 10);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "repairer", coreX + 1, coreY - 10);
+
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "carrier", coreX - 2, coreY + 10);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "carrier", coreX - 1, coreY + 10);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "hauler", coreX, coreY + 10);
+
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "guard", coreX + 14, coreY);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "guard", coreX + 15, coreY);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "watchman", coreX + 16, coreY);
+
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "caretaker", coreX - 10, coreY + 10);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "cook", coreX + 4, coreY + 11);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "firekeeper", coreX + 7, coreY + 11);
+
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "miner", coreX + 18, coreY - 11);
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "hunter", coreX + 20, coreY - 7);
+
+    SpawnDebugVillager(em, entityReg, nameReg, behaviorReg, villageCore, "blacksmith", coreX + 13, coreY + 11);
+
+    RecomputeDebugVillagePopulation(em, villageCore);
+
+    std::cout << "[DEBUG] Spawned extended test villagers for profession debug." << std::endl;
 }
 
 /**
@@ -106,15 +239,10 @@ void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furni
     const int coreY = WorldToTile(em.transforms[villageCore].position.y);
 
     // =========================================================
-    // Lumberjack Sawmill
-    // Structure:
-    //   [SAWMILL_ROOM]
-    //   min_area = 4
-    //   requirements = SAWMILL_BENCH:1
-    //   job_slots = lumberjack:2
-    //
-    // Interior: 2x2 = 4
+    // Existing production rooms
     // =========================================================
+
+    // Lumberjack Sawmill, 2 slots.
     {
         const int x = coreX + 6;
         const int y = coreY - 5;
@@ -123,16 +251,7 @@ void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furni
         SpawnDebugFurniture(em, furnitureReg, "SAWMILL_BENCH", x, y);
     }
 
-    // =========================================================
-    // Gathering Tent
-    // Structure:
-    //   [GATHERING_TENT]
-    //   min_area = 4
-    //   requirements = GATHERING_BASKET:1
-    //   job_slots = gatherer:1
-    //
-    // Interior: 2x2 = 4
-    // =========================================================
+    // Gathering Tent.
     {
         const int x = coreX + 6;
         const int y = coreY + 4;
@@ -142,16 +261,84 @@ void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furni
     }
 
     // =========================================================
-    // Small Bedroom
-    // Structure:
-    //   [SMALL_BEDROOM]
-    //   min_area = 4
-    //   max_area = 4
-    //   requirements = SMALL_BED:1
-    //
-    // Interior: 2x2 = 4
-    // Housing capacity: 1
+    // New profession rooms
     // =========================================================
+
+    // Builder's Yard:
+    // requirements = TOOL_RACK:1
+    // job_slots = builder:2, demolisher:1, repairer:1
+    {
+        const int x = coreX - 2;
+        const int y = coreY - 13;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 3);
+        SpawnDebugFurniture(em, furnitureReg, "TOOL_RACK", x, y);
+    }
+
+    // Warehouse:
+    // requirements = WOOD_CHEST:2
+    // job_slots = carrier:2, hauler:2
+    {
+        const int x = coreX - 2;
+        const int y = coreY + 10;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 4, 3);
+        SpawnDebugFurniture(em, furnitureReg, "WOOD_CHEST", x, y);
+        SpawnDebugFurniture(em, furnitureReg, "WOOD_CHEST", x + 1, y);
+    }
+
+    // Guard Post:
+    // requirements = WEAPON_RACK:1
+    // job_slots = guard:2, watchman:1
+    {
+        const int x = coreX + 13;
+        const int y = coreY - 1;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 2);
+        SpawnDebugFurniture(em, furnitureReg, "WEAPON_RACK", x, y);
+    }
+
+    // Childcare Room:
+    // requirements = SMALL_BED:1, WOOD_CHEST:1
+    // job_slots = caretaker:1
+    {
+        const int x = coreX - 13;
+        const int y = coreY + 11;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 2);
+        SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x, y);
+        SpawnDebugFurniture(em, furnitureReg, "WOOD_CHEST", x + 1, y);
+    }
+
+    // Kitchen:
+    // requirements = CAMPFIRE:1, WOOD_CHEST:1
+    // job_slots = cook:1
+    {
+        const int x = coreX + 4;
+        const int y = coreY + 11;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 2);
+        SpawnDebugFurniture(em, furnitureReg, "CAMPFIRE", x, y);
+        SpawnDebugFurniture(em, furnitureReg, "WOOD_CHEST", x + 1, y);
+    }
+
+    // Firekeeper Station:
+    // requirement: CAMPFIRE:1, TOOL_RACK:1
+    // job_slots = fire keeper
+    {
+        const int x = coreX + 8;
+        const int y = coreY + 11;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 2);
+        SpawnDebugFurniture(em, furnitureReg, "CAMPFIRE", x, y);
+        SpawnDebugFurniture(em, furnitureReg, "TOOL_RACK", x + 1, y);
+    }
+
+    // =========================================================
+    // Housing rooms
+    // =========================================================
+
+    // Small Bedroom 1.
     {
         const int x = coreX - 7;
         const int y = coreY - 5;
@@ -160,17 +347,7 @@ void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furni
         SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x, y);
     }
 
-    // =========================================================
-    // Small Bedroom
-    // Structure:
-    //   [SMALL_BEDROOM]
-    //   min_area = 4
-    //   max_area = 4
-    //   requirements = SMALL_BED:1
-    //
-    // Interior: 2x2 = 4
-    // Housing capacity: 1
-    // =========================================================
+    // Small Bedroom 2.
     {
         const int x = coreX - 13;
         const int y = coreY - 5;
@@ -179,17 +356,7 @@ void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furni
         SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x, y);
     }
 
-    // =========================================================
-    // Large Bedroom
-    // Structure:
-    //   [LARGE_BEDROOM]
-    //   min_area = 4
-    //   max_area = 8
-    //   requirements = DOUBLE_BED:1
-    //
-    // Interior: 2x4 = 8
-    // Housing capacity: 2
-    // =========================================================
+    // Large Bedroom.
     {
         const int x = coreX - 7;
         const int y = coreY + 4;
@@ -198,27 +365,45 @@ void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furni
         SpawnDebugFurniture(em, furnitureReg, "DOUBLE_BED", x, y);
     }
 
-    // =========================================================
-    // Empty room / Spare Room
-    // Interior area: 2x2 = 4
-    //
-    // Purpose:
-    // - debug spare closed room;
-    // - does not provide housing capacity yet;
-    // - can later receive a SMALL_BED or another furniture;
-    // - useful for testing room ownership / family assignment later.
-    // =========================================================
+    // Family Bedroom 1 child:
+    // requirements = DOUBLE_BED:1, SMALL_BED:1
     {
-        const int x = coreX - 13;
-        const int y = coreY + 5;
+        const int x = coreX - 16;
+        const int y = coreY + 3;
 
-        SpawnDebugRoomBox(em, constructionReg, x, y, 2, 2);
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 2);
+        SpawnDebugFurniture(em, furnitureReg, "DOUBLE_BED", x, y);
+        SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x + 1, y);
+    }
+
+    // Family Bedroom 2 children:
+    // requirements = DOUBLE_BED:1, SMALL_BED:2
+    {
+        const int x = coreX - 16;
+        const int y = coreY + 8;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 4, 2);
+        SpawnDebugFurniture(em, furnitureReg, "DOUBLE_BED", x, y);
+        SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x + 1, y);
+        SpawnDebugFurniture(em, furnitureReg, "SMALL_BED", x + 2, y);
+    }
+
+    // Forge:
+    // requirements = FORGE_ANVIL:1, WEAPON_RACK:1
+    // job_slots = blacksmith:1
+    {
+        const int x = coreX + 12;
+        const int y = coreY + 8;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 2);
+        SpawnDebugFurniture(em, furnitureReg, "FORGE_ANVIL", x, y);
+        SpawnDebugFurniture(em, furnitureReg, "WEAPON_RACK", x + 1, y);
     }
 
     roomSystem.MarkDirty();
     roomSystem.Update(em, worldMap, structureReg);
 
-    std::cout << "[DEBUG] Spawned village test structures around Village Core." << std::endl;
+    std::cout << "[DEBUG] Spawned extended village test structures around Village Core." << std::endl;
 }
 
 } // namespace
@@ -297,6 +482,7 @@ Application::Application()
     // Remove this once normal early-game construction is stable.
     SpawnDebugVillageTestStructures(m_entityManager, m_furnitureRegistry, m_constructionRegistry, m_roomSystem, m_structureRegistry,
                                     m_worldMap, villageCore);
+    SpawnDebugVillageTestVillagers(m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, villageCore);
 
     m_spatialGrid.Rebuild(m_entityManager);
 
@@ -362,8 +548,8 @@ void Application::Update(float deltaTime) {
 
     m_spatialGrid.Rebuild(m_entityManager);
 
-    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, m_spatialGrid, simulationCenter,
-                      static_cast<float>(Config::SIMULATION_ACTIVE_RADIUS_TILES), m_timeSystem.GetHour(), m_roomSystem);
+    m_aiSystem.Update(deltaTime, m_entityManager, m_worldMap, m_tileRegistry, m_resourceRegistry, m_weaponRegistry, m_spatialGrid,
+                      simulationCenter, static_cast<float>(Config::SIMULATION_ACTIVE_RADIUS_TILES), m_timeSystem.GetHour(), m_roomSystem);
 
     m_spatialGrid.Rebuild(m_entityManager);
 

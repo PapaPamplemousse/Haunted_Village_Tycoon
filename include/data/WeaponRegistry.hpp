@@ -17,6 +17,8 @@ struct WeaponDef {
     std::string equipmentSlot;
     float damage = 0.0f;
     std::string toolType = "none";
+
+    std::unordered_map<std::string, int> requirements;
 };
 
 /**

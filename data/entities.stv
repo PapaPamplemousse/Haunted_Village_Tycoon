@@ -22,7 +22,7 @@ sprite_row_gap = 10
 sprite_frame_size = 114, 110
 sprite_variants_male = assets/entities/villager-man-A.png
 sprite_variants_female = assets/entities/villager-woman-B.png
-drops = FLESH:2:0.5
+drops = FLESH:2:0.5 , SOULS:1:1
 
 [CANNIBAL]
 name = Cannibal Raider

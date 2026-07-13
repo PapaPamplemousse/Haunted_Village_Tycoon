@@ -27,6 +27,11 @@ is_consumable = true
 nutrition = 25.0
 spoilage_days = 4
 
+[SOULS]
+name = SOULS
+max_stack = 100
+is_consumable = false
+
 [WATER_BOTTLE]
 name = Water Bottle
 max_stack = 20

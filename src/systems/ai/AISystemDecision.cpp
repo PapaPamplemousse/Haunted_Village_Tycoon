@@ -28,6 +28,13 @@ constexpr float PRIORITY_LOGISTICS = 430.0f;
 constexpr float PRIORITY_WORK = 250.0f;
 constexpr float PRIORITY_IDLE = 10.0f;
 constexpr float PRIORITY_RETURN_TO_VILLAGE = 610.0f;
+constexpr float PRIORITY_GUARD = 740.0f;
+constexpr float PRIORITY_REPAIR = 280.0f;
+constexpr float PRIORITY_PATROL = 120.0f;
+constexpr float PRIORITY_HAUL = 410.0f;
+constexpr float PRIORITY_EQUIP_WEAPON = 735.0f;
+constexpr float PRIORITY_REQUEST_WEAPON = 720.0f;
+constexpr float PRIORITY_FULFILL_REQUEST = 710.0f;
 
 enum class AIDecisionTaskType {
     Flee,
@@ -36,11 +43,18 @@ enum class AIDecisionTaskType {
     Rest,
     CareChildFood,
     ReturnToVillageCore,
+    EquipWeapon,
+    RequestWeapon,
+    FulfillWeaponRequest,
     Store,
+    Haul,
+    Guard,
+    Repair,
     Hunt,
     Build,
     Dismantle,
     Harvest,
+    Patrol,
     Wander
 };
 
@@ -491,6 +505,54 @@ float EstimateReturnToVillageCoreUtility(EntityID entity, const EntityManager& e
     return distanceTiles * 10.0f;
 }
 
+float EstimateHaulUtility(EntityID entity, const EntityManager& em, const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTransform[entity] || !em.hasInventory[entity]) {
+        return -1.0f;
+    }
+
+    // If this carrier already carries items, store should run first.
+    if (AISystemUtils::HasAnyInventoryItem(em.inventories[entity])) {
+        return -1.0f;
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+
+    int storagesWithItems = 0;
+    int specializedStoragesWithCapacity = 0;
+
+    for (EntityID candidate : candidates) {
+        if (candidate >= em.active.size() || !em.active[candidate] || !em.hasInventory[candidate] || !em.hasStorage[candidate]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[candidate] && !em.blueprints[candidate].isFinished) {
+            continue;
+        }
+
+        if (em.hasBehavior[candidate]) {
+            continue;
+        }
+
+        if (AISystemUtils::HasAnyInventoryItem(em.inventories[candidate])) {
+            storagesWithItems++;
+        }
+
+        const bool specialized = !em.storages[candidate].acceptedItems.empty();
+        const bool hasCapacity = AISystemUtils::HasAvailableStorageCapacity(candidate, em);
+
+        if (specialized && hasCapacity) {
+            specializedStoragesWithCapacity++;
+        }
+    }
+
+    if (storagesWithItems <= 0 || specializedStoragesWithCapacity <= 0) {
+        return -1.0f;
+    }
+
+    return static_cast<float>(storagesWithItems * 30 + specializedStoragesWithCapacity * 50);
+}
 } // namespace
 
 void AISystem::UpdateAIContextTimers(float deltaTime, EntityManager& em) {
@@ -710,7 +772,8 @@ bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const
 }
 
 bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                      const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour) {
+                                      const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                      const EntitySpatialGrid& spatialGrid, float currentHour) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity] || !em.hasTransform[entity]) {
         return false;
     }
@@ -731,6 +794,13 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     const bool canHarvest = HasCapability(behavior, "harvest");
     const bool canWander = HasCapability(behavior, "wander");
     const bool canReturnToVillageCore = HasCapability(behavior, "return_village_core");
+    const bool canGuard = HasCapability(behavior, "guard");
+    const bool canRepair = HasCapability(behavior, "repair");
+    const bool canPatrol = HasCapability(behavior, "patrol");
+    const bool canHaul = HasCapability(behavior, "haul");
+    const bool canEquipWeapon = HasCapability(behavior, "equip_weapon");
+    const bool canRequestWeapon = HasCapability(behavior, "request_weapon");
+    const bool canFulfillWeaponRequest = HasCapability(behavior, "fulfill_weapon_request");
 
     const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
 
@@ -817,6 +887,14 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         }
     }
 
+    if (canHaul) {
+        const float haulScore = EstimateHaulUtility(entity, em, spatialGrid);
+
+        if (haulScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::Haul, PRIORITY_HAUL, haulScore});
+        }
+    }
+
     // =========================================================
     // Productive work
     // =========================================================
@@ -852,11 +930,34 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
                 candidates.push_back({AIDecisionTaskType::Harvest, PRIORITY_WORK + 10.0f, harvestScore});
             }
         }
+
+        if (canEquipWeapon) {
+            candidates.push_back({AIDecisionTaskType::EquipWeapon, PRIORITY_EQUIP_WEAPON, 100.0f});
+        }
+
+        if (canRequestWeapon) {
+            candidates.push_back({AIDecisionTaskType::RequestWeapon, PRIORITY_REQUEST_WEAPON, 80.0f});
+        }
+
+        if (canFulfillWeaponRequest) {
+            candidates.push_back({AIDecisionTaskType::FulfillWeaponRequest, PRIORITY_FULFILL_REQUEST, 100.0f});
+        }
+
+        if (canGuard) {
+            candidates.push_back({AIDecisionTaskType::Guard, PRIORITY_GUARD, 100.0f});
+        }
+
+        if (canRepair) {
+            candidates.push_back({AIDecisionTaskType::Repair, PRIORITY_REPAIR, 80.0f});
+        }
     }
 
     // =========================================================
     // Idle fallback
     // =========================================================
+    if (canPatrol) {
+        candidates.push_back({AIDecisionTaskType::Patrol, PRIORITY_PATROL, 10.0f});
+    }
     if (canWander) {
         candidates.push_back({AIDecisionTaskType::Wander, PRIORITY_IDLE, 0.0f});
     }
@@ -903,6 +1004,10 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
                 started = TryFindStoreJob(entity, em, map, tileReg, spatialGrid);
                 break;
 
+            case AIDecisionTaskType::Haul:
+                started = TryFindHaulJob(entity, em, map, tileReg, resourceReg, spatialGrid);
+                break;
+
             case AIDecisionTaskType::Hunt:
                 started = TryFindHuntJob(entity, em, map, tileReg, spatialGrid);
                 break;
@@ -913,6 +1018,30 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
 
             case AIDecisionTaskType::Dismantle:
                 started = TryFindDismantleJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::EquipWeapon:
+                started = TryFindEquipWeaponJob(entity, em, map, tileReg, weaponReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::RequestWeapon:
+                started = TryFindRequestWeaponJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::FulfillWeaponRequest:
+                started = TryFindFulfillWeaponRequestJob(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Guard:
+                started = TryFindGuardJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Repair:
+                started = TryFindRepairJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Patrol:
+                started = TryFindPatrolJob(entity, em, map, tileReg);
                 break;
 
             case AIDecisionTaskType::Harvest:

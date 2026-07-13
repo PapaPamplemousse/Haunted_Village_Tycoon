@@ -117,6 +117,14 @@ job_slots = cook:1
 name = Firekeeper Station
 min_area = 4
 max_area = 20
-requirements = CAMPFIRE:1, WOOD_CHEST:1
+requirements = CAMPFIRE:1, TOOL_RACK:1
 granted_buffs = light
 job_slots = firekeeper:1
+
+[FORGE]
+name = Forge
+min_area = 6
+max_area = 40
+requirements = FORGE_ANVIL:1, WEAPON_RACK:1
+granted_buffs = crafting
+job_slots = blacksmith:1

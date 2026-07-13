@@ -53,6 +53,11 @@ name = Town Guard
 min_age = 18
 req_species = human
 
+[blacksmith]
+name = Blacksmith
+min_age = 18
+req_species = human
+
 [watchman]
 name = Watchman
 min_age = 18

@@ -5,10 +5,14 @@
  */
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
+#include "systems/Pathfinder.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <raymath.h>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -30,9 +34,74 @@ void UpdateSpriteFacingFromDirection(EntityID entity, EntityManager& em, Vector2
     }
 }
 
+bool IsValidHaulContext(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasAIContext[entity]) {
+        return false;
+    }
+
+    const AIContextComponent& context = em.aiContexts[entity];
+
+    return context.haulSourceId < em.active.size() && context.haulDestinationId < em.active.size() && em.active[context.haulSourceId] &&
+           em.active[context.haulDestinationId] && !context.haulItemId.empty() && context.haulAmount > 0;
+}
+
+bool CompleteHaulPickupAndStartDestinationPath(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
+    if (!IsValidHaulContext(entity, em) || !em.hasInventory[entity] || !em.hasBehavior[entity] || !em.hasTransform[entity]) {
+        return false;
+    }
+
+    AIContextComponent& context = em.aiContexts[entity];
+
+    const EntityID source = context.haulSourceId;
+    const EntityID destination = context.haulDestinationId;
+    const std::string itemId = context.haulItemId;
+
+    if (!em.hasInventory[source] || !em.hasInventory[destination] || !em.hasStorage[destination] || !em.hasTransform[destination]) {
+        return false;
+    }
+
+    const int remainingCapacity = em.storages[destination].capacity - AISystemUtils::GetInventoryItemCount(em.inventories[destination]);
+
+    if (remainingCapacity <= 0) {
+        return false;
+    }
+
+    const int amountToMove = std::min(context.haulAmount, remainingCapacity);
+
+    const int removed = AISystemUtils::RemoveItemFromInventory(em.inventories[source], itemId, amountToMove);
+
+    if (removed <= 0) {
+        return false;
+    }
+
+    em.inventories[entity].items[itemId] += removed;
+    context.haulAmount = removed;
+
+    std::vector<Vector2> path =
+        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[destination].position, map, tileReg, em, entity);
+
+    if (path.empty()) {
+        return false;
+    }
+
+    BehaviorComponent& behavior = em.behaviors[entity];
+
+    behavior.currentTask = "moving_to_haul_destination";
+    behavior.currentJobTarget = destination;
+    behavior.currentItemTarget = itemId;
+    behavior.hasJob = true;
+    behavior.currentPath = std::move(path);
+    behavior.currentPathIndex = 0;
+    behavior.currentTarget = behavior.currentPath[0];
+    behavior.isMoving = true;
+    behavior.stateTimer = 0.0f;
+
+    return true;
+}
+
 } // namespace
 
-void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em) {
+void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
     auto& behavior = em.behaviors[i];
     auto& transform = em.transforms[i];
 
@@ -91,6 +160,20 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
         } else if (behavior.currentTask == "moving_to_dismantle") {
             behavior.currentTask = "dismantling";
             behavior.stateTimer = 2.0f;
+        } else if (behavior.currentTask == "moving_to_haul_source") {
+            if (!CompleteHaulPickupAndStartDestinationPath(i, em, map, tileReg)) {
+                ResetBehaviorState(behavior);
+
+                if (i < em.active.size() && em.active[i] && em.hasAIContext[i]) {
+                    em.aiContexts[i].haulSourceId = static_cast<EntityID>(-1);
+                    em.aiContexts[i].haulDestinationId = static_cast<EntityID>(-1);
+                    em.aiContexts[i].haulItemId.clear();
+                    em.aiContexts[i].haulAmount = 0;
+                }
+            }
+        } else if (behavior.currentTask == "moving_to_haul_destination") {
+            behavior.currentTask = "hauling_deposit";
+            behavior.stateTimer = AISystemUtils::DEPOSIT_DURATION;
         } else if (behavior.currentTask == "moving_to_rest") {
             behavior.currentTask = "resting";
             behavior.stateTimer = 1.0f;
@@ -131,6 +214,32 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em)
                 em.aiContexts[i].currentTaskPriority = 0.0f;
                 em.aiContexts[i].currentTaskInterruptible = true;
             }
+        } else if (behavior.currentTask == "moving_to_repair") {
+            behavior.currentTask = "repairing";
+            behavior.stateTimer = 1.0f;
+        } else if (behavior.currentTask == "patrolling") {
+            behavior.currentTask = "idle";
+            behavior.currentJobTarget = 0;
+            behavior.hasJob = false;
+            behavior.stateTimer = GetRandomValue(10, 30) / 10.0f;
+        } else if (behavior.currentTask == "moving_to_weapon_storage") {
+            behavior.currentTask = "equipping_weapon";
+            behavior.stateTimer = 0.4f;
+        } else if (behavior.currentTask == "moving_to_forge") {
+            behavior.currentTask = "crafting_weapon";
+            behavior.stateTimer = 3.0f;
+        } else if (behavior.currentTask == "moving_to_weapon_deposit") {
+            behavior.currentTask = "depositing_crafted_weapon";
+            behavior.stateTimer = AISystemUtils::DEPOSIT_DURATION;
+        } else if (behavior.currentTask == "moving_to_request_weapon") {
+            behavior.currentTask = "requesting_weapon";
+            behavior.stateTimer = 1.2f;
+        } else if (behavior.currentTask == "moving_to_forge") {
+            behavior.currentTask = "crafting_weapon";
+            behavior.stateTimer = 8.0f;
+        } else if (behavior.currentTask == "moving_to_crafted_weapon_storage") {
+            behavior.currentTask = "depositing_crafted_weapon";
+            behavior.stateTimer = AISystemUtils::DEPOSIT_DURATION;
         } else if (behavior.currentTask == "wandering") {
             behavior.currentTask = "idle";
             behavior.stateTimer = GetRandomValue(10, 40) / 10.0f;

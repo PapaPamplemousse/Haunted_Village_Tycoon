@@ -7,6 +7,7 @@
 
 #include "data/ResourceRegistry.hpp"
 #include "data/TileRegistry.hpp"
+#include "data/WeaponRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/RoomSystem.hpp"
 #include "world/EntitySpatialGrid.hpp"
@@ -20,18 +21,22 @@ public:
     AISystem() = default;
 
     void Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, const ResourceRegistry& resourceReg,
-                const EntitySpatialGrid& spatialGrid, const Vector2& simulationCenter, float activeRadiusTiles, float currentHour,
-                RoomSystem& roomSys);
+                const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid, const Vector2& simulationCenter,
+                float activeRadiusTiles, float currentHour, RoomSystem& roomSys);
 
 private:
     // --- State Handlers ---
     void HandleIdleState(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                         const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour);
+                         const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid,
+                         float currentHour);
 
-    void HandleMovingState(EntityID entity, float deltaTime, EntityManager& em);
+    void HandleMovingState(EntityID entity, float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 
-    void HandleTaskCompletion(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid,
+    void HandleTaskCompletion(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                              const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid,
                               RoomSystem& roomSys);
+
+    bool HandleFatigueCollapse(EntityID entity, float deltaTime, EntityManager& em);
 
     // --- Helpers ---
     void InteractWithDoorIfPresent(EntityID entity, int targetX, int targetY, EntityManager& em);
@@ -53,7 +58,8 @@ private:
                                  const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
 
     bool SelectAndStartBestTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour);
+                                const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid,
+                                float currentHour);
 
     void CancelCurrentTask(EntityID entity, EntityManager& em);
 
@@ -90,9 +96,6 @@ private:
 
     bool TryFindReturnToVillageCoreJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
 
-    bool TryFindHaulJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                        const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
-
     bool TryFindRepairJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                           const EntitySpatialGrid& spatialGrid);
 
@@ -100,4 +103,17 @@ private:
                          const EntitySpatialGrid& spatialGrid);
 
     bool TryFindPatrolJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+
+    bool TryFindHaulJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                        const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindRequestWeaponJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                 const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindEquipWeaponJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                               const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindFulfillWeaponRequestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                        const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                        const EntitySpatialGrid& spatialGrid);
 };

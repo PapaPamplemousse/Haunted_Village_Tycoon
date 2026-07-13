@@ -5,13 +5,15 @@
  */
 #include "systems/AISystem.hpp"
 
+#include "core/Config.hpp"
 #include "systems/AISystemUtils.hpp"
 
 #include <algorithm>
+#include <iostream>
 
 void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                      const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, const Vector2& simulationCenter,
-                      float activeRadiusTiles, float currentHour, RoomSystem& roomSys) {
+                      const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid,
+                      const Vector2& simulationCenter, float activeRadiusTiles, float currentHour, RoomSystem& roomSys) {
     UpdateAIContextTimers(deltaTime, em);
 
     for (size_t i = 0; i < em.active.size(); ++i) {
@@ -29,6 +31,10 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
 
         auto& behavior = em.behaviors[i];
 
+        if (HandleFatigueCollapse(i, deltaTime, em)) {
+            continue;
+        }
+
         if (TryInterruptCurrentTask(i, em, map, tileReg, resourceReg, spatialGrid)) {
             continue;
         }
@@ -39,18 +45,18 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
         }
 
         if (behavior.currentTask == "idle") {
-            HandleIdleState(i, em, map, tileReg, resourceReg, spatialGrid, currentHour);
+            HandleIdleState(i, em, map, tileReg, resourceReg, weaponReg, spatialGrid, currentHour);
         } else if (behavior.isMoving) {
-            HandleMovingState(i, deltaTime, em);
+            HandleMovingState(i, deltaTime, em, map, tileReg);
         } else {
-            HandleTaskCompletion(i, em, resourceReg, spatialGrid, roomSys);
+            HandleTaskCompletion(i, em, map, tileReg, resourceReg, weaponReg, spatialGrid, roomSys);
         }
     }
 }
-
 void AISystem::HandleIdleState(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                               const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid, float currentHour) {
-    if (SelectAndStartBestTask(i, em, map, tileReg, resourceReg, spatialGrid, currentHour)) {
+                               const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid,
+                               float currentHour) {
+    if (SelectAndStartBestTask(i, em, map, tileReg, resourceReg, weaponReg, spatialGrid, currentHour)) {
         return;
     }
 
@@ -110,4 +116,66 @@ void AISystem::ResetBehaviorState(BehaviorComponent& behavior) {
     behavior.currentPathIndex = 0;
     behavior.isMoving = false;
     behavior.reservedRestSpot = static_cast<EntityID>(-1);
+}
+
+bool AISystem::HandleFatigueCollapse(EntityID entity, float deltaTime, EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity] || !em.hasBehavior[entity]) {
+        return false;
+    }
+
+    NeedsComponent& needs = em.needs[entity];
+    BehaviorComponent& behavior = em.behaviors[entity];
+
+    const bool shouldCollapse = needs.collapsedFromFatigue || (needs.maxFatigue > 0.0f && needs.fatigue >= needs.maxFatigue);
+
+    if (!shouldCollapse) {
+        return false;
+    }
+
+    if (!needs.collapsedFromFatigue) {
+        needs.collapsedFromFatigue = true;
+
+        if (behavior.currentTask == "moving_to_rest" || behavior.currentTask == "resting" ||
+            behavior.reservedRestSpot != static_cast<EntityID>(-1)) {
+            AISystemUtils::ReleaseRestSpotReservation(entity, em);
+        }
+
+        behavior.currentTask = "collapsed_sleep";
+        behavior.currentJobTarget = 0;
+        behavior.currentItemTarget.clear();
+        behavior.hasJob = true;
+        behavior.isMoving = false;
+        behavior.currentPath.clear();
+        behavior.currentPathIndex = 0;
+        behavior.stateTimer = 0.0f;
+
+        if (em.hasAIContext[entity]) {
+            em.aiContexts[entity].currentTaskPriority = 2000.0f;
+            em.aiContexts[entity].currentTaskInterruptible = false;
+        }
+
+        std::cout << "[AI] Entity #" << entity << " collapsed from fatigue." << std::endl;
+    }
+
+    needs.fatigue -= Config::FATIGUE_REST_RECOVERY_PER_SECOND * deltaTime;
+
+    if (needs.fatigue < 0.0f) {
+        needs.fatigue = 0.0f;
+    }
+
+    if (needs.fatigue <= 0.0f) {
+        needs.collapsedFromFatigue = false;
+
+        ResetBehaviorState(behavior);
+        behavior.stateTimer = 1.0f;
+
+        if (em.hasAIContext[entity]) {
+            em.aiContexts[entity].currentTaskPriority = 0.0f;
+            em.aiContexts[entity].currentTaskInterruptible = true;
+        }
+
+        std::cout << "[AI] Entity #" << entity << " woke up from fatigue collapse." << std::endl;
+    }
+
+    return true;
 }

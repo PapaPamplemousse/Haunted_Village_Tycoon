@@ -1,6 +1,14 @@
+# ==========================================
+#  BASIC MOVEMENT & SURVIVAL
+# ==========================================
+
 [WANDER_BASIC]
 rule = wander
 categories = humanoid
+
+[RETURN_VILLAGE_CORE_HUMAN]
+rule = return_village_core
+species = human
 
 [FLEE_HUMAN]
 rule = flee
@@ -10,73 +18,21 @@ species = human
 rule = seek_food
 categories = humanoid
 
-[HUNT_CANNIBAL]
-rule = hunt(human)
-species = cannibal
-
-[HARVEST_BUSH_GATHERER]
-rule = harvest(BUSH_BERRY)
-professions = gatherer
-
-[STORE_GATHERER]
-rule = store
-professions = gatherer
-
-[HARVEST_OAK_LUMBERJACK]
-rule = harvest(TREE_OAK)
-professions = lumberjack
-
-[STORE_LUMBERJACK]
-rule = store
-professions = lumberjack
-
-[FIND_WEAPON_LUMBERJACK]
-rule = find(axe)
-professions = lumberjack
-
-[BUILD_HUMAN]
-rule = build
-species = human
-
-[DISMANTLE_HUMAN]
-rule = dismantle
-species = human
-
 [REST_HUMAN]
 rule = rest
 species = human
+
+# ==========================================
+#  COMBAT & SECURITY
+# ==========================================
 
 [DEFEND_HUMAN]
 rule = defend
 species = human
 
-[CARE_CHILD_HUMAN]
-rule = care_child
-species = human
-
-[RETURN_VILLAGE_CORE_HUMAN]
-rule = return_village_core
-species = human
-
-[REST_CANNIBAL]
-rule = rest
-species = cannibal
-
-[DEFEND_CANNIBAL]
-rule = defend
-species = cannibal
-
-[HAUL_CARRIER]
-rule = haul
-professions = carrier, hauler
-
-[STORE_CARRIER]
-rule = store
-professions = carrier, hauler
-
-[REPAIR_REPAIRER]
-rule = repair
-professions = repairer
+[HUNT_HUNTER]
+rule = hunt(zombie, cannibal)
+professions = hunter, guard
 
 [GUARD_GUARD]
 rule = guard
@@ -86,18 +42,123 @@ professions = guard, watchman
 rule = patrol
 professions = guard, watchman
 
-[CARE_CHILD_CARETAKER]
-rule = care_child
-professions = caretaker
+[EQUIP_WEAPON_GUARD]
+rule = equip_weapon
+professions = guard, watchman
 
-[COOK_COOK]
-rule = cook
-professions = cook
+[REQUEST_WEAPON_GUARD]
+rule = request_weapon
+professions = guard, watchman
+
+
+# ==========================================
+#  RESOURCE GATHERING
+# ==========================================
+
+[HARVEST_BUSH_GATHERER]
+rule = harvest(BUSH_BERRY)
+professions = gatherer
+
+[STORE_GATHERER]
+rule = store
+professions = gatherer
+
+[FIND_WEAPON_LUMBERJACK]
+rule = find(axe)
+professions = lumberjack
+
+[HARVEST_OAK_LUMBERJACK]
+rule = harvest(TREE_OAK)
+professions = lumberjack
+
+[STORE_LUMBERJACK]
+rule = store
+professions = lumberjack
+
+[HARVEST_STONE_MINER]
+rule = harvest(STONE_ROCK)
+professions = miner
+
+[STORE_MINER]
+rule = store
+professions = miner
+
+# ==========================================
+#  LOGISTICS & HAULING
+# ==========================================
+
+[HAUL_CARRIER]
+rule = haul
+professions = carrier, hauler
+
+[STORE_CARRIER]
+rule = store
+professions = carrier, hauler
+
+[FULFILL_WEAPON_REQUEST_BLACKSMITH]
+rule = fulfill_weapon_request
+professions = blacksmith
+
+[STORE_BLACKSMITH]
+rule = store
+professions = blacksmith
+
+# ==========================================
+#  CONSTRUCTION & MAINTENANCE
+# ==========================================
+
+[BUILD_BUILDER]
+rule = build
+professions = builder
+
+[DISMANTLE_BUILDER]
+rule = dismantle
+professions = builder, demolisher
+
+[REPAIR_BUILDER]
+rule = repair
+professions = builder , repairer
+
+# ==========================================
+#  CAMP LIFE, FIRE & FOOD
+# ==========================================
+
+[LIGHT_FIRE_FIREKEEPER]
+rule = light_fire
+professions = firekeeper
 
 [REFUEL_FIREKEEPER]
 rule = refuel
 professions = firekeeper
 
-[LIGHT_FIRE_FIREKEEPER]
-rule = light_fire
-professions = firekeeper
+[COOK_COOK]
+rule = cook
+professions = cook
+
+# ==========================================
+#  SOCIAL & CARE
+# ==========================================
+
+[CARE_CHILD_HUMAN]
+rule = care_child
+species = human
+
+[CARE_CHILD_CARETAKER]
+rule = care_child
+professions = caretaker
+
+
+# ==========================================
+#  CANNIBAL
+# ==========================================
+[REST_CANNIBAL]
+rule = rest
+species = cannibal
+
+[DEFEND_CANNIBAL]
+rule = defend
+species = cannibal
+
+[HUNT_CANNIBAL]
+rule = hunt(human)
+species = cannibal

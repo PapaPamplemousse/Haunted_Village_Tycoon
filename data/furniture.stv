@@ -56,6 +56,7 @@ max_hp = 200
 grid_size = 1, 1
 interaction_type = village_core, store
 storage_capacity = 500
+filter = SOULS
 blueprint_cost =
 texture = assets/furniture/village-core.png
 color = 255, 220, 120, 255
@@ -160,4 +161,15 @@ storage_capacity = 0
 blueprint_cost = WOOD:4, ROPE:2
 texture = square
 color = 160, 120, 90, 255
+sprite_size = 32, 32
+
+[FORGE_ANVIL]
+name = Forge Anvil
+max_hp = 100
+grid_size = 1, 1
+interaction_type = work, forge
+storage_capacity = 0
+blueprint_cost = STONE:8, WOOD:4
+texture = square
+color = 90, 90, 100, 255
 sprite_size = 32, 32

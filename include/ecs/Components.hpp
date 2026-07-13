@@ -297,8 +297,11 @@ struct HealthComponent {
 };
 
 struct EquipmentComponent {
+    std::string rightHandItemId = "";
     std::string rightHandToolType = "none";
     float rightHandDamage = 0.0f;
+
+    std::string equipmentSlot = "";
 };
 
 struct NeedsComponent {
@@ -310,6 +313,8 @@ struct NeedsComponent {
     // max = exhausted
     float fatigue = 0.0f;
     float maxFatigue = 100.0f;
+
+    bool collapsedFromFatigue = false;
 };
 
 enum class ProfessionAssignmentMode { Auto, Manual };
@@ -388,6 +393,36 @@ struct AIContextComponent {
     bool currentTaskInterruptible = true;
 
     EntityID careTargetId = static_cast<EntityID>(-1);
+
+    // Hauling context.
+    EntityID haulSourceId = static_cast<EntityID>(-1);
+    EntityID haulDestinationId = static_cast<EntityID>(-1);
+    std::string haulItemId = "";
+    int haulAmount = 0;
+
+    // Social economy context
+    EntityID activeRequestId = static_cast<EntityID>(-1);
+    std::string requestedCraftItemId = "";
+};
+
+enum class VillageRequestType { WeaponNeeded, ToolNeeded, FoodNeeded, ChildFoodNeeded, RepairNeeded, MedicineNeeded, FuelNeeded };
+
+enum class VillageRequestStatus { Open, Assigned, Completed, Cancelled };
+
+struct VillageRequestComponent {
+    VillageRequestType type = VillageRequestType::WeaponNeeded;
+    VillageRequestStatus status = VillageRequestStatus::Open;
+
+    EntityID requesterId = static_cast<EntityID>(-1);
+    EntityID assigneeId = static_cast<EntityID>(-1);
+    EntityID targetEntityId = static_cast<EntityID>(-1);
+    EntityID villageId = static_cast<EntityID>(-1);
+
+    std::string requestedItemId = "";
+    int amount = 1;
+
+    float priority = 0.0f;
+    bool socialImpactApplied = false;
 };
 
 struct JobSlot {

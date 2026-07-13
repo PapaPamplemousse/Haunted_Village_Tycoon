@@ -3,20 +3,20 @@ name = Iron Axe
 equipment_slot = right_hand
 damage = 12.0
 tool_type = axe
+requirements = WOOD:2, IRON_INGOT:1
 
 [WOOD_BOW]
 name = Wooden Bow
 equipment_slot = both_hands
 damage = 8.0
 tool_type = none
-
+requirements = WOOD:6, ROPE:2
 
 [IRON_SICKLE]
 name = Iron Sickle
 equipment_slot = right_hand
 damage = 5.0
 tool_type = sickle
-
 
 [HAMMER]
 name = Hammer
@@ -32,3 +32,4 @@ tool_type = pickaxe
 name = Spear
 damage = 10.0
 tool_type = spear
+requirements = WOOD:4, ROPE:1

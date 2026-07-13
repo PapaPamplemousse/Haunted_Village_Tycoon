@@ -28,32 +28,27 @@ constexpr float CAMERA_MIN_ZOOM = 0.1f;
 constexpr float CAMERA_MAX_ZOOM = 10.0f;
 
 // --- Simulation Settings ---
-constexpr int SEED = 20;            // Default seed for procedural generation
-constexpr float TIME_SCALE = 10.0f; // 1 real second = 20 in-game minutes
+constexpr int SEED = 20;           // Default seed for procedural generation
+constexpr float TIME_SCALE = 4.8f; // 1 real second = 4.8 in-game minutes
 
 // --- Simulation Optimization ---
 constexpr int SIMULATION_ACTIVE_RADIUS_TILES = 80;
 constexpr float PROFESSION_UPDATE_INTERVAL = 1.0f;
-constexpr float HUNGER_DECAY_PER_SECOND = 0.05f;
 
 // --- Needs / Rest ---
-constexpr float FATIGUE_GAIN_PER_SECOND = 1.0f;
-constexpr float FATIGUE_REST_RECOVERY_PER_SECOND = 4.0f;
+constexpr float HUNGER_DECAY_PER_SECOND = 0.05f;
+constexpr float FATIGUE_GAIN_PER_SECOND = 0.5f;
+constexpr float FATIGUE_REST_RECOVERY_PER_SECOND = 1.0f;
 constexpr float FATIGUE_REST_THRESHOLD_RATIO = 0.70f;
 constexpr float FATIGUE_FULLY_RESTED_RATIO = 0.15f;
 
 // --- Social ---
-
 constexpr float SOCIAL_UPDATE_INTERVAL = 1.0f;
-
 constexpr float SOCIAL_RADIUS_TILES = 4.0f;
-
-constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 1.0f;
-constexpr float ROMANCE_GAIN_PER_UPDATE = 0.35f;
-
-constexpr float FRIENDSHIP_THRESHOLD = 50.0f;
-constexpr float ROMANCE_THRESHOLD = 70.0f;
-
+constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 0.50f;
+constexpr float ROMANCE_GAIN_PER_UPDATE = 0.25f;
+constexpr float FRIENDSHIP_THRESHOLD = 60.0f;
+constexpr float ROMANCE_THRESHOLD = 80.0f;
 constexpr int ADULT_AGE = 16;
 
 // --- Spatial Optimization ---

@@ -6,10 +6,83 @@
 #include "core/Config.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
+#include "systems/Pathfinder.hpp"
+#include "systems/VillageRequestSystem.hpp"
 
 #include <algorithm>
+#include <limits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
-void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const ResourceRegistry& resourceReg,
+namespace {
+
+std::unordered_map<std::string, int> GetCraftRequirementsForTask(const std::string& itemId) {
+    if (itemId == "SPEAR") {
+        return {{"WOOD", 4}, {"ROPE", 1}};
+    }
+
+    if (itemId == "IRON_AXE") {
+        return {{"WOOD", 2}, {"IRON_INGOT", 1}};
+    }
+
+    if (itemId == "WOOD_BOW") {
+        return {{"WOOD", 6}, {"ROPE", 2}};
+    }
+
+    return {};
+}
+
+EntityID FindNearestCompatibleStorage(EntityID worker, const std::string& itemId, const EntityManager& em,
+                                      const EntitySpatialGrid& spatialGrid) {
+    if (worker >= em.active.size() || !em.active[worker] || !em.hasTransform[worker]) {
+        return static_cast<EntityID>(-1);
+    }
+
+    const float searchRadius = AISystemUtils::GetActionRadiusWorld(worker, em);
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[worker].position, searchRadius, em);
+
+    EntityID bestStorage = static_cast<EntityID>(-1);
+    float bestDistanceSq = std::numeric_limits<float>::infinity();
+
+    for (EntityID candidate : candidates) {
+        if (candidate >= em.active.size() || !em.active[candidate] || !em.hasTransform[candidate] || !em.hasInventory[candidate] ||
+            !em.hasStorage[candidate]) {
+            continue;
+        }
+
+        if (em.hasBlueprint[candidate] && !em.blueprints[candidate].isFinished) {
+            continue;
+        }
+
+        if (em.hasBehavior[candidate]) {
+            continue;
+        }
+
+        if (!AISystemUtils::StorageAcceptsItem(em.storages[candidate], itemId)) {
+            continue;
+        }
+
+        if (!AISystemUtils::HasAvailableStorageCapacity(candidate, em)) {
+            continue;
+        }
+
+        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[worker].position, em.transforms[candidate].position);
+
+        if (distanceSq < bestDistanceSq) {
+            bestDistanceSq = distanceSq;
+            bestStorage = candidate;
+        }
+    }
+
+    return bestStorage;
+}
+
+} // namespace
+
+void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                    const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                     const EntitySpatialGrid& spatialGrid, RoomSystem& roomSys) {
     auto& behavior = em.behaviors[i];
 
@@ -28,6 +101,20 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
 
             if (em.hasConstruction[target] || (em.hasTag[target] && !em.hasBehavior[target])) {
                 roomSys.MarkDirty();
+            }
+        }
+    } else if (behavior.currentTask == "requesting_weapon") {
+        const EntityID blacksmith = behavior.currentJobTarget;
+        const std::string requestedWeapon = behavior.currentItemTarget.empty() ? "SPEAR" : behavior.currentItemTarget;
+
+        if (blacksmith < em.active.size() && em.active[blacksmith] && em.hasVillageMember[i]) {
+            const EntityID villageId = em.villageMembers[i].villageId;
+
+            EntityID requestId =
+                VillageRequestSystem::CreateRequest(em, VillageRequestType::WeaponNeeded, i, villageId, requestedWeapon, 1, 750.0f);
+
+            if (requestId != static_cast<EntityID>(-1)) {
+                VillageRequestSystem::AssignRequest(em, requestId, blacksmith);
             }
         }
     } else if (behavior.currentTask == "dismantling") {
@@ -64,6 +151,17 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
         }
 
         AISystemUtils::ReleaseRestSpotReservation(i, em);
+    } else if (behavior.currentTask == "repairing") {
+        EntityID target = behavior.currentJobTarget;
+
+        if (target < em.active.size() && em.active[target] && em.hasHealth[target]) {
+            em.healths[target].current = std::min(em.healths[target].max, em.healths[target].current + 25.0f);
+
+            if (em.healths[target].current < em.healths[target].max) {
+                behavior.stateTimer = 1.0f;
+                return;
+            }
+        }
     } else if (behavior.currentTask == "harvesting") {
         EntityID target = behavior.currentJobTarget;
 
@@ -117,6 +215,33 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
             //     return;                     // TRÈS IMPORTANT : On sort pour NE PAS appeler le ResetBehaviorState() global !
             // }
         }
+    } else if (behavior.currentTask == "hauling_deposit") {
+        if (em.hasAIContext[i] && em.hasInventory[i]) {
+            AIContextComponent& context = em.aiContexts[i];
+
+            const EntityID destination = context.haulDestinationId;
+            const std::string itemId = context.haulItemId;
+
+            if (destination < em.active.size() && em.active[destination] && em.hasInventory[destination] && em.hasStorage[destination] &&
+                !itemId.empty()) {
+                const int remainingCapacity =
+                    em.storages[destination].capacity - AISystemUtils::GetInventoryItemCount(em.inventories[destination]);
+
+                if (remainingCapacity > 0) {
+                    const int amount =
+                        AISystemUtils::RemoveItemFromInventory(em.inventories[i], itemId, std::min(context.haulAmount, remainingCapacity));
+
+                    if (amount > 0) {
+                        em.inventories[destination].items[itemId] += amount;
+                    }
+                }
+            }
+
+            context.haulSourceId = static_cast<EntityID>(-1);
+            context.haulDestinationId = static_cast<EntityID>(-1);
+            context.haulItemId.clear();
+            context.haulAmount = 0;
+        }
     } else if (behavior.currentTask == "depositing") {
         EntityID storage = behavior.currentJobTarget;
 
@@ -125,6 +250,121 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const Resourc
             if (!(em.hasBlueprint[storage] && !em.blueprints[storage].isFinished)) {
                 AISystemUtils::DepositInventoryIntoStorage(em.inventories[i], em.inventories[storage], em.storages[storage]);
             }
+        }
+    } else if (behavior.currentTask == "equipping_weapon") {
+        EntityID storage = behavior.currentJobTarget;
+        const std::string weaponId = behavior.currentItemTarget;
+
+        const WeaponDef* weaponDef = weaponReg.GetWeaponDef(weaponId);
+
+        if (weaponDef != nullptr && storage < em.active.size() && em.active[storage] && em.hasInventory[storage] && !weaponId.empty()) {
+            const int removed = AISystemUtils::RemoveItemFromInventory(em.inventories[storage], weaponId, 1);
+
+            if (removed > 0) {
+                if (!em.hasEquipment[i]) {
+                    em.hasEquipment[i] = true;
+                    em.equipments[i] = {};
+                }
+
+                EquipmentComponent& equipment = em.equipments[i];
+
+                equipment.rightHandItemId = weaponDef->id;
+                equipment.rightHandToolType = weaponDef->toolType;
+                equipment.rightHandDamage = weaponDef->damage;
+                equipment.equipmentSlot = weaponDef->equipmentSlot;
+            }
+        }
+    } else if (behavior.currentTask == "crafting_weapon") {
+        if (em.hasAIContext[i] && em.hasInventory[i]) {
+            AIContextComponent& context = em.aiContexts[i];
+
+            const EntityID requestId = context.activeRequestId;
+            const std::string itemId = context.requestedCraftItemId.empty() ? behavior.currentItemTarget : context.requestedCraftItemId;
+
+            const std::unordered_map<std::string, int> requirements = GetCraftRequirementsForTask(itemId);
+
+            if (itemId.empty() || requirements.empty() || !AISystemUtils::ConsumeAccessibleMaterials(i, em, spatialGrid, requirements)) {
+                if (requestId < em.active.size() && em.active[requestId] && em.hasVillageRequest[requestId]) {
+                    VillageRequestSystem::CancelRequest(em, requestId);
+                }
+
+                context.activeRequestId = static_cast<EntityID>(-1);
+                context.requestedCraftItemId.clear();
+            } else {
+                em.inventories[i].items[itemId] += 1;
+
+                EntityID storage = FindNearestCompatibleStorage(i, itemId, em, spatialGrid);
+
+                if (storage == static_cast<EntityID>(-1)) {
+                    if (requestId < em.active.size() && em.active[requestId] && em.hasVillageRequest[requestId]) {
+                        VillageRequestSystem::CancelRequest(em, requestId);
+                    }
+
+                    context.activeRequestId = static_cast<EntityID>(-1);
+                    context.requestedCraftItemId.clear();
+                } else if (AreEntitiesAdjacent(i, storage, em)) {
+                    behavior.currentTask = "depositing_crafted_weapon";
+                    behavior.currentJobTarget = storage;
+                    behavior.currentItemTarget = itemId;
+                    behavior.stateTimer = AISystemUtils::DEPOSIT_DURATION;
+                    return;
+                } else {
+                    std::vector<Vector2> path =
+                        Pathfinder::FindPathToAdjacentTile(em.transforms[i].position, em.transforms[storage].position, map, tileReg, em, i);
+
+                    if (path.empty()) {
+                        if (requestId < em.active.size() && em.active[requestId] && em.hasVillageRequest[requestId]) {
+                            VillageRequestSystem::CancelRequest(em, requestId);
+                        }
+
+                        context.activeRequestId = static_cast<EntityID>(-1);
+                        context.requestedCraftItemId.clear();
+                    } else {
+                        behavior.currentTask = "moving_to_crafted_weapon_storage";
+                        behavior.currentJobTarget = storage;
+                        behavior.currentItemTarget = itemId;
+                        behavior.hasJob = true;
+                        behavior.currentPath = std::move(path);
+                        behavior.currentPathIndex = 0;
+                        behavior.currentTarget = behavior.currentPath[0];
+                        behavior.isMoving = true;
+                        behavior.stateTimer = 0.0f;
+                        return;
+                    }
+                }
+            }
+        }
+    } else if (behavior.currentTask == "depositing_crafted_weapon") {
+        if (em.hasAIContext[i] && em.hasInventory[i]) {
+            AIContextComponent& context = em.aiContexts[i];
+
+            const EntityID requestId = context.activeRequestId;
+            const EntityID destination = behavior.currentJobTarget;
+            const std::string itemId = behavior.currentItemTarget.empty() ? context.requestedCraftItemId : behavior.currentItemTarget;
+
+            bool deposited = false;
+
+            if (destination < em.active.size() && em.active[destination] && em.hasInventory[destination] && em.hasStorage[destination] &&
+                !itemId.empty() && AISystemUtils::StorageAcceptsItem(em.storages[destination], itemId) &&
+                AISystemUtils::HasAvailableStorageCapacity(destination, em)) {
+                const int removed = AISystemUtils::RemoveItemFromInventory(em.inventories[i], itemId, 1);
+
+                if (removed > 0) {
+                    em.inventories[destination].items[itemId] += removed;
+                    deposited = true;
+                }
+            }
+
+            if (requestId < em.active.size() && em.active[requestId] && em.hasVillageRequest[requestId]) {
+                if (deposited) {
+                    VillageRequestSystem::CompleteRequest(em, requestId);
+                } else {
+                    VillageRequestSystem::CancelRequest(em, requestId);
+                }
+            }
+
+            context.activeRequestId = static_cast<EntityID>(-1);
+            context.requestedCraftItemId.clear();
         }
     } else if (behavior.currentTask == "attacking") {
         EntityID target = behavior.currentJobTarget;

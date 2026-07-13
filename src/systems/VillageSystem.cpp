@@ -125,6 +125,7 @@ void AddStartingResources(EntityManager& em, EntityID villageCore) {
     inventory.items["WOOD"] += 80;
     inventory.items["STONE"] += 20;
     inventory.items["ROPE"] += 10;
+    inventory.items["IRON_INGOT"] += 10;
     inventory.items["BUSH_BERRY"] += 10;
 }
 

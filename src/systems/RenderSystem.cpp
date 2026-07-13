@@ -245,7 +245,8 @@ void DrawResolvedWorldLabels(const std::vector<WorldLabel>& labels) {
 
 bool IsActionTask(const std::string& task) {
     return task == "building" || task == "dismantling" || task == "harvesting" || task == "attacking" || task == "eating" ||
-           task == "eating_from_storage" || task == "depositing";
+           task == "eating_from_storage" || task == "depositing" || task == "moving_to_haul_source" ||
+           task == "moving_to_haul_destination" || task == "hauling_deposit " || task == " collapsed_sleep ";
 }
 
 int FacingToColumn(SpriteFacing facing) {

@@ -7,6 +7,7 @@
 
 #include "core/Config.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <string>
@@ -100,7 +101,44 @@ EntityID GetHoveredEntity(int hoverX, int hoverY, const EntitySpatialGrid& spati
     return firstEntity;
 }
 
-std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& entityManager, const ResourceRegistry&) {
+int CountInventoryItems(const InventoryComponent& inventory) {
+    int total = 0;
+
+    for (const auto& item : inventory.items) {
+        if (item.second > 0) {
+            total += item.second;
+        }
+    }
+
+    return total;
+}
+
+int CountDistinctInventoryItems(const InventoryComponent& inventory) {
+    int total = 0;
+
+    for (const auto& item : inventory.items) {
+        if (item.second > 0) {
+            total++;
+        }
+    }
+
+    return total;
+}
+
+std::string FormatInventoryItem(const std::string& itemId, int count, const ResourceRegistry& resourceReg) {
+    std::string text = itemId + " x" + std::to_string(count);
+
+    const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
+
+    if (resource != nullptr && resource->isConsumable && resource->nutrition > 0.0f) {
+        const int totalNutrition = static_cast<int>(resource->nutrition * static_cast<float>(count));
+        text += " | food " + std::to_string(totalNutrition);
+    }
+
+    return text;
+}
+
+std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& entityManager, const ResourceRegistry& resourceReg) {
     std::vector<TooltipLine> lines;
 
     // =========================================================
@@ -146,6 +184,10 @@ std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& e
         if (entityManager.hasNeeds[i]) {
             AddBar(lines, "Hunger", entityManager.needs[i].hunger, entityManager.needs[i].maxHunger, ORANGE);
             AddBar(lines, "Fatigue", entityManager.needs[i].fatigue, entityManager.needs[i].maxFatigue, SKYBLUE);
+
+            if (entityManager.needs[i].collapsedFromFatigue) {
+                AddText(lines, "Collapsed from fatigue", RED);
+            }
         }
     }
 
@@ -181,27 +223,77 @@ std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& e
     // Inventory / storage summary
     // =========================================================
     if (entityManager.hasInventory[i]) {
-        int itemCount = 0;
-        int distinctItems = 0;
+        const InventoryComponent& inventory = entityManager.inventories[i];
 
-        for (const auto& item : entityManager.inventories[i].items) {
-            if (item.second <= 0) {
-                continue;
-            }
-
-            itemCount += item.second;
-            distinctItems++;
-        }
+        const int itemCount = CountInventoryItems(inventory);
+        const int distinctItems = CountDistinctInventoryItems(inventory);
 
         if (itemCount > 0 || entityManager.hasStorage[i]) {
             AddHeader(lines, "Inventory");
 
-            AddKV(lines, "Items", std::to_string(itemCount));
+            if (entityManager.hasStorage[i]) {
+                const int capacity = entityManager.storages[i].capacity;
+                AddKV(lines, "Capacity", std::to_string(itemCount) + " / " + std::to_string(capacity));
+            } else {
+                AddKV(lines, "Items", std::to_string(itemCount));
+            }
+
             AddKV(lines, "Types", std::to_string(distinctItems));
 
-            if (entityManager.hasStorage[i]) {
-                AddKV(lines, "Capacity", std::to_string(entityManager.storages[i].capacity));
+            constexpr int MAX_DISPLAYED_ITEMS = 6;
+
+            int displayedItems = 0;
+            int hiddenItems = 0;
+
+            for (const auto& item : inventory.items) {
+                const std::string& itemId = item.first;
+                const int count = item.second;
+
+                if (count <= 0) {
+                    continue;
+                }
+
+                if (displayedItems < MAX_DISPLAYED_ITEMS) {
+                    AddKV(lines, itemId, "x" + std::to_string(count));
+
+                    const ResourceDef* resource = resourceReg.GetResourceDef(itemId);
+
+                    if (resource != nullptr && resource->isConsumable && resource->nutrition > 0.0f) {
+                        const int totalNutrition = static_cast<int>(resource->nutrition * static_cast<float>(count));
+                        AddText(lines, "  food +" + std::to_string(totalNutrition), DARKGREEN);
+                    }
+
+                    displayedItems++;
+                } else {
+                    hiddenItems++;
+                }
             }
+
+            if (hiddenItems > 0) {
+                AddText(lines, "... +" + std::to_string(hiddenItems) + " more item types", GRAY);
+            }
+        }
+    }
+
+    // =========================================================
+    // Equipment
+    // =========================================================
+    if (entityManager.hasEquipment[i]) {
+        const EquipmentComponent& equipment = entityManager.equipments[i];
+
+        if (!equipment.rightHandItemId.empty() || equipment.rightHandDamage > 0.0f) {
+            AddHeader(lines, "Equipment");
+
+            if (!equipment.rightHandItemId.empty()) {
+                AddKV(lines, "Right Hand", equipment.rightHandItemId);
+            }
+
+            if (!equipment.equipmentSlot.empty()) {
+                AddKV(lines, "Slot", equipment.equipmentSlot);
+            }
+
+            AddKV(lines, "Tool Type", equipment.rightHandToolType);
+            AddKV(lines, "Damage", TextFormat("%.0f", equipment.rightHandDamage));
         }
     }
 

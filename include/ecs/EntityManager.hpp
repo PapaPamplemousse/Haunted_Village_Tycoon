@@ -132,6 +132,9 @@ public:
     std::vector<bool> hasBehavior;
     std::vector<BehaviorComponent> behaviors;
 
+    std::vector<bool> hasVillageRequest;
+    std::vector<VillageRequestComponent> villageRequests;
+
     std::vector<bool> hasAIContext;
     std::vector<AIContextComponent> aiContexts;
 
