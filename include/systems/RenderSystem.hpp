@@ -6,11 +6,10 @@
 #pragma once
 
 #include "ecs/EntityManager.hpp"
+#include "graphics/TextureCache.hpp"
 #include "world/EntitySpatialGrid.hpp"
 
 #include <raylib.h>
-#include <string>
-#include <unordered_map>
 
 /**
  * @class RenderSystem
@@ -19,12 +18,8 @@
 class RenderSystem {
 public:
     RenderSystem() = default;
-    ~RenderSystem();
+    ~RenderSystem() = default;
 
-    void Render(const EntityManager& em, const EntitySpatialGrid& spatialGrid, const Camera2D& camera, bool showNames) const;
-
-private:
-    mutable std::unordered_map<std::string, Texture2D> m_textureCache;
-
-    const Texture2D* GetTexture(const std::string& texturePath) const;
+    void Render(const EntityManager& em, const EntitySpatialGrid& spatialGrid, const Camera2D& camera, bool showNames, int seasonIndex,
+                TextureCache& textureCache) const;
 };

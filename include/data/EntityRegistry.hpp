@@ -47,11 +47,17 @@ struct EntityDef {
     Color color;
     float spriteWidth = 32.0f;
     float spriteHeight = 32.0f;
+
     bool useSpriteSheet = false;
+    SpriteSheetMode spriteSheetMode = SpriteSheetMode::None;
+
     int spriteSheetColumns = 1;
     int spriteSheetRows = 1;
+
     float spriteFrameWidth = 0.0f;
     float spriteFrameHeight = 0.0f;
+
+    float spriteColumnGap = 0.0f;
     float spriteRowGap = 0.0f;
 
     std::vector<std::string> spriteVariantsMale;

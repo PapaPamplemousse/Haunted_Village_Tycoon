@@ -46,29 +46,44 @@ enum class SpriteFacing { Down, Up, Right, Left };
 
 enum class SpritePose { Normal, Action };
 
+enum class SpriteSheetMode { None, DirectionalAction, FurnitureState, Seasonal };
+
 /**
  * @struct SpriteComponent
- * @brief Holds visual data for rendering. Supports primitive shapes for prototyping and texture paths for final assets.
+ * @brief Holds visual data for rendering. Supports primitive shapes and spritesheets.
  */
 struct SpriteComponent {
-    std::string texturePath = "square"; // Can be "square", "circle", "triangle", or a path like "assets/hero.png"
-    Color tint = WHITE;                 // The color of the shape or the tint of the texture
+    std::string texturePath = "square";
+
+    Color tint = WHITE;
+
+    // Rendered size in world pixels.
     float width = 32.0f;
     float height = 32.0f;
-    bool isAnimated = false; // If true, applies a mathematical idle bounce effect
 
+    bool isAnimated = false;
+
+    // Spritesheet mode.
     bool useSpriteSheet = false;
+    SpriteSheetMode sheetMode = SpriteSheetMode::None;
+
     int sheetColumns = 1;
     int sheetRows = 1;
 
     float frameWidth = 0.0f;
     float frameHeight = 0.0f;
 
-    // Gap in pixels between rows in the source image.
+    // Optional gaps in source pixels.
+    float columnGap = 0.0f;
     float rowGap = 0.0f;
 
+    // Entity directional/action state.
     SpriteFacing facing = SpriteFacing::Down;
     SpritePose pose = SpritePose::Normal;
+
+    // Generic state for furniture/light/etc.
+    // This can be toggled later by LightSystem, AI, interaction, etc.
+    bool isInUse = false;
 };
 
 // =========================================================

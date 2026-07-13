@@ -23,6 +23,7 @@
 #include "data/WeaponRegistry.hpp"
 #include "debug/InspectionSystem.hpp"
 #include "ecs/EntityManager.hpp"
+#include "graphics/TextureCache.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/BuildPlacementSystem.hpp"
 #include "systems/ChronicleRenderSystem.hpp"
@@ -104,4 +105,7 @@ private:
     InputManager m_inputManager;
     UIManager m_uiManager;
     VillageMenu m_villageMenu;
+
+    // cache
+    TextureCache m_textureCache;
 };

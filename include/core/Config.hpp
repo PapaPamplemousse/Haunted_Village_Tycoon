@@ -42,6 +42,20 @@ constexpr float FATIGUE_REST_RECOVERY_PER_SECOND = 4.0f;
 constexpr float FATIGUE_REST_THRESHOLD_RATIO = 0.70f;
 constexpr float FATIGUE_FULLY_RESTED_RATIO = 0.15f;
 
+// --- Social ---
+
+constexpr float SOCIAL_UPDATE_INTERVAL = 1.0f;
+
+constexpr float SOCIAL_RADIUS_TILES = 4.0f;
+
+constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 1.0f;
+constexpr float ROMANCE_GAIN_PER_UPDATE = 0.35f;
+
+constexpr float FRIENDSHIP_THRESHOLD = 50.0f;
+constexpr float ROMANCE_THRESHOLD = 70.0f;
+
+constexpr int ADULT_AGE = 16;
+
 // --- Spatial Optimization ---
 constexpr int SPATIAL_CELL_SIZE_TILES = 16;
 constexpr int RENDER_ENTITY_MARGIN_TILES = 4;

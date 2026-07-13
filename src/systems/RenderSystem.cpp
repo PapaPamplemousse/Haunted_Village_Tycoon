@@ -270,43 +270,69 @@ SpritePose GetVisualPose(EntityID entity, const EntityManager& em, const SpriteC
 
     return IsActionTask(em.behaviors[entity].currentTask) ? SpritePose::Action : SpritePose::Normal;
 }
+bool IsEntityUsingFurniture(EntityID furniture, const EntityManager& em) {
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!em.active[entity] || !em.hasBehavior[entity]) {
+            continue;
+        }
 
-} // namespace
+        const BehaviorComponent& behavior = em.behaviors[entity];
 
-RenderSystem::~RenderSystem() {
-    for (auto& pair : m_textureCache) {
-        if (pair.second.id != 0) {
-            UnloadTexture(pair.second);
+        if (behavior.currentJobTarget != furniture) {
+            continue;
+        }
+
+        if (behavior.currentTask == "building" || behavior.currentTask == "dismantling" || behavior.currentTask == "depositing" ||
+            behavior.currentTask == "eating_from_storage" || behavior.currentTask == "resting" || behavior.currentTask == "harvesting") {
+            return true;
         }
     }
 
-    m_textureCache.clear();
+    return false;
 }
 
-const Texture2D* RenderSystem::GetTexture(const std::string& texturePath) const {
-    if (texturePath.empty() || texturePath == "square" || texturePath == "circle" || texturePath == "triangle") {
-        return nullptr;
+bool IsFurnitureInUse(EntityID entity, const EntityManager& em, const SpriteComponent& sprite) {
+    if (sprite.isInUse) {
+        return true;
     }
 
-    auto it = m_textureCache.find(texturePath);
-
-    if (it != m_textureCache.end()) {
-        return &it->second;
+    if (entity < em.active.size() && em.active[entity] && em.hasRestSpot[entity]) {
+        return !em.restSpots[entity].occupants.empty();
     }
 
-    Texture2D texture = LoadTexture(texturePath.c_str());
-
-    if (texture.id == 0) {
-        return nullptr;
-    }
-
-    SetTextureFilter(texture, TEXTURE_FILTER_POINT);
-
-    auto inserted = m_textureCache.emplace(texturePath, texture);
-    return &inserted.first->second;
+    return IsEntityUsingFurniture(entity, em);
 }
 
-void RenderSystem::Render(const EntityManager& em, const EntitySpatialGrid& spatialGrid, const Camera2D& camera, bool showNames) const {
+int GetSpriteSheetColumn(EntityID entity, const EntityManager& em, const SpriteComponent& sprite, int seasonIndex) {
+    switch (sprite.sheetMode) {
+        case SpriteSheetMode::DirectionalAction:
+            return FacingToColumn(sprite.facing);
+
+        case SpriteSheetMode::FurnitureState:
+            return IsFurnitureInUse(entity, em, sprite) ? 1 : 0;
+
+        case SpriteSheetMode::Seasonal:
+            return std::max(0, std::min(sprite.sheetColumns - 1, seasonIndex));
+
+        default:
+            return 0;
+    }
+}
+
+int GetSpriteSheetRow(EntityID entity, const EntityManager& em, const SpriteComponent& sprite) {
+    if (sprite.sheetMode != SpriteSheetMode::DirectionalAction) {
+        return 0;
+    }
+
+    const SpritePose pose = GetVisualPose(entity, em, sprite);
+
+    return pose == SpritePose::Action ? 1 : 0;
+}
+
+} // namespace
+
+void RenderSystem::Render(const EntityManager& em, const EntitySpatialGrid& spatialGrid, const Camera2D& camera, bool showNames,
+                          int seasonIndex, TextureCache& textureCache) const {
     double time = GetTime();
 
     Vector2 topLeft = GetScreenToWorld2D({0, 0}, camera);
@@ -340,27 +366,28 @@ void RenderSystem::Render(const EntityManager& em, const EntitySpatialGrid& spat
         }
 
         if (sprite.useSpriteSheet) {
-            const Texture2D* texture = GetTexture(sprite.texturePath);
+            const Texture2D* texture = textureCache.GetTexture(sprite.texturePath);
 
             if (texture != nullptr) {
                 const int columns = std::max(1, sprite.sheetColumns);
                 const int rows = std::max(1, sprite.sheetRows);
 
-                const float frameWidth =
-                    sprite.frameWidth > 0.0f ? sprite.frameWidth : static_cast<float>(texture->width) / static_cast<float>(columns);
+                const int col = std::max(0, std::min(columns - 1, GetSpriteSheetColumn(i, em, sprite, seasonIndex)));
+
+                const int row = std::max(0, std::min(rows - 1, GetSpriteSheetRow(i, em, sprite)));
+
+                const float frameWidth = sprite.frameWidth > 0.0f
+                                             ? sprite.frameWidth
+                                             : (static_cast<float>(texture->width) - sprite.columnGap * static_cast<float>(columns - 1)) /
+                                                   static_cast<float>(columns);
 
                 const float frameHeight =
                     sprite.frameHeight > 0.0f
                         ? sprite.frameHeight
                         : (static_cast<float>(texture->height) - sprite.rowGap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
 
-                const SpritePose pose = GetVisualPose(i, em, sprite);
-
-                const int col = std::max(0, std::min(columns - 1, FacingToColumn(sprite.facing)));
-                const int row = std::max(0, std::min(rows - 1, pose == SpritePose::Action ? 1 : 0));
-
-                const Rectangle source = {static_cast<float>(col) * frameWidth, static_cast<float>(row) * (frameHeight + sprite.rowGap),
-                                          frameWidth, frameHeight};
+                const Rectangle source = {static_cast<float>(col) * (frameWidth + sprite.columnGap),
+                                          static_cast<float>(row) * (frameHeight + sprite.rowGap), frameWidth, frameHeight};
 
                 const Rectangle destination = {drawPos.x, drawPos.y, sprite.width, sprite.height};
 

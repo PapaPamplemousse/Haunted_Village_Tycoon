@@ -36,6 +36,17 @@ struct FurnitureDef {
     /* Graphics */
     std::string texturePath;
     Color color;
+    bool useSpriteSheet = false;
+    SpriteSheetMode spriteSheetMode = SpriteSheetMode::None;
+
+    int spriteSheetColumns = 1;
+    int spriteSheetRows = 1;
+
+    float spriteFrameWidth = 0.0f;
+    float spriteFrameHeight = 0.0f;
+
+    float spriteColumnGap = 0.0f;
+    float spriteRowGap = 0.0f;
 
     // size of the sprite in pixels (for rendering)
     float spriteWidth = 32.0f;

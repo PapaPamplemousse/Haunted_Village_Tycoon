@@ -4,19 +4,37 @@
  * @author Hugo Reif Faudemer (PapaPamplemousse)
  */
 #pragma once
+
+#include "ecs/Components.hpp"
+
 #include <raylib.h>
 #include <string>
 #include <unordered_map>
 
 /**
  * @struct TileDef
- * @brief Blueprint of a map tile loaded from tiles.stv
+ * @brief Blueprint of a map tile loaded from tiles.stv.
  */
 struct TileDef {
-    int id;
+    int id = -1;
     std::string name;
-    bool walkable;
-    Color color;
+    bool walkable = true;
+    Color color = MAGENTA;
+
+    // Optional texture / spritesheet rendering.
+    std::string texturePath = "";
+
+    bool useSpriteSheet = false;
+    SpriteSheetMode spriteSheetMode = SpriteSheetMode::None;
+
+    int spriteSheetColumns = 1;
+    int spriteSheetRows = 1;
+
+    float spriteFrameWidth = 0.0f;
+    float spriteFrameHeight = 0.0f;
+
+    float spriteColumnGap = 0.0f;
+    float spriteRowGap = 0.0f;
 };
 
 /**
@@ -39,6 +57,4 @@ public:
 private:
     std::unordered_map<int, TileDef> m_tiles;
     std::unordered_map<std::string, int> m_stringToIdMap;
-
-    Color ParseColor(const std::string& value);
 };

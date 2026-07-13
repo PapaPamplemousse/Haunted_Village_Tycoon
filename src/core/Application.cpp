@@ -313,6 +313,8 @@ Application::Application()
 }
 
 Application::~Application() {
+    m_textureCache.Clear();
+
     CloseAudioDevice();
     CloseWindow();
 }
@@ -385,11 +387,10 @@ void Application::Render() {
 
     BeginMode2D(camera);
 
-    m_worldRenderSystem.Render(m_entityManager, m_worldMap, m_tileRegistry, camera, hoverX, hoverY, showNames);
+    m_worldRenderSystem.Render(m_entityManager, m_worldMap, m_tileRegistry, camera, hoverX, hoverY, showNames,
+                               m_timeSystem.GetSeasonIndex(), m_textureCache);
 
-    m_renderSystem.Render(m_entityManager, m_spatialGrid, camera, showNames);
-
-    // m_worldRenderSystem.ShowName(m_entityManager, camera, showNames);
+    m_renderSystem.Render(m_entityManager, m_spatialGrid, camera, showNames, m_timeSystem.GetSeasonIndex(), m_textureCache);
 
     EndMode2D();
 

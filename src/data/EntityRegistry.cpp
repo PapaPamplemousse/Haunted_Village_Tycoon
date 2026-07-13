@@ -215,6 +215,24 @@ std::vector<DropEntry> ParseDrops(const std::string& value) {
     return drops;
 }
 
+SpriteSheetMode ParseSpriteSheetMode(const std::string& value) {
+    const std::string mode = Trim(value);
+
+    if (mode == "directional_action") {
+        return SpriteSheetMode::DirectionalAction;
+    }
+
+    if (mode == "furniture_state") {
+        return SpriteSheetMode::FurnitureState;
+    }
+
+    if (mode == "seasonal") {
+        return SpriteSheetMode::Seasonal;
+    }
+
+    return SpriteSheetMode::None;
+}
+
 } // namespace
 
 bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
@@ -313,8 +331,8 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
         }
 
         if (block.properties.count("sprite_mode")) {
-            const std::string mode = Trim(block.properties.at("sprite_mode"));
-            def.useSpriteSheet = mode == "spritesheet";
+            def.spriteSheetMode = ParseSpriteSheetMode(block.properties.at("sprite_mode"));
+            def.useSpriteSheet = def.spriteSheetMode != SpriteSheetMode::None;
         }
 
         if (block.properties.count("sprite_sheet_columns")) {
@@ -323,6 +341,10 @@ bool EntityRegistry::LoadFromSTV(const std::string& filepath) {
 
         if (block.properties.count("sprite_sheet_rows")) {
             def.spriteSheetRows = std::stoi(Trim(block.properties.at("sprite_sheet_rows")));
+        }
+
+        if (block.properties.count("sprite_column_gap")) {
+            def.spriteColumnGap = std::stof(Trim(block.properties.at("sprite_column_gap")));
         }
 
         if (block.properties.count("sprite_row_gap")) {
@@ -436,13 +458,16 @@ EntityID EntityRegistry::SpawnEntity(EntityManager& em, const std::string& prefa
     em.sprites[id] = {selectedTexturePath, def.color, def.spriteWidth, def.spriteHeight, true};
 
     em.sprites[id].useSpriteSheet = def.useSpriteSheet;
+    em.sprites[id].sheetMode = def.spriteSheetMode;
     em.sprites[id].sheetColumns = std::max(1, def.spriteSheetColumns);
     em.sprites[id].sheetRows = std::max(1, def.spriteSheetRows);
     em.sprites[id].frameWidth = def.spriteFrameWidth;
     em.sprites[id].frameHeight = def.spriteFrameHeight;
+    em.sprites[id].columnGap = def.spriteColumnGap;
     em.sprites[id].rowGap = def.spriteRowGap;
     em.sprites[id].facing = SpriteFacing::Down;
     em.sprites[id].pose = SpritePose::Normal;
+    em.sprites[id].isInUse = false;
 
     // 6. Stats
     em.hasStats[id] = true;

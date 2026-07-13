@@ -12,6 +12,8 @@
 #include <sstream>
 #include <vector>
 
+namespace {
+
 static std::string Trim(const std::string& value) {
     const size_t first = value.find_first_not_of(" \t\r\n");
 
@@ -23,7 +25,25 @@ static std::string Trim(const std::string& value) {
     return value.substr(first, last - first + 1);
 }
 
-static std::vector<std::string> ParseStringList(const std::string& value) {
+SpriteSheetMode ParseSpriteSheetMode(const std::string& value) {
+    const std::string mode = Trim(value);
+
+    if (mode == "directional_action") {
+        return SpriteSheetMode::DirectionalAction;
+    }
+
+    if (mode == "furniture_state") {
+        return SpriteSheetMode::FurnitureState;
+    }
+
+    if (mode == "seasonal") {
+        return SpriteSheetMode::Seasonal;
+    }
+
+    return SpriteSheetMode::None;
+}
+
+std::vector<std::string> ParseStringList(const std::string& value) {
     std::vector<std::string> result;
 
     std::stringstream ss(value);
@@ -40,14 +60,16 @@ static std::vector<std::string> ParseStringList(const std::string& value) {
     return result;
 }
 
-static Color ParseColor(const std::string& value) {
+Color ParseColor(const std::string& value) {
     Color c = {255, 255, 255, 255};
     std::stringstream ss(value);
     std::string token;
     int i = 0;
     while (std::getline(ss, token, ',')) {
+        token = Trim(token);
+
         if (i == 0)
-            c.r = (unsigned char)std::stoi(token);
+            c.r = static_cast<unsigned char>(std::stoi(token));
         else if (i == 1)
             c.g = (unsigned char)std::stoi(token);
         else if (i == 2)
@@ -58,6 +80,8 @@ static Color ParseColor(const std::string& value) {
     }
     return c;
 }
+
+} // namespace
 
 bool FurnitureRegistry::LoadFromSTV(const std::string& filepath) {
     auto blocks = STVParser::Parse(filepath);
@@ -122,6 +146,40 @@ bool FurnitureRegistry::LoadFromSTV(const std::string& filepath) {
                 def.spriteHeight = std::stof(token);
         }
 
+        if (block.properties.count("sprite_mode")) {
+            def.spriteSheetMode = ParseSpriteSheetMode(block.properties.at("sprite_mode"));
+            def.useSpriteSheet = def.spriteSheetMode != SpriteSheetMode::None;
+        }
+
+        if (block.properties.count("sprite_sheet_columns")) {
+            def.spriteSheetColumns = std::stoi(Trim(block.properties.at("sprite_sheet_columns")));
+        }
+
+        if (block.properties.count("sprite_sheet_rows")) {
+            def.spriteSheetRows = std::stoi(Trim(block.properties.at("sprite_sheet_rows")));
+        }
+
+        if (block.properties.count("sprite_column_gap")) {
+            def.spriteColumnGap = std::stof(Trim(block.properties.at("sprite_column_gap")));
+        }
+
+        if (block.properties.count("sprite_row_gap")) {
+            def.spriteRowGap = std::stof(Trim(block.properties.at("sprite_row_gap")));
+        }
+
+        if (block.properties.count("sprite_frame_size")) {
+            std::stringstream ss(block.properties.at("sprite_frame_size"));
+            std::string token;
+
+            if (std::getline(ss, token, ',')) {
+                def.spriteFrameWidth = std::stof(Trim(token));
+            }
+
+            if (std::getline(ss, token, ',')) {
+                def.spriteFrameHeight = std::stof(Trim(token));
+            }
+        }
+
         m_templates[block.id] = def;
     }
 
@@ -176,6 +234,16 @@ EntityID FurnitureRegistry::SpawnFurniture(EntityManager& em, const std::string&
     // 5. Visual Representation
     em.hasSprite[id] = true;
     em.sprites[id] = {def.texturePath, def.color, def.spriteWidth, def.spriteHeight, false};
+
+    em.sprites[id].useSpriteSheet = def.useSpriteSheet;
+    em.sprites[id].sheetMode = def.spriteSheetMode;
+    em.sprites[id].sheetColumns = std::max(1, def.spriteSheetColumns);
+    em.sprites[id].sheetRows = std::max(1, def.spriteSheetRows);
+    em.sprites[id].frameWidth = def.spriteFrameWidth;
+    em.sprites[id].frameHeight = def.spriteFrameHeight;
+    em.sprites[id].columnGap = def.spriteColumnGap;
+    em.sprites[id].rowGap = def.spriteRowGap;
+    em.sprites[id].isInUse = false;
 
     std::string typeStr = asBlueprint ? "Blueprint Plan" : "Completed Facility";
     std::cout << "[ECS] Spawned Furniture [" << typeStr << "]: " << def.name << " at Position (" << position.x << ", " << position.y << ")"

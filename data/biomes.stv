@@ -23,7 +23,7 @@ type = climate
 temperature_range = 10, 25
 humidity_range = 60, 100
 base_tile = GRASS_LUSH
-flora = TREE_OAK:0.65, BUSH_BERRY:0.55
+flora = TREE_OAK:0.70, BUSH_BERRY:0.60
 
 [SWAMP]
 name = Fetid Swamp

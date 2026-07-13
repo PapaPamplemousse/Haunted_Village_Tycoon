@@ -9,11 +9,34 @@
 
 #include <algorithm>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
+namespace {
+
+int GetTileSpriteColumn(const TileDef& tile, int seasonIndex) {
+    if (!tile.useSpriteSheet) {
+        return 0;
+    }
+
+    if (tile.spriteSheetMode == SpriteSheetMode::Seasonal) {
+        return std::max(0, std::min(tile.spriteSheetColumns - 1, seasonIndex));
+    }
+
+    return 0;
+}
+
+int GetTileSpriteRow(const TileDef&) {
+    return 0;
+}
+
+void DrawTileFallback(int x, int y, Color color) {
+    DrawRectangle(x * Config::TILE_SIZE, y * Config::TILE_SIZE, Config::TILE_SIZE - 1, Config::TILE_SIZE - 1, color);
+}
+
+} // namespace
+
 void WorldRenderSystem::Render(const EntityManager& entityManager, const WorldMap& worldMap, const TileRegistry& tileRegistry,
-                               const Camera2D& camera, int hoverX, int hoverY, bool showNames) const {
+                               const Camera2D& camera, int hoverX, int hoverY, bool, int seasonIndex, TextureCache& textureCache) const {
     Vector2 topLeft = GetScreenToWorld2D({0, 0}, camera);
     Vector2 bottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
 
@@ -29,9 +52,42 @@ void WorldRenderSystem::Render(const EntityManager& entityManager, const WorldMa
         for (int x = startX; x < endX; ++x) {
             const int tileId = worldMap.GetTile(x, y);
             const TileDef* def = tileRegistry.GetTileDef(tileId);
-            const Color color = def ? def->color : MAGENTA;
 
-            DrawRectangle(x * Config::TILE_SIZE, y * Config::TILE_SIZE, Config::TILE_SIZE - 1, Config::TILE_SIZE - 1, color);
+            if (def == nullptr) {
+                DrawTileFallback(x, y, MAGENTA);
+                continue;
+            }
+
+            const Texture2D* texture = textureCache.GetTexture(def->texturePath);
+
+            if (texture == nullptr || !def->useSpriteSheet) {
+                DrawTileFallback(x, y, def->color);
+                continue;
+            }
+
+            const int columns = std::max(1, def->spriteSheetColumns);
+            const int rows = std::max(1, def->spriteSheetRows);
+
+            const float frameWidth = def->spriteFrameWidth > 0.0f
+                                         ? def->spriteFrameWidth
+                                         : (static_cast<float>(texture->width) - def->spriteColumnGap * static_cast<float>(columns - 1)) /
+                                               static_cast<float>(columns);
+
+            const float frameHeight =
+                def->spriteFrameHeight > 0.0f
+                    ? def->spriteFrameHeight
+                    : (static_cast<float>(texture->height) - def->spriteRowGap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
+
+            const int col = std::max(0, std::min(columns - 1, GetTileSpriteColumn(*def, seasonIndex)));
+            const int row = std::max(0, std::min(rows - 1, GetTileSpriteRow(*def)));
+
+            const Rectangle source = {static_cast<float>(col) * (frameWidth + def->spriteColumnGap),
+                                      static_cast<float>(row) * (frameHeight + def->spriteRowGap), frameWidth, frameHeight};
+
+            const Rectangle destination = {static_cast<float>(x * Config::TILE_SIZE), static_cast<float>(y * Config::TILE_SIZE),
+                                           static_cast<float>(Config::TILE_SIZE), static_cast<float>(Config::TILE_SIZE)};
+
+            DrawTexturePro(*texture, source, destination, {0.0f, 0.0f}, 0.0f, WHITE);
         }
     }
 
@@ -61,103 +117,6 @@ void WorldRenderSystem::Render(const EntityManager& entityManager, const WorldMa
 
             DrawRectangle(static_cast<int>(tile.x * Config::TILE_SIZE), static_cast<int>(tile.y * Config::TILE_SIZE), Config::TILE_SIZE,
                           Config::TILE_SIZE, roomTint);
-        }
-    }
-}
-
-void WorldRenderSystem::ShowName(const EntityManager& entityManager, const Camera2D& camera, bool showNames) const {
-    // ==========================================================
-    // ROOM LABELS, TAB
-    // ==========================================================
-    if (!showNames) {
-        return;
-    }
-
-    Vector2 topLeft = GetScreenToWorld2D({0, 0}, camera);
-    Vector2 bottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
-
-    for (size_t i = 0; i < entityManager.active.size(); ++i) {
-        if (!entityManager.active[i] || !entityManager.hasRoom[i]) {
-            continue;
-        }
-
-        const auto& room = entityManager.rooms[i];
-
-        if (room.floorTiles.empty()) {
-            continue;
-        }
-
-        float sumX = 0.0f;
-        float sumY = 0.0f;
-
-        for (const Vector2& tile : room.floorTiles) {
-            sumX += tile.x;
-            sumY += tile.y;
-        }
-
-        const float centerX = (sumX / static_cast<float>(room.floorTiles.size())) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
-        const float centerY = (sumY / static_cast<float>(room.floorTiles.size())) * Config::TILE_SIZE + (Config::TILE_SIZE / 2.0f);
-
-        if (centerX < topLeft.x || centerX > bottomRight.x || centerY < topLeft.y || centerY > bottomRight.y) {
-            continue;
-        }
-
-        const std::string roomName = room.name;
-        const int nameFontSize = 30;
-        const int jobFontSize = 20;
-        const int padding = 6;
-        const int lineSpacing = 4;
-
-        int maxWidth = MeasureText(roomName.c_str(), nameFontSize);
-        int totalHeight = nameFontSize;
-
-        std::vector<std::string> jobLines;
-
-        if (entityManager.hasWorkplace[i]) {
-            const auto& workplace = entityManager.workplaces[i];
-            std::unordered_map<std::string, std::pair<int, int>> slots;
-
-            for (const auto& slot : workplace.slots) {
-                slots[slot.profession].second++;
-
-                if (slot.workerId != static_cast<EntityID>(-1)) {
-                    slots[slot.profession].first++;
-                }
-            }
-
-            for (const auto& pair : slots) {
-                const std::string jobStr =
-                    pair.first + " : " + std::to_string(pair.second.first) + " / " + std::to_string(pair.second.second);
-                jobLines.push_back(jobStr);
-
-                const int jobWidth = MeasureText(jobStr.c_str(), jobFontSize);
-                if (jobWidth > maxWidth) {
-                    maxWidth = jobWidth;
-                }
-
-                totalHeight += jobFontSize + lineSpacing;
-            }
-        }
-
-        const float boxX = centerX - maxWidth / 2.0f;
-        const float boxY = centerY - totalHeight / 2.0f;
-
-        const Color textColor = (room.structureId == "EMPTY_ROOM") ? LIGHTGRAY : GOLD;
-
-        DrawRectangle(boxX - padding, boxY - padding, maxWidth + padding * 2, totalHeight + padding * 2, ColorAlpha(BLACK, 0.8f));
-
-        const int roomNameWidth = MeasureText(roomName.c_str(), nameFontSize);
-
-        DrawText(roomName.c_str(), static_cast<int>(boxX + (maxWidth - roomNameWidth) / 2.0f), static_cast<int>(boxY), nameFontSize,
-                 textColor);
-
-        float currentY = boxY + nameFontSize + lineSpacing;
-
-        for (const std::string& jobStr : jobLines) {
-            const int jobWidth = MeasureText(jobStr.c_str(), jobFontSize);
-            DrawText(jobStr.c_str(), static_cast<int>(boxX + (maxWidth - jobWidth) / 2.0f), static_cast<int>(currentY), jobFontSize,
-                     LIGHTGRAY);
-            currentY += jobFontSize + lineSpacing;
         }
     }
 }

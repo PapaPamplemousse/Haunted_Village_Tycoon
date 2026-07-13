@@ -5,9 +5,14 @@ grid_size = 1, 1
 interaction_type = cook
 storage_capacity = 0
 blueprint_cost = WOOD:4, STONE:2
-texture = square
-color = 220, 100, 30, 255
+texture = assets/furniture/campfire.png
+color = 255, 255, 255, 255
 sprite_size = 32, 32
+sprite_mode = furniture_state
+sprite_sheet_columns = 2
+sprite_sheet_rows = 1
+sprite_column_gap = 0
+sprite_row_gap = 0
 
 [WOOD_CHEST]
 name = Wooden Chest
@@ -51,11 +56,14 @@ max_hp = 200
 grid_size = 1, 1
 interaction_type = village_core, store
 storage_capacity = 500
-filter = WOOD, STONE, ROPE, BUSH_BERRY, RAW_MEAT, FLESH, WATER_BOTTLE
 blueprint_cost =
-texture = square
+texture = assets/furniture/village-core.png
 color = 255, 220, 120, 255
-sprite_size = 40, 40
+sprite_size = 32, 32
+sprite_mode = furniture_state
+sprite_sheet_columns = 1
+sprite_sheet_rows = 1
+
 
 [STRAW_BED]
 name = Straw Bed
@@ -75,17 +83,24 @@ grid_size = 1, 1
 interaction_type = rest
 rest_capacity = 1
 blueprint_cost = WOOD:6, ROPE:2
-texture = square
-color = 120, 90, 180, 255
+texture = assets/furniture/small-bed.png
+color = 255, 255, 255, 255
 sprite_size = 32, 32
+sprite_mode = furniture_state
+sprite_sheet_columns = 2
+sprite_sheet_rows = 1
 
 [DOUBLE_BED]
 name = Double Bed
 max_hp = 80
-grid_size = 2, 1
+grid_size = 1, 1
 interaction_type = rest
 rest_capacity = 2
 blueprint_cost = WOOD:12, ROPE:4
 texture = square
+texture = assets/furniture/double-bed.png
 color = 100, 80, 160, 255
-sprite_size = 64, 32
+sprite_size = 32, 32
+sprite_mode = furniture_state
+sprite_sheet_columns = 1
+sprite_sheet_rows = 1

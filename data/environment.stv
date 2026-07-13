@@ -5,6 +5,14 @@ grid_size = 1, 1
 is_obstacle = true
 harvest_tool = axe
 drops = WOOD:3:1.0
+texture = assets/environment/tree-oak.png
+color = 255, 255, 255, 255
+sprite_size = 32, 32
+sprite_mode = seasonal
+sprite_sheet_columns = 4
+sprite_sheet_rows = 1
+sprite_column_gap = 0
+sprite_row_gap = 0
 
 [BUSH_BERRY]
 name = Berry Bush
@@ -13,3 +21,9 @@ grid_size = 1, 1
 is_obstacle = false
 harvest_tool = none
 drops = BUSH_BERRY:2:0.5
+texture = assets/environment/bush-berry.png
+color = 255, 255, 255, 255
+sprite_size = 16, 16
+sprite_mode = seasonal
+sprite_sheet_columns = 4
+sprite_sheet_rows = 1

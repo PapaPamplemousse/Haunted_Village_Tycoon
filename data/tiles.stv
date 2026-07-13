@@ -27,6 +27,12 @@ id = 4
 name = Lush Grass
 walkable = true
 color = 50, 150, 50, 255
+# texture = assets/tiles/grass-lush.png
+# sprite_mode = seasonal
+# sprite_sheet_columns = 4
+# sprite_sheet_rows = 1
+# sprite_column_gap = 30
+# sprite_row_gap = 0
 
 [LAVA]
 id = 5

@@ -13,23 +13,6 @@
 
 namespace {
 
-constexpr float SOCIAL_UPDATE_INTERVAL = 1.0f;
-
-// constexpr float SOCIAL_RADIUS_TILES = 4.0f;
-
-// constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 1.0f;
-// constexpr float ROMANCE_GAIN_PER_UPDATE = 0.35f;
-
-constexpr float SOCIAL_RADIUS_TILES = 40.0f;
-
-constexpr float FRIENDSHIP_GAIN_PER_UPDATE = 4.0f;
-constexpr float ROMANCE_GAIN_PER_UPDATE = 2.0f;
-
-constexpr float FRIENDSHIP_THRESHOLD = 50.0f;
-constexpr float ROMANCE_THRESHOLD = 70.0f;
-
-constexpr int ADULT_AGE = 16;
-
 std::string GetDisplayName(const EntityManager& em, EntityID entity) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasTag[entity]) {
         return "Unknown";
@@ -66,7 +49,7 @@ bool AreSameVillage(const EntityManager& em, EntityID a, EntityID b) {
 }
 
 bool IsAdult(const EntityManager& em, EntityID entity) {
-    return entity < em.active.size() && em.active[entity] && em.hasTag[entity] && em.tags[entity].age >= ADULT_AGE;
+    return entity < em.active.size() && em.active[entity] && em.hasTag[entity] && em.tags[entity].age >= Config::ADULT_AGE;
 }
 
 bool HasPartner(const EntityManager& em, EntityID entity) {
@@ -139,10 +122,10 @@ void UpdateRelationshipPair(EntityManager& em, EntityID a, EntityID b) {
     RelationshipEntry& relAB = GetOrCreateRelationship(em, a, b);
     RelationshipEntry& relBA = GetOrCreateRelationship(em, b, a);
 
-    relAB.friendship = std::min(100.0f, relAB.friendship + FRIENDSHIP_GAIN_PER_UPDATE);
-    relBA.friendship = std::min(100.0f, relBA.friendship + FRIENDSHIP_GAIN_PER_UPDATE);
+    relAB.friendship = std::min(100.0f, relAB.friendship + Config::FRIENDSHIP_GAIN_PER_UPDATE);
+    relBA.friendship = std::min(100.0f, relBA.friendship + Config::FRIENDSHIP_GAIN_PER_UPDATE);
 
-    if (relAB.friendship >= FRIENDSHIP_THRESHOLD && !relAB.friendshipAnnounced) {
+    if (relAB.friendship >= Config::FRIENDSHIP_THRESHOLD && !relAB.friendshipAnnounced) {
         relAB.friendshipAnnounced = true;
         relBA.friendshipAnnounced = true;
 
@@ -153,14 +136,14 @@ void UpdateRelationshipPair(EntityManager& em, EntityID a, EntityID b) {
         return;
     }
 
-    if (relAB.friendship < FRIENDSHIP_THRESHOLD || relBA.friendship < FRIENDSHIP_THRESHOLD) {
+    if (relAB.friendship < Config::FRIENDSHIP_THRESHOLD || relBA.friendship < Config::FRIENDSHIP_THRESHOLD) {
         return;
     }
 
-    relAB.romance = std::min(100.0f, relAB.romance + ROMANCE_GAIN_PER_UPDATE);
-    relBA.romance = std::min(100.0f, relBA.romance + ROMANCE_GAIN_PER_UPDATE);
+    relAB.romance = std::min(100.0f, relAB.romance + Config::ROMANCE_GAIN_PER_UPDATE);
+    relBA.romance = std::min(100.0f, relBA.romance + Config::ROMANCE_GAIN_PER_UPDATE);
 
-    if (relAB.romance >= ROMANCE_THRESHOLD && !relAB.romanceAnnounced) {
+    if (relAB.romance >= Config::ROMANCE_THRESHOLD && !relAB.romanceAnnounced) {
         relAB.romanceAnnounced = true;
         relBA.romanceAnnounced = true;
 
@@ -173,13 +156,13 @@ void UpdateRelationshipPair(EntityManager& em, EntityID a, EntityID b) {
 void SocialSystem::Update(float deltaTime, EntityManager& em, const EntitySpatialGrid& spatialGrid) {
     m_updateAccumulator += deltaTime;
 
-    if (m_updateAccumulator < SOCIAL_UPDATE_INTERVAL) {
+    if (m_updateAccumulator < Config::SOCIAL_UPDATE_INTERVAL) {
         return;
     }
 
     m_updateAccumulator = 0.0f;
 
-    const float radiusWorld = SOCIAL_RADIUS_TILES * Config::TILE_SIZE;
+    const float radiusWorld = Config::SOCIAL_RADIUS_TILES * Config::TILE_SIZE;
 
     for (EntityID a = 0; a < em.active.size(); ++a) {
         if (!IsValidSocialHuman(em, a)) {
