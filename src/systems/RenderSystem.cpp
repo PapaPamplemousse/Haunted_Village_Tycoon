@@ -247,7 +247,7 @@ bool IsActionTask(const std::string& task) {
     return task == "building" || task == "dismantling" || task == "harvesting" || task == "attacking" || task == "eating" ||
            task == "eating_from_storage" || task == "depositing" || task == "moving_to_haul_source" ||
            task == "moving_to_haul_destination" || task == "hauling_deposit " || task == " collapsed_sleep " || task == "socializing" ||
-           task == "confronting_person";
+           task == "confronting_person" || task == "intimidating_person" || task == "fighting_non_lethal" || task == "murdering_person";
 }
 
 int FacingToColumn(SpriteFacing facing) {

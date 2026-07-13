@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 namespace {
 
@@ -126,6 +127,57 @@ float GetTaskPatience(const EntityManager& em, EntityID entity) {
     }
 
     return em.personalities[entity].patience;
+}
+
+RelationshipEntry& GetOrCreateHostilityRelationship(EntityManager& em, EntityID owner, EntityID other) {
+    SocialComponent& social = em.socials[owner];
+
+    for (RelationshipEntry& relationship : social.relationships) {
+        if (relationship.otherId == other) {
+            return relationship;
+        }
+    }
+
+    social.relationships.push_back({other});
+    return social.relationships.back();
+}
+
+float ClampSocialHostility(float value) {
+    if (value < 0.0f) {
+        return 0.0f;
+    }
+
+    if (value > 100.0f) {
+        return 100.0f;
+    }
+
+    return value;
+}
+
+float GetHostilityAggression(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 0.0f;
+    }
+
+    return em.personalities[entity].aggression;
+}
+
+float GetHostilityBravery(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 0.5f;
+    }
+
+    return em.personalities[entity].bravery;
+}
+
+bool HasHostilityTrait(const EntityManager& em, EntityID entity, const std::string& traitId) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return false;
+    }
+
+    const std::vector<std::string>& traits = em.personalities[entity].traits;
+
+    return std::find(traits.begin(), traits.end(), traitId) != traits.end();
 }
 
 } // namespace
@@ -520,6 +572,70 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMa
                 relToTarget.resentment = ClampSocialTaskValue(relToTarget.resentment - 5.0f);
                 relFromTarget.resentment = ClampSocialTaskValue(relFromTarget.resentment + 1.0f);
                 relToTarget.trust = ClampSocialTaskValue(relToTarget.trust + 1.0f);
+            }
+        }
+    } else if (behavior.currentTask == "intimidating_person") {
+        EntityID target = behavior.currentJobTarget;
+
+        if (target < em.active.size() && em.active[target] && em.hasSocial[i] && em.hasSocial[target]) {
+            RelationshipEntry& actorToTarget = GetOrCreateHostilityRelationship(em, i, target);
+            RelationshipEntry& targetToActor = GetOrCreateHostilityRelationship(em, target, i);
+
+            const float aggression = GetHostilityAggression(em, i);
+            const float bravery = GetHostilityBravery(em, i);
+
+            actorToTarget.resentment = ClampSocialHostility(actorToTarget.resentment - 2.0f);
+            actorToTarget.respect = ClampSocialHostility(actorToTarget.respect + 1.0f);
+
+            targetToActor.fear = ClampSocialHostility(targetToActor.fear + 8.0f + aggression * 8.0f + bravery * 3.0f);
+            targetToActor.resentment = ClampSocialHostility(targetToActor.resentment + 3.0f);
+            targetToActor.friendship = ClampSocialHostility(targetToActor.friendship - 2.0f);
+
+            std::cout << "[HOSTILITY] Entity #" << i << " intimidated entity #" << target << "." << std::endl;
+        }
+    } else if (behavior.currentTask == "fighting_non_lethal") {
+        EntityID target = behavior.currentJobTarget;
+
+        if (target < em.active.size() && em.active[target] && em.hasHealth[target] && em.hasSocial[i] && em.hasSocial[target]) {
+            RelationshipEntry& actorToTarget = GetOrCreateHostilityRelationship(em, i, target);
+            RelationshipEntry& targetToActor = GetOrCreateHostilityRelationship(em, target, i);
+
+            float damage = 3.0f + GetHostilityAggression(em, i) * 7.0f;
+
+            if (em.hasStats[i]) {
+                damage += em.stats[i].baseAttack * 0.5f;
+            }
+
+            // Non-lethal cap: never reduce below 20% max HP.
+            const float minHp = std::max(1.0f, em.healths[target].max * 0.20f);
+
+            em.healths[target].current = std::max(minHp, em.healths[target].current - damage);
+
+            actorToTarget.resentment = ClampSocialHostility(actorToTarget.resentment - 4.0f);
+            actorToTarget.fear = ClampSocialHostility(actorToTarget.fear - 2.0f);
+
+            targetToActor.resentment = ClampSocialHostility(targetToActor.resentment + 12.0f);
+            targetToActor.fear = ClampSocialHostility(targetToActor.fear + 10.0f);
+            targetToActor.friendship = ClampSocialHostility(targetToActor.friendship - 8.0f);
+            targetToActor.trust = ClampSocialHostility(targetToActor.trust - 10.0f);
+
+            std::cout << "[HOSTILITY] Entity #" << i << " fought entity #" << target << " non-lethally." << std::endl;
+        }
+    } else if (behavior.currentTask == "murdering_person") {
+        EntityID target = behavior.currentJobTarget;
+
+        if (target < em.active.size() && em.active[target] && em.hasHealth[target] && em.hasSocial[i]) {
+            const bool darkTrait = HasHostilityTrait(em, i, "VIOLENT") || HasHostilityTrait(em, i, "VENGEFUL");
+
+            if (darkTrait && GetHostilityAggression(em, i) >= 0.85f) {
+                em.healths[target].current = 0.0f;
+                em.DestroyEntity(target);
+
+                RelationshipEntry& actorToTarget = GetOrCreateHostilityRelationship(em, i, target);
+                actorToTarget.resentment = ClampSocialHostility(actorToTarget.resentment - 20.0f);
+                actorToTarget.fear = ClampSocialHostility(actorToTarget.fear + 10.0f);
+
+                std::cout << "[HOSTILITY] Entity #" << i << " murdered entity #" << target << "." << std::endl;
             }
         }
     }

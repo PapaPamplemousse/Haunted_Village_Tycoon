@@ -251,6 +251,15 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em,
             behavior.currentJobTarget = 0;
             behavior.hasJob = false;
             behavior.stateTimer = GetRandomValue(10, 30) / 10.0f;
+        } else if (behavior.currentTask == "moving_to_intimidate") {
+            behavior.currentTask = "intimidating_person";
+            behavior.stateTimer = 1.2f;
+        } else if (behavior.currentTask == "moving_to_fight_non_lethal") {
+            behavior.currentTask = "fighting_non_lethal";
+            behavior.stateTimer = 1.0f;
+        } else if (behavior.currentTask == "moving_to_murder") {
+            behavior.currentTask = "murdering_person";
+            behavior.stateTimer = 1.5f;
         } else if (behavior.currentTask == "wandering") {
             behavior.currentTask = "idle";
             behavior.stateTimer = GetRandomValue(10, 40) / 10.0f;

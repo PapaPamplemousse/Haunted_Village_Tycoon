@@ -38,6 +38,9 @@ constexpr float PRIORITY_FULFILL_REQUEST = 710.0f;
 constexpr float PRIORITY_AVOID_PERSON = 690.0f;
 constexpr float PRIORITY_CONFRONT_PERSON = 180.0f;
 constexpr float PRIORITY_SOCIALIZE = 90.0f;
+constexpr float PRIORITY_INTIMIDATE = 175.0f;
+constexpr float PRIORITY_FIGHT_NON_LETHAL = 185.0f;
+constexpr float PRIORITY_MURDER = 195.0f;
 
 enum class AIDecisionTaskType {
     Flee,
@@ -59,6 +62,9 @@ enum class AIDecisionTaskType {
     Harvest,
     Patrol,
     Socialize,
+    Intimidate,
+    FightNonLethal,
+    Murder,
     AvoidPerson,
     ConfrontPerson,
     Wander
@@ -620,6 +626,51 @@ float EstimateConfrontPersonUtility(EntityID entity, const EntityManager& em) {
     return best;
 }
 
+float EstimateHighestHostility(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasSocial[entity]) {
+        return -1.0f;
+    }
+
+    float best = -1.0f;
+
+    for (const RelationshipEntry& relationship : em.socials[entity].relationships) {
+        const float score = relationship.resentment - relationship.friendship * 0.5f + relationship.fear * 0.2f;
+
+        best = std::max(best, score);
+    }
+
+    return best;
+}
+
+float EstimateMurderUtility(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasSocial[entity] || !em.hasPersonality[entity]) {
+        return -1.0f;
+    }
+
+    const PersonalityComponent& personality = em.personalities[entity];
+
+    const bool darkTrait = std::find(personality.traits.begin(), personality.traits.end(), "VIOLENT") != personality.traits.end() ||
+                           std::find(personality.traits.begin(), personality.traits.end(), "VENGEFUL") != personality.traits.end();
+
+    if (!darkTrait || personality.aggression < 0.85f || personality.patience > 0.35f) {
+        return -1.0f;
+    }
+
+    float best = -1.0f;
+
+    for (const RelationshipEntry& relationship : em.socials[entity].relationships) {
+        if (relationship.resentment < 95.0f || relationship.friendship > 5.0f) {
+            continue;
+        }
+
+        const float score = relationship.resentment + personality.aggression * 50.0f - relationship.friendship;
+
+        best = std::max(best, score);
+    }
+
+    return best;
+}
+
 } // namespace
 
 void AISystem::UpdateAIContextTimers(float deltaTime, EntityManager& em) {
@@ -871,6 +922,9 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     const bool canSocialize = HasCapability(behavior, "socialize");
     const bool canAvoidPerson = HasCapability(behavior, "avoid_person");
     const bool canConfrontPerson = HasCapability(behavior, "confront_person");
+    const bool canIntimidate = HasCapability(behavior, "intimidate");
+    const bool canFightNonLethal = HasCapability(behavior, "fight_non_lethal");
+    const bool canMurder = HasCapability(behavior, "murder");
 
     const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
 
@@ -1059,6 +1113,30 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         }
     }
 
+    if (canMurder) {
+        const float murderScore = EstimateMurderUtility(entity, em);
+
+        if (murderScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::Murder, PRIORITY_MURDER, murderScore});
+        }
+    }
+
+    if (canFightNonLethal) {
+        const float hostilityScore = EstimateHighestHostility(entity, em);
+
+        if (hostilityScore >= 75.0f) {
+            candidates.push_back({AIDecisionTaskType::FightNonLethal, PRIORITY_FIGHT_NON_LETHAL, hostilityScore});
+        }
+    }
+
+    if (canIntimidate) {
+        const float hostilityScore = EstimateHighestHostility(entity, em);
+
+        if (hostilityScore >= 55.0f) {
+            candidates.push_back({AIDecisionTaskType::Intimidate, PRIORITY_INTIMIDATE, hostilityScore});
+        }
+    }
+
     if (canWander) {
         candidates.push_back({AIDecisionTaskType::Wander, PRIORITY_IDLE, 0.0f});
     }
@@ -1159,6 +1237,18 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
 
             case AIDecisionTaskType::Harvest:
                 started = TryFindHarvestJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Intimidate:
+                started = TryFindIntimidateJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::FightNonLethal:
+                started = TryFindFightNonLethalJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Murder:
+                started = TryFindMurderJob(entity, em, map, tileReg, spatialGrid);
                 break;
 
             case AIDecisionTaskType::Wander:

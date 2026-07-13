@@ -2,9 +2,9 @@
 #  BASIC MOVEMENT & SURVIVAL
 # ==========================================
 
-[WANDER_BASIC]
-rule = wander
-categories = humanoid
+# [WANDER_BASIC]
+# rule = wander
+# categories = humanoid
 
 [RETURN_VILLAGE_CORE_HUMAN]
 rule = return_village_core
@@ -157,6 +157,18 @@ species = human
 
 [CONFRONT_PERSON_HUMAN]
 rule = confront_person
+species = human
+
+[INTIMIDATE_HUMAN]
+rule = intimidate
+species = human
+
+[FIGHT_NON_LETHAL_HUMAN]
+rule = fight_non_lethal
+species = human
+
+[MURDER_HUMAN]
+rule = murder
 species = human
 
 # ==========================================

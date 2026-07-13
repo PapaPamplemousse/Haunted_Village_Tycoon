@@ -124,4 +124,13 @@ private:
 
     bool TryFindConfrontPersonJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                   const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindIntimidateJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                              const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindFightNonLethalJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                  const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindMurderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                          const EntitySpatialGrid& spatialGrid);
 };
