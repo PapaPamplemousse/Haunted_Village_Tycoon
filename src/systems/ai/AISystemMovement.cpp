@@ -240,6 +240,17 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em,
         } else if (behavior.currentTask == "moving_to_crafted_weapon_storage") {
             behavior.currentTask = "depositing_crafted_weapon";
             behavior.stateTimer = AISystemUtils::DEPOSIT_DURATION;
+        } else if (behavior.currentTask == "moving_to_socialize") {
+            behavior.currentTask = "socializing";
+            behavior.stateTimer = 1.5f;
+        } else if (behavior.currentTask == "moving_to_confront") {
+            behavior.currentTask = "confronting_person";
+            behavior.stateTimer = 1.5f;
+        } else if (behavior.currentTask == "avoiding_person") {
+            behavior.currentTask = "idle";
+            behavior.currentJobTarget = 0;
+            behavior.hasJob = false;
+            behavior.stateTimer = GetRandomValue(10, 30) / 10.0f;
         } else if (behavior.currentTask == "wandering") {
             behavior.currentTask = "idle";
             behavior.stateTimer = GetRandomValue(10, 40) / 10.0f;

@@ -147,6 +147,17 @@ species = human
 rule = care_child
 professions = caretaker
 
+[SOCIALIZE_HUMAN]
+rule = socialize
+species = human
+
+[AVOID_PERSON_HUMAN]
+rule = avoid_person
+species = human
+
+[CONFRONT_PERSON_HUMAN]
+rule = confront_person
+species = human
 
 # ==========================================
 #  CANNIBAL

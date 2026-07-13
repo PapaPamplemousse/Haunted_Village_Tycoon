@@ -79,6 +79,55 @@ EntityID FindNearestCompatibleStorage(EntityID worker, const std::string& itemId
     return bestStorage;
 }
 
+RelationshipEntry& GetOrCreateTaskRelationship(EntityManager& em, EntityID owner, EntityID other) {
+    SocialComponent& social = em.socials[owner];
+
+    for (RelationshipEntry& relationship : social.relationships) {
+        if (relationship.otherId == other) {
+            return relationship;
+        }
+    }
+
+    social.relationships.push_back({other});
+    return social.relationships.back();
+}
+
+float ClampSocialTaskValue(float value) {
+    if (value < 0.0f) {
+        return 0.0f;
+    }
+
+    if (value > 100.0f) {
+        return 100.0f;
+    }
+
+    return value;
+}
+
+float GetTaskKindness(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 0.5f;
+    }
+
+    return em.personalities[entity].kindness;
+}
+
+float GetTaskAggression(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 0.0f;
+    }
+
+    return em.personalities[entity].aggression;
+}
+
+float GetTaskPatience(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 0.5f;
+    }
+
+    return em.personalities[entity].patience;
+}
+
 } // namespace
 
 void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -426,6 +475,52 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMa
 
         if (em.hasAIContext[i]) {
             em.aiContexts[i].careTargetId = static_cast<EntityID>(-1);
+        }
+    } else if (behavior.currentTask == "socializing") {
+        EntityID target = behavior.currentJobTarget;
+
+        if (target < em.active.size() && em.active[target] && em.hasSocial[i] && em.hasSocial[target]) {
+            RelationshipEntry& relToTarget = GetOrCreateTaskRelationship(em, i, target);
+            RelationshipEntry& relFromTarget = GetOrCreateTaskRelationship(em, target, i);
+
+            const float kindnessA = GetTaskKindness(em, i);
+            const float kindnessB = GetTaskKindness(em, target);
+
+            relToTarget.friendship = ClampSocialTaskValue(relToTarget.friendship + 4.0f + kindnessA * 3.0f);
+            relFromTarget.friendship = ClampSocialTaskValue(relFromTarget.friendship + 3.0f + kindnessB * 2.0f);
+
+            relToTarget.trust = ClampSocialTaskValue(relToTarget.trust + 1.0f);
+            relFromTarget.trust = ClampSocialTaskValue(relFromTarget.trust + 1.0f);
+
+            relToTarget.resentment = ClampSocialTaskValue(relToTarget.resentment - 2.0f);
+            relFromTarget.resentment = ClampSocialTaskValue(relFromTarget.resentment - 1.0f);
+        }
+    } else if (behavior.currentTask == "confronting_person") {
+        EntityID target = behavior.currentJobTarget;
+
+        if (target < em.active.size() && em.active[target] && em.hasSocial[i] && em.hasSocial[target]) {
+            RelationshipEntry& relToTarget = GetOrCreateTaskRelationship(em, i, target);
+            RelationshipEntry& relFromTarget = GetOrCreateTaskRelationship(em, target, i);
+
+            const float aggression = GetTaskAggression(em, i);
+            const float patience = GetTaskPatience(em, i);
+
+            // V1 non-lethal confrontation:
+            // - aggressive/impatient villagers escalate resentment and fear;
+            // - patient villagers slightly reduce their own resentment.
+            const bool escalates = aggression > 0.45f || patience < 0.35f;
+
+            if (escalates) {
+                relToTarget.resentment = ClampSocialTaskValue(relToTarget.resentment + 4.0f + aggression * 6.0f);
+                relFromTarget.resentment = ClampSocialTaskValue(relFromTarget.resentment + 6.0f + aggression * 4.0f);
+                relFromTarget.fear = ClampSocialTaskValue(relFromTarget.fear + aggression * 6.0f);
+                relToTarget.friendship = ClampSocialTaskValue(relToTarget.friendship - 2.0f);
+                relFromTarget.friendship = ClampSocialTaskValue(relFromTarget.friendship - 3.0f);
+            } else {
+                relToTarget.resentment = ClampSocialTaskValue(relToTarget.resentment - 5.0f);
+                relFromTarget.resentment = ClampSocialTaskValue(relFromTarget.resentment + 1.0f);
+                relToTarget.trust = ClampSocialTaskValue(relToTarget.trust + 1.0f);
+            }
         }
     }
 

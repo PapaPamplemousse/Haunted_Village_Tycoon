@@ -116,4 +116,12 @@ private:
     bool TryFindFulfillWeaponRequestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                         const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                         const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindSocializeJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                             const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindAvoidPersonJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
+
+    bool TryFindConfrontPersonJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                  const EntitySpatialGrid& spatialGrid);
 };

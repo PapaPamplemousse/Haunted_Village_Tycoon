@@ -35,6 +35,9 @@ constexpr float PRIORITY_HAUL = 410.0f;
 constexpr float PRIORITY_EQUIP_WEAPON = 735.0f;
 constexpr float PRIORITY_REQUEST_WEAPON = 720.0f;
 constexpr float PRIORITY_FULFILL_REQUEST = 710.0f;
+constexpr float PRIORITY_AVOID_PERSON = 690.0f;
+constexpr float PRIORITY_CONFRONT_PERSON = 180.0f;
+constexpr float PRIORITY_SOCIALIZE = 90.0f;
 
 enum class AIDecisionTaskType {
     Flee,
@@ -55,6 +58,9 @@ enum class AIDecisionTaskType {
     Dismantle,
     Harvest,
     Patrol,
+    Socialize,
+    AvoidPerson,
+    ConfrontPerson,
     Wander
 };
 
@@ -553,6 +559,67 @@ float EstimateHaulUtility(EntityID entity, const EntityManager& em, const Entity
 
     return static_cast<float>(storagesWithItems * 30 + specializedStoragesWithCapacity * 50);
 }
+
+float EstimateSocializeUtility(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
+        return 20.0f;
+    }
+
+    const PersonalityComponent& personality = em.personalities[entity];
+
+    return 20.0f + personality.sociability * 80.0f;
+}
+
+float EstimateAvoidPersonUtility(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasSocial[entity]) {
+        return -1.0f;
+    }
+
+    float best = -1.0f;
+
+    for (const RelationshipEntry& relationship : em.socials[entity].relationships) {
+        const float pressure = relationship.fear + relationship.resentment;
+
+        if (pressure > best) {
+            best = pressure;
+        }
+    }
+
+    if (best < 70.0f) {
+        return -1.0f;
+    }
+
+    return best;
+}
+
+float EstimateConfrontPersonUtility(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasSocial[entity]) {
+        return -1.0f;
+    }
+
+    const float aggression = em.hasPersonality[entity] ? em.personalities[entity].aggression : 0.0f;
+
+    const float bravery = em.hasPersonality[entity] ? em.personalities[entity].bravery : 0.5f;
+
+    if (aggression < 0.35f && bravery < 0.65f) {
+        return -1.0f;
+    }
+
+    float best = -1.0f;
+
+    for (const RelationshipEntry& relationship : em.socials[entity].relationships) {
+        if (relationship.resentment < 65.0f || relationship.friendship > 35.0f) {
+            continue;
+        }
+
+        const float score = relationship.resentment + aggression * 30.0f + bravery * 20.0f;
+
+        best = std::max(best, score);
+    }
+
+    return best;
+}
+
 } // namespace
 
 void AISystem::UpdateAIContextTimers(float deltaTime, EntityManager& em) {
@@ -801,6 +868,9 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     const bool canEquipWeapon = HasCapability(behavior, "equip_weapon");
     const bool canRequestWeapon = HasCapability(behavior, "request_weapon");
     const bool canFulfillWeaponRequest = HasCapability(behavior, "fulfill_weapon_request");
+    const bool canSocialize = HasCapability(behavior, "socialize");
+    const bool canAvoidPerson = HasCapability(behavior, "avoid_person");
+    const bool canConfrontPerson = HasCapability(behavior, "confront_person");
 
     const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
 
@@ -862,6 +932,17 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
 
         if (returnScore > 0.0f) {
             candidates.push_back({AIDecisionTaskType::ReturnToVillageCore, PRIORITY_RETURN_TO_VILLAGE, returnScore});
+        }
+    }
+
+    // =========================================================
+    // Social safety / conflict
+    // =========================================================
+    if (canAvoidPerson) {
+        const float avoidScore = EstimateAvoidPersonUtility(entity, em);
+
+        if (avoidScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::AvoidPerson, PRIORITY_AVOID_PERSON, avoidScore});
         }
     }
 
@@ -958,6 +1039,26 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     if (canPatrol) {
         candidates.push_back({AIDecisionTaskType::Patrol, PRIORITY_PATROL, 10.0f});
     }
+
+    // =========================================================
+    // Low-priority social actions
+    // =========================================================
+    if (canConfrontPerson) {
+        const float confrontScore = EstimateConfrontPersonUtility(entity, em);
+
+        if (confrontScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::ConfrontPerson, PRIORITY_CONFRONT_PERSON, confrontScore});
+        }
+    }
+
+    if (canSocialize) {
+        const float socializeScore = EstimateSocializeUtility(entity, em);
+
+        if (socializeScore > 0.0f) {
+            candidates.push_back({AIDecisionTaskType::Socialize, PRIORITY_SOCIALIZE, socializeScore});
+        }
+    }
+
     if (canWander) {
         candidates.push_back({AIDecisionTaskType::Wander, PRIORITY_IDLE, 0.0f});
     }
@@ -982,6 +1083,18 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
                 if (em.hasAIContext[entity]) {
                     started = TryStartDefendAgainstThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
                 }
+                break;
+
+            case AIDecisionTaskType::AvoidPerson:
+                started = TryFindAvoidPersonJob(entity, em, map, tileReg);
+                break;
+
+            case AIDecisionTaskType::ConfrontPerson:
+                started = TryFindConfrontPersonJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Socialize:
+                started = TryFindSocializeJob(entity, em, map, tileReg, spatialGrid);
                 break;
 
             case AIDecisionTaskType::ReturnToVillageCore:
