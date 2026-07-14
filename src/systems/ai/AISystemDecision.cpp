@@ -7,6 +7,9 @@
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
+#include "systems/ai/AIPriority.hpp"
+#include "systems/ai/AITaskCandidate.hpp"
+#include "systems/ai/AITaskType.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -19,70 +22,6 @@ namespace {
 constexpr float THREAT_MEMORY_DURATION = 8.0f;
 constexpr float FLEE_DISTANCE_TILES = 8.0f;
 constexpr int FLEE_PATH_ATTEMPTS = 10;
-constexpr float PRIORITY_THREAT = 1000.0f;
-constexpr float PRIORITY_CRITICAL_NEED = 900.0f;
-constexpr float PRIORITY_HIGH_NEED = 700.0f;
-constexpr float PRIORITY_REST = 520.0f;
-constexpr float PRIORITY_CARE = 760.0f;
-constexpr float PRIORITY_LOGISTICS = 430.0f;
-constexpr float PRIORITY_WORK = 250.0f;
-constexpr float PRIORITY_IDLE = 10.0f;
-constexpr float PRIORITY_RETURN_TO_VILLAGE = 610.0f;
-constexpr float PRIORITY_GUARD = 860.0f;
-constexpr float PRIORITY_REPAIR = 280.0f;
-constexpr float PRIORITY_PATROL = 120.0f;
-constexpr float PRIORITY_HAUL = 410.0f;
-constexpr float PRIORITY_EQUIP_WEAPON = 735.0f;
-constexpr float PRIORITY_REQUEST_WEAPON = 720.0f;
-constexpr float PRIORITY_FULFILL_REQUEST = 710.0f;
-constexpr float PRIORITY_AVOID_PERSON = 690.0f;
-constexpr float PRIORITY_CONFRONT_PERSON = 180.0f;
-constexpr float PRIORITY_SOCIALIZE = 190.0f;
-constexpr float PRIORITY_INTIMIDATE = 175.0f;
-constexpr float PRIORITY_FIGHT_NON_LETHAL = 185.0f;
-constexpr float PRIORITY_MURDER = 195.0f;
-constexpr float PRIORITY_COMFORT_FRIGHTENED = 210.0f;
-constexpr float PRIORITY_PREACH = 145.0f;
-constexpr float PRIORITY_HOLD_RITUAL = 140.0f;
-constexpr float PRIORITY_PRAY = 75.0f;
-
-enum class AIDecisionTaskType {
-    Flee,
-    Defend,
-    SeekFood,
-    Rest,
-    CareChildFood,
-    ReturnToVillageCore,
-    EquipWeapon,
-    RequestWeapon,
-    FulfillWeaponRequest,
-    Store,
-    Haul,
-    Guard,
-    Repair,
-    Hunt,
-    Build,
-    Dismantle,
-    Harvest,
-    Patrol,
-    Socialize,
-    Pray,
-    Preach,
-    HoldRitual,
-    ComfortFrightened,
-    Intimidate,
-    FightNonLethal,
-    Murder,
-    AvoidPerson,
-    ConfrontPerson,
-    Wander
-};
-
-struct AITaskCandidate {
-    AIDecisionTaskType type = AIDecisionTaskType::Wander;
-    float priority = 0.0f;
-    float score = 0.0f;
-};
 
 float Clamp01(float value) {
     if (value < 0.0f) {
@@ -815,7 +754,7 @@ bool AISystem::TryStartFleeFromThreat(EntityID entity, EntityID threat, EntityMa
         behavior.stateTimer = 0.0f;
 
         if (em.hasAIContext[entity]) {
-            em.aiContexts[entity].currentTaskPriority = PRIORITY_THREAT;
+            em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
             em.aiContexts[entity].currentTaskInterruptible = true;
         }
 
@@ -844,7 +783,7 @@ bool AISystem::TryStartDefendAgainstThreat(EntityID entity, EntityID threat, Ent
         behavior.stateTimer = AISystemUtils::ATTACK_DURATION;
 
         if (em.hasAIContext[entity]) {
-            em.aiContexts[entity].currentTaskPriority = PRIORITY_THREAT;
+            em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
             em.aiContexts[entity].currentTaskInterruptible = false;
         }
 
@@ -868,7 +807,7 @@ bool AISystem::TryStartDefendAgainstThreat(EntityID entity, EntityID threat, Ent
     behavior.stateTimer = 0.0f;
 
     if (em.hasAIContext[entity]) {
-        em.aiContexts[entity].currentTaskPriority = PRIORITY_THREAT;
+        em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
         em.aiContexts[entity].currentTaskInterruptible = true;
     }
 
@@ -895,7 +834,7 @@ bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const
 
     const bool hasValidThreat = threat != static_cast<EntityID>(-1) && context.threatMemoryTimer > 0.0f && IsValidThreat(threat, em);
 
-    if (hasValidThreat && !IsCurrentThreatResponseTask(behavior, threat) && context.currentTaskPriority < PRIORITY_THREAT) {
+    if (hasValidThreat && !IsCurrentThreatResponseTask(behavior, threat) && context.currentTaskPriority < AIPriority::Threat) {
         const bool canFlee = HasCapability(behavior, "flee");
         const bool canDefend = HasCapability(behavior, "defend") || HasCapability(behavior, "hunt");
 
@@ -917,12 +856,12 @@ bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const
     // =========================================================
     const float hungerRatio = GetHungerRatio(entity, em);
 
-    if (hungerRatio <= 0.15f && HasCapability(behavior, "seek_food") && context.currentTaskPriority < PRIORITY_CRITICAL_NEED) {
+    if (hungerRatio <= 0.15f && HasCapability(behavior, "seek_food") && context.currentTaskPriority < AIPriority::CriticalNeed) {
         CancelCurrentTask(entity, em);
 
         if (TryFindSeekFoodJob(entity, em, map, tileReg, resourceReg, spatialGrid)) {
             if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = PRIORITY_CRITICAL_NEED;
+                em.aiContexts[entity].currentTaskPriority = AIPriority::CriticalNeed;
                 em.aiContexts[entity].currentTaskInterruptible = true;
             }
 
@@ -936,12 +875,424 @@ bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const
     // =========================================================
     const float fatigueRatio = GetFatigueRatio(entity, em);
 
-    if (fatigueRatio >= 0.95f && HasCapability(behavior, "rest") && context.currentTaskPriority < PRIORITY_REST) {
+    if (fatigueRatio >= 0.95f && HasCapability(behavior, "rest") && context.currentTaskPriority < AIPriority::Rest) {
         CancelCurrentTask(entity, em);
 
         if (TryFindRestJob(entity, em, map, tileReg, spatialGrid)) {
             if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = PRIORITY_REST;
+                em.aiContexts[entity].currentTaskPriority = AIPriority::Rest;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void AISystem::BuildTaskCandidates(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg,
+                                   const EntitySpatialGrid& spatialGrid, float currentHour, std::vector<AITaskCandidate>& candidates) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity] || !em.hasTransform[entity]) {
+        return;
+    }
+
+    BehaviorComponent& behavior = em.behaviors[entity];
+
+    const bool canFlee = HasCapability(behavior, "flee");
+    const bool canDefend = HasCapability(behavior, "defend") || HasCapability(behavior, "hunt");
+
+    const bool canSeekFood = HasCapability(behavior, "seek_food");
+    const bool canRest = HasCapability(behavior, "rest");
+    const bool canCareChild = HasCapability(behavior, "care_child");
+
+    const bool canReturnToVillageCore = HasCapability(behavior, "return_village_core");
+
+    const bool canEquipWeapon = HasCapability(behavior, "equip_weapon");
+    const bool canRequestWeapon = HasCapability(behavior, "request_weapon");
+    const bool canFulfillWeaponRequest = HasCapability(behavior, "fulfill_weapon_request");
+
+    const bool canStore = HasCapability(behavior, "store");
+    const bool canHaul = HasCapability(behavior, "haul");
+
+    const bool canGuard = HasCapability(behavior, "guard");
+    const bool canRepair = HasCapability(behavior, "repair");
+    const bool canPatrol = HasCapability(behavior, "patrol");
+
+    const bool canHunt = HasCapability(behavior, "hunt");
+    const bool canBuild = HasCapability(behavior, "build");
+    const bool canDismantle = HasCapability(behavior, "dismantle");
+    const bool canHarvest = HasCapability(behavior, "harvest");
+
+    const bool canAvoidPerson = HasCapability(behavior, "avoid_person");
+    const bool canConfrontPerson = HasCapability(behavior, "confront_person");
+
+    const bool canPreach = HasCapability(behavior, "preach");
+    const bool canHoldRitual = HasCapability(behavior, "hold_ritual");
+    const bool canComfortFrightened = HasCapability(behavior, "comfort_frightened");
+
+    const bool canIntimidate = HasCapability(behavior, "intimidate");
+    const bool canFightNonLethal = HasCapability(behavior, "fight_non_lethal");
+    const bool canMurder = HasCapability(behavior, "murder");
+
+    const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
+
+    // =========================================================
+    // Threat memory
+    // =========================================================
+    if (HasThreatMemory(entity, em)) {
+        const EntityID threat = em.aiContexts[entity].lastThreatId;
+
+        if (canFlee) {
+            candidates.push_back({AITaskType::Flee, AIPriority::Threat, 100.0f});
+        }
+
+        if (canDefend && !IsCurrentThreatResponseTask(behavior, threat)) {
+            candidates.push_back({AITaskType::Defend, AIPriority::Threat - 20.0f, 90.0f});
+        }
+    }
+
+    // =========================================================
+    // Needs
+    // =========================================================
+    if (canSeekFood) {
+        const float hungerRatio = GetHungerRatio(entity, em);
+
+        if (hungerRatio <= AISystemUtils::SEEK_FOOD_THRESHOLD_RATIO) {
+            const float priority = hungerRatio <= 0.25f ? AIPriority::CriticalNeed : AIPriority::HighNeed;
+            const float score = (1.0f - hungerRatio) * 100.0f;
+
+            candidates.push_back({AITaskType::SeekFood, priority, score});
+        }
+    }
+
+    if (canRest && AISystemUtils::ShouldRest(entity, em, behavior, currentHour)) {
+        const float fatigueRatio = GetFatigueRatio(entity, em);
+        const float priority = fatigueRatio >= 0.90f ? AIPriority::CriticalNeed : AIPriority::Rest;
+        const float score = fatigueRatio * 100.0f;
+
+        candidates.push_back({AITaskType::Rest, priority, score});
+    }
+
+    // =========================================================
+    // Defense
+    // =========================================================
+    if (canGuard) {
+        float guardScore = 100.0f;
+
+        if (currentHour >= 20.0f || currentHour < 6.0f) {
+            guardScore += 80.0f;
+        }
+
+        candidates.push_back({AITaskType::Guard, AIPriority::Guard, guardScore});
+    }
+
+    // =========================================================
+    // Village anchoring
+    // =========================================================
+    if (canReturnToVillageCore) {
+        const float returnScore = EstimateReturnToVillageCoreUtility(entity, em, currentHour);
+
+        if (returnScore > 0.0f) {
+            candidates.push_back({AITaskType::ReturnToVillageCore, AIPriority::ReturnToVillage, returnScore});
+        }
+    }
+
+    // =========================================================
+    // Defensive social reaction
+    // =========================================================
+    if (canAvoidPerson) {
+        const float avoidScore = EstimateAvoidPersonUtility(entity, em);
+
+        if (avoidScore > 0.0f) {
+            candidates.push_back({AITaskType::AvoidPerson, AIPriority::AvoidPerson, avoidScore});
+        }
+    }
+
+    // =========================================================
+    // Family care
+    // =========================================================
+    if (canCareChild) {
+        const float careScore = EstimateCareChildFoodUtility(entity, em, resourceReg);
+
+        if (careScore > 0.0f) {
+            candidates.push_back({AITaskType::CareChildFood, AIPriority::Care, careScore});
+        }
+    }
+
+    // =========================================================
+    // Logistics
+    // =========================================================
+    if (canStore && AISystemUtils::ShouldDepositInventory(entity, em, behavior, currentHour)) {
+        const float storeScore = EstimateStoreUtility(entity, em, spatialGrid);
+
+        if (storeScore > 0.0f) {
+            candidates.push_back({AITaskType::Store, AIPriority::Logistics, storeScore});
+        }
+    }
+
+    if (canHaul) {
+        const float haulScore = EstimateHaulUtility(entity, em, spatialGrid);
+
+        if (haulScore > 0.0f) {
+            candidates.push_back({AITaskType::Haul, AIPriority::Haul, haulScore});
+        }
+    }
+
+    // =========================================================
+    // Profession work
+    // =========================================================
+    if (canStartWork) {
+        if (canHunt) {
+            const float huntScore = EstimateHuntUtility(entity, em, spatialGrid);
+
+            if (huntScore > 0.0f) {
+                candidates.push_back({AITaskType::Hunt, AIPriority::Work + 40.0f, huntScore});
+            }
+        }
+
+        if (canBuild) {
+            const float buildScore = EstimateBuildUtility(entity, em, spatialGrid);
+
+            if (buildScore > 0.0f) {
+                candidates.push_back({AITaskType::Build, AIPriority::Work + 30.0f, buildScore});
+            }
+        }
+
+        if (canDismantle) {
+            const float dismantleScore = EstimateDismantleUtility(entity, em, spatialGrid);
+
+            if (dismantleScore > 0.0f) {
+                candidates.push_back({AITaskType::Dismantle, AIPriority::Work + 20.0f, dismantleScore});
+            }
+        }
+
+        if (canHarvest) {
+            const float harvestScore = EstimateHarvestUtility(entity, em, resourceReg, spatialGrid);
+
+            if (harvestScore > 0.0f) {
+                candidates.push_back({AITaskType::Harvest, AIPriority::Work + 10.0f, harvestScore});
+            }
+        }
+    }
+
+    // =========================================================
+    // Religion / support
+    // =========================================================
+    if (canComfortFrightened) {
+        candidates.push_back({AITaskType::ComfortFrightened, AIPriority::ComfortFrightened, 100.0f});
+    }
+
+    if (canPreach) {
+        candidates.push_back({AITaskType::Preach, AIPriority::Preach, 70.0f});
+    }
+
+    if (canHoldRitual) {
+        candidates.push_back({AITaskType::HoldRitual, AIPriority::HoldRitual, 60.0f});
+    }
+
+    // =========================================================
+    // Equipment / requests
+    // =========================================================
+    if (canEquipWeapon) {
+        candidates.push_back({AITaskType::EquipWeapon, AIPriority::EquipWeapon, 100.0f});
+    }
+
+    if (canRequestWeapon) {
+        candidates.push_back({AITaskType::RequestWeapon, AIPriority::RequestWeapon, 80.0f});
+    }
+
+    if (canFulfillWeaponRequest) {
+        candidates.push_back({AITaskType::FulfillWeaponRequest, AIPriority::FulfillRequest, 100.0f});
+    }
+
+    // =========================================================
+    // Profession support
+    // =========================================================
+    if (canRepair) {
+        candidates.push_back({AITaskType::Repair, AIPriority::Repair, 80.0f});
+    }
+
+    if (canPatrol) {
+        candidates.push_back({AITaskType::Patrol, AIPriority::Patrol, 10.0f});
+    }
+
+    // =========================================================
+    // Hostile social actions
+    // =========================================================
+    const bool socialCooldownReady = !em.hasAIContext[entity] || em.aiContexts[entity].socialActionCooldownTimer <= 0.0f;
+
+    const bool canConsiderHostility = socialCooldownReady && !HasUrgentPersonalNeed(entity, em);
+
+    if (canConsiderHostility && canConfrontPerson) {
+        const float confrontScore = EstimateConfrontPersonUtility(entity, em);
+
+        if (confrontScore > 0.0f) {
+            candidates.push_back({AITaskType::ConfrontPerson, AIPriority::ConfrontPerson, confrontScore});
+        }
+    }
+
+    if (canConsiderHostility && canMurder) {
+        const float murderScore = EstimateMurderUtility(entity, em);
+
+        if (murderScore > 0.0f) {
+            candidates.push_back({AITaskType::Murder, AIPriority::Murder, murderScore});
+        }
+    }
+
+    if (canConsiderHostility && canFightNonLethal) {
+        const float hostilityScore = EstimateHighestHostility(entity, em);
+
+        if (hostilityScore >= 75.0f) {
+            candidates.push_back({AITaskType::FightNonLethal, AIPriority::FightNonLethal, hostilityScore});
+        }
+    }
+
+    if (canConsiderHostility && canIntimidate) {
+        const float hostilityScore = EstimateHighestHostility(entity, em);
+
+        if (hostilityScore >= 55.0f) {
+            candidates.push_back({AITaskType::Intimidate, AIPriority::Intimidate, hostilityScore});
+        }
+    }
+}
+
+bool AISystem::TryStartTaskCandidate(EntityID entity, const AITaskCandidate& candidate, EntityManager& em, const WorldMap& map,
+                                     const TileRegistry& tileReg, const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                     const EntitySpatialGrid& spatialGrid) {
+    switch (candidate.type) {
+        case AITaskType::Flee:
+            if (em.hasAIContext[entity]) {
+                return TryStartFleeFromThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
+            }
+            return false;
+
+        case AITaskType::Defend:
+            if (em.hasAIContext[entity]) {
+                return TryStartDefendAgainstThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
+            }
+            return false;
+
+        case AITaskType::SeekFood:
+            return TryFindSeekFoodJob(entity, em, map, tileReg, resourceReg, spatialGrid);
+
+        case AITaskType::Rest:
+            return TryFindRestJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::CareChildFood:
+            return TryFindCareChildFoodJob(entity, em, map, tileReg, resourceReg);
+
+        case AITaskType::ReturnToVillageCore:
+            return TryFindReturnToVillageCoreJob(entity, em, map, tileReg);
+
+        case AITaskType::EquipWeapon:
+            return TryFindEquipWeaponJob(entity, em, map, tileReg, weaponReg, spatialGrid);
+
+        case AITaskType::RequestWeapon:
+            return TryFindRequestWeaponJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::FulfillWeaponRequest:
+            return TryFindFulfillWeaponRequestJob(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Store:
+            return TryFindStoreJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Haul:
+            return TryFindHaulJob(entity, em, map, tileReg, resourceReg, spatialGrid);
+
+        case AITaskType::Guard:
+            return TryFindGuardJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Repair:
+            return TryFindRepairJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Patrol:
+            return TryFindPatrolJob(entity, em, map, tileReg);
+
+        case AITaskType::Hunt:
+            return TryFindHuntJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Build:
+            return TryFindBuildJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Dismantle:
+            return TryFindDismantleJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Harvest:
+            return TryFindHarvestJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::AvoidPerson:
+            return TryFindAvoidPersonJob(entity, em, map, tileReg);
+
+        case AITaskType::ConfrontPerson:
+            return TryFindConfrontPersonJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::ComfortFrightened:
+            return TryFindComfortFrightenedJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Preach:
+            return TryFindPreachJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::HoldRitual:
+            return TryFindHoldRitualJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Intimidate:
+            return TryFindIntimidateJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::FightNonLethal:
+            return TryFindFightNonLethalJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Murder:
+            return TryFindMurderJob(entity, em, map, tileReg, spatialGrid);
+
+        case AITaskType::Pray:
+        case AITaskType::Socialize:
+        case AITaskType::Wander:
+        case AITaskType::None:
+            return false;
+    }
+
+    return false;
+}
+
+bool AISystem::TryStartFallbackTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                    const EntitySpatialGrid& spatialGrid) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity]) {
+        return false;
+    }
+
+    BehaviorComponent& behavior = em.behaviors[entity];
+
+    const bool canPray = HasCapability(behavior, "pray");
+    const bool canSocialize = HasCapability(behavior, "socialize");
+    const bool canWander = HasCapability(behavior, "wander");
+
+    if (canPray && !HasUrgentPersonalNeed(entity, em)) {
+        if (TryFindPrayJob(entity, em, map, tileReg, spatialGrid)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = AIPriority::Pray;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+
+            return true;
+        }
+    }
+
+    if (canSocialize && !HasUrgentPersonalNeed(entity, em)) {
+        if (TryFindSocializeJob(entity, em, map, tileReg, spatialGrid)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = AIPriority::Socialize;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+
+            return true;
+        }
+    }
+
+    if (canWander) {
+        if (TryFindWanderJob(entity, em, map, tileReg)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = AIPriority::Idle;
                 em.aiContexts[entity].currentTaskInterruptible = true;
             }
 
@@ -959,439 +1310,14 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         return false;
     }
 
-    BehaviorComponent& behavior = em.behaviors[entity];
-
     std::vector<AITaskCandidate> candidates;
 
-    const bool canFlee = HasCapability(behavior, "flee");
-    const bool canDefend = HasCapability(behavior, "defend") || HasCapability(behavior, "hunt");
-    const bool canSeekFood = HasCapability(behavior, "seek_food");
-    const bool canRest = HasCapability(behavior, "rest");
-    const bool canCareChild = HasCapability(behavior, "care_child");
-    const bool canStore = HasCapability(behavior, "store");
-    const bool canHunt = HasCapability(behavior, "hunt");
-    const bool canBuild = HasCapability(behavior, "build");
-    const bool canDismantle = HasCapability(behavior, "dismantle");
-    const bool canHarvest = HasCapability(behavior, "harvest");
-    const bool canWander = HasCapability(behavior, "wander");
-    const bool canReturnToVillageCore = HasCapability(behavior, "return_village_core");
-    const bool canGuard = HasCapability(behavior, "guard");
-    const bool canRepair = HasCapability(behavior, "repair");
-    const bool canPatrol = HasCapability(behavior, "patrol");
-    const bool canHaul = HasCapability(behavior, "haul");
-    const bool canEquipWeapon = HasCapability(behavior, "equip_weapon");
-    const bool canRequestWeapon = HasCapability(behavior, "request_weapon");
-    const bool canFulfillWeaponRequest = HasCapability(behavior, "fulfill_weapon_request");
-    const bool canSocialize = HasCapability(behavior, "socialize");
-    const bool canAvoidPerson = HasCapability(behavior, "avoid_person");
-    const bool canConfrontPerson = HasCapability(behavior, "confront_person");
-    const bool canIntimidate = HasCapability(behavior, "intimidate");
-    const bool canFightNonLethal = HasCapability(behavior, "fight_non_lethal");
-    const bool canMurder = HasCapability(behavior, "murder");
-    const bool canPray = HasCapability(behavior, "pray");
-    const bool canPreach = HasCapability(behavior, "preach");
-    const bool canHoldRitual = HasCapability(behavior, "hold_ritual");
-    const bool canComfortFrightened = HasCapability(behavior, "comfort_frightened");
-
-    const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
-
-    const bool socialCooldownReady = !em.hasAIContext[entity] || em.aiContexts[entity].socialActionCooldownTimer <= 0.0f;
-
-    const bool hasUrgentNeed = HasUrgentPersonalNeed(entity, em);
-    const bool isCarrying = IsCarryingItems(entity, em);
-
-    // Social is allowed during natural village-life windows,
-    // and also outside work hours.
-    //
-    // Important:
-    // We do NOT require !canStartWork anymore.
-    // Otherwise villagers almost never socialize during normal life.
-    const bool isSocialWindow = IsSocialTimeWindow(currentHour) || !canStartWork;
-
-    const bool canConsiderLowPrioritySocial = socialCooldownReady && isSocialWindow && !hasUrgentNeed && !isCarrying;
-
-    // =========================================================
-    // Threat response
-    // =========================================================
-    if (HasThreatMemory(entity, em)) {
-        if (canFlee) {
-            candidates.push_back({AIDecisionTaskType::Flee, PRIORITY_THREAT, 100.0f});
-        }
-
-        if (canDefend) {
-            candidates.push_back({AIDecisionTaskType::Defend, PRIORITY_THREAT - 20.0f, 90.0f});
-        }
-    }
-
-    // =========================================================
-    // Survival needs
-    // =========================================================
-    if (canSeekFood && em.hasNeeds[entity]) {
-        const float hungerRatio = GetHungerRatio(entity, em);
-
-        if (hungerRatio < AISystemUtils::SEEK_FOOD_THRESHOLD_RATIO) {
-            float priority = PRIORITY_HIGH_NEED;
-            float score = (1.0f - hungerRatio) * 100.0f;
-
-            if (hungerRatio <= 0.15f) {
-                priority = PRIORITY_CRITICAL_NEED;
-                score += 100.0f;
-            }
-
-            candidates.push_back({AIDecisionTaskType::SeekFood, priority, score});
-        }
-    }
-
-    if (canRest && AISystemUtils::ShouldRest(entity, em, behavior, currentHour)) {
-        const float fatigueRatio = GetFatigueRatio(entity, em);
-
-        float priority = PRIORITY_REST;
-        float score = fatigueRatio * 100.0f;
-
-        if (!canStartWork) {
-            score += 25.0f;
-        }
-
-        if (fatigueRatio >= 0.95f) {
-            priority = PRIORITY_HIGH_NEED;
-            score += 75.0f;
-        }
-
-        candidates.push_back({AIDecisionTaskType::Rest, priority, score});
-    }
-
-    // =========================================================
-    // Defense
-    // =========================================================
-    if (canGuard) {
-        float guardScore = 100.0f;
-
-        if (currentHour >= 20.0f || currentHour < 6.0f) {
-            guardScore += 80.0f;
-        }
-
-        candidates.push_back({AIDecisionTaskType::Guard, PRIORITY_GUARD, guardScore});
-    }
-
-    // =========================================================
-    // Dawn village anchoring
-    // =========================================================
-    if (canReturnToVillageCore) {
-        const float returnScore = EstimateReturnToVillageCoreUtility(entity, em, currentHour);
-
-        if (returnScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::ReturnToVillageCore, PRIORITY_RETURN_TO_VILLAGE, returnScore});
-        }
-    }
-
-    // =========================================================
-    // Social safety / conflict
-    // =========================================================
-    if (canAvoidPerson) {
-        const float avoidScore = EstimateAvoidPersonUtility(entity, em);
-
-        if (avoidScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::AvoidPerson, PRIORITY_AVOID_PERSON, avoidScore});
-        }
-    }
-
-    // =========================================================
-    // Family care
-    // =========================================================
-    if (canCareChild) {
-        const float careScore = EstimateCareChildFoodUtility(entity, em, resourceReg);
-
-        if (careScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::CareChildFood, PRIORITY_CARE, careScore});
-        }
-    }
-
-    // =========================================================
-    // Logistics
-    // =========================================================
-    if (canStore && AISystemUtils::ShouldDepositInventory(entity, em, behavior, currentHour)) {
-        const float storeScore = EstimateStoreUtility(entity, em, spatialGrid);
-
-        if (storeScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::Store, PRIORITY_LOGISTICS, storeScore});
-        }
-    }
-
-    if (canHaul) {
-        const float haulScore = EstimateHaulUtility(entity, em, spatialGrid);
-
-        if (haulScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::Haul, PRIORITY_HAUL, haulScore});
-        }
-    }
-
-    // =========================================================
-    // Productive work
-    // =========================================================
-    if (canStartWork) {
-        if (canHunt) {
-            const float huntScore = EstimateHuntUtility(entity, em, spatialGrid);
-
-            if (huntScore > 0.0f) {
-                candidates.push_back({AIDecisionTaskType::Hunt, PRIORITY_WORK + 40.0f, huntScore});
-            }
-        }
-
-        if (canBuild) {
-            const float buildScore = EstimateBuildUtility(entity, em, spatialGrid);
-
-            if (buildScore > 0.0f) {
-                candidates.push_back({AIDecisionTaskType::Build, PRIORITY_WORK + 30.0f, buildScore});
-            }
-        }
-
-        if (canDismantle) {
-            const float dismantleScore = EstimateDismantleUtility(entity, em, spatialGrid);
-
-            if (dismantleScore > 0.0f) {
-                candidates.push_back({AIDecisionTaskType::Dismantle, PRIORITY_WORK + 20.0f, dismantleScore});
-            }
-        }
-
-        if (canHarvest) {
-            const float harvestScore = EstimateHarvestUtility(entity, em, resourceReg, spatialGrid);
-
-            if (harvestScore > 0.0f) {
-                candidates.push_back({AIDecisionTaskType::Harvest, PRIORITY_WORK + 10.0f, harvestScore});
-            }
-        }
-
-        if (canComfortFrightened) {
-            candidates.push_back({AIDecisionTaskType::ComfortFrightened, PRIORITY_COMFORT_FRIGHTENED, 100.0f});
-        }
-
-        if (canPreach) {
-            candidates.push_back({AIDecisionTaskType::Preach, PRIORITY_PREACH, 70.0f});
-        }
-
-        if (canHoldRitual) {
-            candidates.push_back({AIDecisionTaskType::HoldRitual, PRIORITY_HOLD_RITUAL, 60.0f});
-        }
-
-        if (canEquipWeapon) {
-            candidates.push_back({AIDecisionTaskType::EquipWeapon, PRIORITY_EQUIP_WEAPON, 100.0f});
-        }
-
-        if (canRequestWeapon) {
-            candidates.push_back({AIDecisionTaskType::RequestWeapon, PRIORITY_REQUEST_WEAPON, 80.0f});
-        }
-
-        if (canFulfillWeaponRequest) {
-            candidates.push_back({AIDecisionTaskType::FulfillWeaponRequest, PRIORITY_FULFILL_REQUEST, 100.0f});
-        }
-
-        if (canRepair) {
-            candidates.push_back({AIDecisionTaskType::Repair, PRIORITY_REPAIR, 80.0f});
-        }
-    }
-
-    // =========================================================
-    // Idle fallback
-    // =========================================================
-    if (canPatrol) {
-        candidates.push_back({AIDecisionTaskType::Patrol, PRIORITY_PATROL, 10.0f});
-    }
-
-    // =========================================================
-    // Low-priority social actions
-    // =========================================================
-    if (canConsiderLowPrioritySocial && canConfrontPerson) {
-        const float confrontScore = EstimateConfrontPersonUtility(entity, em);
-
-        if (confrontScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::ConfrontPerson, PRIORITY_CONFRONT_PERSON, confrontScore});
-        }
-    }
-
-    // if (canConsiderLowPrioritySocial && canSocialize) {
-    //     const float socializeScore = EstimateSocializeUtility(entity, em);
-
-    //     if (socializeScore > 0.0f) {
-    //         candidates.push_back({AIDecisionTaskType::Socialize, PRIORITY_SOCIALIZE, socializeScore});
-    //     }
-    // }
-
-    if (canConsiderLowPrioritySocial && canMurder) {
-        const float murderScore = EstimateMurderUtility(entity, em);
-
-        if (murderScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::Murder, PRIORITY_MURDER, murderScore});
-        }
-    }
-
-    if (canConsiderLowPrioritySocial && canFightNonLethal) {
-        const float hostilityScore = EstimateHighestHostility(entity, em);
-
-        if (hostilityScore >= 75.0f) {
-            candidates.push_back({AIDecisionTaskType::FightNonLethal, PRIORITY_FIGHT_NON_LETHAL, hostilityScore});
-        }
-    }
-
-    if (canConsiderLowPrioritySocial && canIntimidate) {
-        const float hostilityScore = EstimateHighestHostility(entity, em);
-
-        if (hostilityScore >= 55.0f) {
-            candidates.push_back({AIDecisionTaskType::Intimidate, PRIORITY_INTIMIDATE, hostilityScore});
-        }
-    }
-
-    if (canFightNonLethal) {
-        const float hostilityScore = EstimateHighestHostility(entity, em);
-
-        if (hostilityScore >= 75.0f) {
-            candidates.push_back({AIDecisionTaskType::FightNonLethal, PRIORITY_FIGHT_NON_LETHAL, hostilityScore});
-        }
-    }
-
-    if (canIntimidate) {
-        const float hostilityScore = EstimateHighestHostility(entity, em);
-
-        if (hostilityScore >= 55.0f) {
-            candidates.push_back({AIDecisionTaskType::Intimidate, PRIORITY_INTIMIDATE, hostilityScore});
-        }
-    }
-
-    // if (canWander) {
-    //     candidates.push_back({AIDecisionTaskType::Wander, PRIORITY_IDLE, 0.0f});
-    // }
-
-    if (candidates.empty()) {
-        return false;
-    }
+    BuildTaskCandidates(entity, em, resourceReg, spatialGrid, currentHour, candidates);
 
     std::sort(candidates.begin(), candidates.end(), CandidateSortPredicate);
 
     for (const AITaskCandidate& candidate : candidates) {
-        bool started = false;
-
-        switch (candidate.type) {
-            case AIDecisionTaskType::Flee:
-                if (em.hasAIContext[entity]) {
-                    started = TryStartFleeFromThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
-                }
-                break;
-
-            case AIDecisionTaskType::Defend:
-                if (em.hasAIContext[entity]) {
-                    started = TryStartDefendAgainstThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
-                }
-                break;
-
-            case AIDecisionTaskType::AvoidPerson:
-                started = TryFindAvoidPersonJob(entity, em, map, tileReg);
-                break;
-
-            case AIDecisionTaskType::ConfrontPerson:
-                started = TryFindConfrontPersonJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Socialize:
-                started = TryFindSocializeJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::ReturnToVillageCore:
-                started = TryFindReturnToVillageCoreJob(entity, em, map, tileReg);
-                break;
-
-            case AIDecisionTaskType::SeekFood:
-                started = TryFindSeekFoodJob(entity, em, map, tileReg, resourceReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Rest:
-                started = TryFindRestJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::CareChildFood:
-                started = TryFindCareChildFoodJob(entity, em, map, tileReg, resourceReg);
-                break;
-
-            case AIDecisionTaskType::Store:
-                started = TryFindStoreJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Haul:
-                started = TryFindHaulJob(entity, em, map, tileReg, resourceReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Hunt:
-                started = TryFindHuntJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Build:
-                started = TryFindBuildJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Dismantle:
-                started = TryFindDismantleJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::EquipWeapon:
-                started = TryFindEquipWeaponJob(entity, em, map, tileReg, weaponReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::RequestWeapon:
-                started = TryFindRequestWeaponJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::FulfillWeaponRequest:
-                started = TryFindFulfillWeaponRequestJob(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Guard:
-                started = TryFindGuardJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Repair:
-                started = TryFindRepairJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Patrol:
-                started = TryFindPatrolJob(entity, em, map, tileReg);
-                break;
-
-            case AIDecisionTaskType::Harvest:
-                started = TryFindHarvestJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Intimidate:
-                started = TryFindIntimidateJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::FightNonLethal:
-                started = TryFindFightNonLethalJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Murder:
-                started = TryFindMurderJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Wander:
-                started = TryFindWanderJob(entity, em, map, tileReg);
-                break;
-
-            case AIDecisionTaskType::ComfortFrightened:
-                started = TryFindComfortFrightenedJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Preach:
-                started = TryFindPreachJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::HoldRitual:
-                started = TryFindHoldRitualJob(entity, em, map, tileReg, spatialGrid);
-                break;
-
-            case AIDecisionTaskType::Pray:
-                started = TryFindPrayJob(entity, em, map, tileReg, spatialGrid);
-                break;
-        }
-
-        if (!started) {
+        if (!TryStartTaskCandidate(entity, candidate, em, map, tileReg, resourceReg, weaponReg, spatialGrid)) {
             continue;
         }
 
@@ -1403,43 +1329,5 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         return true;
     }
 
-    if (canPray && !HasUrgentPersonalNeed(entity, em)) {
-        if (TryFindPrayJob(entity, em, map, tileReg, spatialGrid)) {
-            if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = PRIORITY_PRAY;
-                em.aiContexts[entity].currentTaskInterruptible = true;
-            }
-
-            return true;
-        }
-    }
-    // =========================================================
-    // Fallback social life.
-    // If the villager would otherwise
-    // idle/wander, prefer socializing.
-    // This must not compete with work, survival, defense, or logistics.
-    // =========================================================
-    if (canSocialize && !HasUrgentPersonalNeed(entity, em)) {
-        if (TryFindSocializeJob(entity, em, map, tileReg, spatialGrid)) {
-            if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = PRIORITY_SOCIALIZE;
-                em.aiContexts[entity].currentTaskInterruptible = true;
-            }
-            return true;
-        }
-    }
-    // =========================================================
-    // Final fallback.
-    // =========================================================
-    if (canWander) {
-        if (TryFindWanderJob(entity, em, map, tileReg)) {
-            if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = PRIORITY_IDLE;
-                em.aiContexts[entity].currentTaskInterruptible = true;
-            }
-            return true;
-        }
-    }
-
-    return false;
+    return TryStartFallbackTask(entity, em, map, tileReg, spatialGrid);
 }

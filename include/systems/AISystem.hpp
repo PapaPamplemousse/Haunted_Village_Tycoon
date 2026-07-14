@@ -10,11 +10,13 @@
 #include "data/WeaponRegistry.hpp"
 #include "ecs/EntityManager.hpp"
 #include "systems/RoomSystem.hpp"
+#include "systems/ai/AITaskCandidate.hpp"
 #include "world/EntitySpatialGrid.hpp"
 #include "world/WorldMap.hpp"
 
 #include <raylib.h>
 #include <string>
+#include <vector>
 
 class AISystem {
 public:
@@ -56,6 +58,16 @@ private:
 
     bool TryInterruptCurrentTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                  const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
+
+    void BuildTaskCandidates(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid,
+                             float currentHour, std::vector<AITaskCandidate>& candidates);
+
+    bool TryStartTaskCandidate(EntityID entity, const AITaskCandidate& candidate, EntityManager& em, const WorldMap& map,
+                               const TileRegistry& tileReg, const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                               const EntitySpatialGrid& spatialGrid);
+
+    bool TryStartFallbackTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                              const EntitySpatialGrid& spatialGrid);
 
     bool SelectAndStartBestTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                 const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid,
