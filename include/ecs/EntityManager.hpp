@@ -113,6 +113,9 @@ public:
     std::vector<bool> hasSocial;
     std::vector<SocialComponent> socials;
 
+    std::vector<bool> hasFaction;
+    std::vector<FactionComponent> factions;
+
     std::vector<bool> hasPersonality;
     std::vector<PersonalityComponent> personalities;
 

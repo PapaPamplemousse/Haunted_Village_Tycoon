@@ -1,0 +1,38 @@
+[COMMON_FOLK]
+name = Common Folk
+description = Ordinary villagers trying to survive.
+base_conviction = 10
+fear_affinity = 0.0
+corruption_affinity = 0.0
+same_faction_trust_gain = 0.10
+opposed_faction_resentment_gain = 0.05
+
+[OLD_FAITH]
+name = Old Faith
+description = Villagers who believe rituals and old gods protect the settlement.
+base_conviction = 20
+fear_affinity = 0.35
+corruption_affinity = -0.15
+same_faction_trust_gain = 0.20
+opposed_faction_resentment_gain = 0.20
+opposed_factions = CULT_OF_THE_HOLLOW
+
+[IRON_WATCH]
+name = Iron Watch
+description = Villagers who believe survival depends on weapons, discipline and guards.
+base_conviction = 20
+fear_affinity = 0.20
+corruption_affinity = 0.0
+same_faction_trust_gain = 0.18
+opposed_faction_resentment_gain = 0.15
+opposed_factions = CULT_OF_THE_HOLLOW
+
+[CULT_OF_THE_HOLLOW]
+name = Cult of the Hollow
+description = Villagers drawn toward whispers, corruption and the darkness beneath the village.
+base_conviction = 5
+fear_affinity = 0.20
+corruption_affinity = 0.65
+same_faction_trust_gain = 0.25
+opposed_faction_resentment_gain = 0.30
+opposed_factions = OLD_FAITH, IRON_WATCH

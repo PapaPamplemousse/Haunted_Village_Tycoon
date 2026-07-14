@@ -207,6 +207,20 @@ struct PersonalityComponent {
 };
 
 /**
+ * @struct FactionComponent
+ * @brief Stores faction/religion affiliation and conviction for an entity.
+ */
+struct FactionComponent {
+    std::string factionId = "COMMON_FOLK";
+
+    // 0 = weak affiliation, 100 = strong ideological/religious conviction.
+    float conviction = 10.0f;
+
+    // Higher openness makes faction shifts easier later.
+    float openness = 0.5f;
+};
+
+/**
  * @struct SocialComponent
  * @brief Stores lightweight social relationships for an entity.
  */

@@ -471,6 +471,10 @@ Application::Application()
         std::cerr << "Failed to load event rules!" << std::endl;
     }
 
+    if (!m_factionRegistry.LoadFromSTV("data/factions.stv")) {
+        std::cerr << "Failed to load factions!" << std::endl;
+    }
+
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
 
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
@@ -493,6 +497,8 @@ Application::Application()
     SpawnDebugVillageTestVillagers(m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, villageCore);
 
     m_traitRegistry.AssignMissingPersonalities(m_entityManager);
+
+    m_factionSystem.AssignMissingFactions(m_entityManager, m_factionRegistry);
 
     m_spatialGrid.Rebuild(m_entityManager);
 
@@ -569,6 +575,8 @@ void Application::Update(float deltaTime) {
                            m_resourceRegistry, m_timeSystem);
 
     m_traitRegistry.AssignMissingPersonalities(m_entityManager);
+
+    m_factionSystem.Update(deltaTime, m_entityManager, m_factionRegistry, m_settlementMetrics);
 }
 
 void Application::Render() {

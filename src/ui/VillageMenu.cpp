@@ -985,6 +985,44 @@ int CountFamilyMembersForMenu(const EntityManager& em, EntityID entity) {
     return count;
 }
 
+std::string GetFactionText(const EntityManager& em, EntityID entity) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasFaction[entity]) {
+        return "none";
+    }
+
+    return em.factions[entity].factionId + " " + TextFormat("(%.0f)", em.factions[entity].conviction);
+}
+
+struct FactionCountView {
+    std::string factionId;
+    int count = 0;
+};
+
+std::vector<FactionCountView> GetFactionCounts(const EntityManager& em, EntityID villageId) {
+    std::unordered_map<std::string, int> counts;
+
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!em.active[entity] || !em.hasVillageMember[entity] || !em.hasFaction[entity]) {
+            continue;
+        }
+
+        if (em.villageMembers[entity].villageId != villageId) {
+            continue;
+        }
+
+        counts[em.factions[entity].factionId]++;
+    }
+
+    std::vector<FactionCountView> result;
+
+    for (const auto& entry : counts) {
+        result.push_back({entry.first, entry.second});
+    }
+
+    std::sort(result.begin(), result.end(), [](const FactionCountView& lhs, const FactionCountView& rhs) { return lhs.count > rhs.count; });
+    return result;
+}
+
 } // namespace
 
 void VillageMenu::Update(EntityManager& em, GameCamera& camera, const ProfessionRegistry& professionReg,
@@ -1340,6 +1378,22 @@ void VillageMenu::RenderOverview(const EntityManager& em, const ResourceRegistry
     DrawKeyValue("Adults / Children", std::to_string(village.adultPopulation) + " / " + std::to_string(village.childPopulation), x,
                  currentY);
     currentY += 28.0f;
+    const std::vector<FactionCountView> factionCounts = GetFactionCounts(em, villageId);
+
+    if (!factionCounts.empty()) {
+        std::string factionText;
+
+        for (size_t i = 0; i < factionCounts.size(); ++i) {
+            if (i > 0) {
+                factionText += " | ";
+            }
+
+            factionText += factionCounts[i].factionId + ":" + std::to_string(factionCounts[i].count);
+        }
+
+        DrawKeyValue("Factions", TruncateText(factionText, 38), x, currentY, SKYBLUE);
+        currentY += 28.0f;
+    }
 
     if (em.hasInventory[villageId]) {
         const int foodNutrition = static_cast<int>(ComputeFoodNutrition(em.inventories[villageId], resourceReg));
@@ -1807,6 +1861,10 @@ void VillageMenu::RenderSocial(const EntityManager& em, EntityID villageId, floa
                  static_cast<int>(profileY), 15, SKYBLUE);
         profileY += 22.0f;
     }
+
+    DrawText(("Faction: " + TruncateText(GetFactionText(em, primary), 28)).c_str(), static_cast<int>(midX), static_cast<int>(profileY), 15,
+             em.hasFaction[primary] ? GOLD : DARKGRAY);
+    profileY += 22.0f;
 
     if (em.hasPersonality[primary]) {
         const PersonalityComponent& personality = em.personalities[primary];

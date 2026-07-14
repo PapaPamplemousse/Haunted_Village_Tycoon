@@ -172,6 +172,18 @@ std::vector<TooltipLine> BuildInspectionLines(EntityID i, const EntityManager& e
     }
 
     // =========================================================
+    // Faction
+    // =========================================================
+    if (entityManager.hasFaction[i]) {
+        const FactionComponent& faction = entityManager.factions[i];
+
+        AddHeader(lines, "Faction");
+        AddKV(lines, "Faction", faction.factionId);
+        AddKV(lines, "Conviction", TextFormat("%.0f", faction.conviction));
+        AddKV(lines, "Openness", TextFormat("%.2f", faction.openness));
+    }
+
+    // =========================================================
     // Vitals
     // =========================================================
     if (entityManager.hasHealth[i] || entityManager.hasNeeds[i]) {

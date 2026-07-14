@@ -15,6 +15,7 @@
 #include "data/EntityRegistry.hpp"
 #include "data/EnvironmentRegistry.hpp"
 #include "data/EventRuleRegistry.hpp"
+#include "data/FactionRegistry.hpp"
 #include "data/FurnitureRegistry.hpp"
 #include "data/NameRegistry.hpp"
 #include "data/ProfessionRegistry.hpp"
@@ -30,6 +31,7 @@
 #include "systems/BuildPlacementSystem.hpp"
 #include "systems/ChronicleRenderSystem.hpp"
 #include "systems/EventSystem.hpp"
+#include "systems/FactionSystem.hpp"
 #include "systems/HouseholdSystem.hpp"
 #include "systems/LightingSystem.hpp"
 #include "systems/ProfessionSystem.hpp"
@@ -80,6 +82,7 @@ private:
     ProfessionRegistry m_professionRegistry;
     ResourceRegistry m_resourceRegistry;
     TraitRegistry m_traitRegistry;
+    FactionRegistry m_factionRegistry;
     EventRuleRegistry m_eventRuleRegistry;
 
     // World state
@@ -105,6 +108,7 @@ private:
     RoomSystem m_roomSystem;
     ProfessionSystem m_professionSystem;
     InspectionSystem m_inspectionSystem;
+    FactionSystem m_factionSystem;
 
     // Core services
     GameCamera m_camera;
