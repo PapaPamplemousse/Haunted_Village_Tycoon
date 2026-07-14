@@ -11,4 +11,7 @@ namespace ai::completion {
 bool TryCompleteSocialTask(const AICompletionContext& ctx);
 bool TryCompleteHostilityTask(const AICompletionContext& ctx);
 bool TryCompleteReligionTask(const AICompletionContext& ctx);
+bool TryCompleteNeedsTask(const AICompletionContext& ctx);
+bool TryCompleteStorageTask(const AICompletionContext& ctx);
+bool TryCompleteCraftingTask(const AICompletionContext& ctx);
 } // namespace ai::completion
