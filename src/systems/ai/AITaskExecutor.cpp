@@ -27,6 +27,12 @@ bool HasValidTransform(EntityID entity, const EntityManager& em) {
     return entity < em.active.size() && em.active[entity] && em.hasTransform[entity];
 }
 
+void ApplyCommonTaskFields(BehaviorComponent& behavior, EntityID target, const std::string& itemTarget) {
+    behavior.currentJobTarget = target;
+    behavior.currentItemTarget = itemTarget;
+    behavior.hasJob = true;
+}
+
 } // namespace
 
 bool AITaskExecutor::AreEntitiesAdjacent(EntityID a, EntityID b, const EntityManager& em) {
@@ -42,7 +48,8 @@ bool AITaskExecutor::AreEntitiesAdjacent(EntityID a, EntityID b, const EntityMan
     return std::max(std::abs(ax - bx), std::abs(ay - by)) <= 1;
 }
 
-bool AITaskExecutor::StartAction(EntityID actor, EntityID target, EntityManager& em, const std::string& actionTask, float actionDuration) {
+bool AITaskExecutor::StartAction(EntityID actor, EntityID target, EntityManager& em, const std::string& actionTask, float actionDuration,
+                                 const std::string& itemTarget) {
     if (!HasValidBehavior(actor, em)) {
         return false;
     }
@@ -54,8 +61,8 @@ bool AITaskExecutor::StartAction(EntityID actor, EntityID target, EntityManager&
     BehaviorComponent& behavior = em.behaviors[actor];
 
     behavior.currentTask = actionTask;
-    behavior.currentJobTarget = target;
-    behavior.hasJob = true;
+    ApplyCommonTaskFields(behavior, target, itemTarget);
+
     behavior.isMoving = false;
     behavior.currentPath.clear();
     behavior.currentPathIndex = 0;
@@ -66,13 +73,13 @@ bool AITaskExecutor::StartAction(EntityID actor, EntityID target, EntityManager&
 
 bool AITaskExecutor::StartMoveAdjacentToEntity(EntityID actor, EntityID target, EntityManager& em, const WorldMap& map,
                                                const TileRegistry& tileReg, const std::string& moveTask, const std::string& actionTask,
-                                               float actionDuration) {
+                                               float actionDuration, const std::string& itemTarget) {
     if (!HasValidBehavior(actor, em) || !HasValidTransform(target, em)) {
         return false;
     }
 
     if (AreEntitiesAdjacent(actor, target, em)) {
-        return StartAction(actor, target, em, actionTask, actionDuration);
+        return StartAction(actor, target, em, actionTask, actionDuration, itemTarget);
     }
 
     std::vector<Vector2> path =
@@ -85,8 +92,8 @@ bool AITaskExecutor::StartMoveAdjacentToEntity(EntityID actor, EntityID target, 
     BehaviorComponent& behavior = em.behaviors[actor];
 
     behavior.currentTask = moveTask;
-    behavior.currentJobTarget = target;
-    behavior.hasJob = true;
+    ApplyCommonTaskFields(behavior, target, itemTarget);
+
     behavior.currentPath = std::move(path);
     behavior.currentPathIndex = 0;
     behavior.currentTarget = behavior.currentPath[0];
@@ -97,7 +104,8 @@ bool AITaskExecutor::StartMoveAdjacentToEntity(EntityID actor, EntityID target, 
 }
 
 bool AITaskExecutor::StartMoveToPosition(EntityID actor, EntityID taskTarget, Vector2 targetPosition, EntityManager& em,
-                                         const WorldMap& map, const TileRegistry& tileReg, const std::string& moveTask) {
+                                         const WorldMap& map, const TileRegistry& tileReg, const std::string& moveTask,
+                                         const std::string& itemTarget) {
     if (!HasValidBehavior(actor, em)) {
         return false;
     }
@@ -111,8 +119,8 @@ bool AITaskExecutor::StartMoveToPosition(EntityID actor, EntityID taskTarget, Ve
     BehaviorComponent& behavior = em.behaviors[actor];
 
     behavior.currentTask = moveTask;
-    behavior.currentJobTarget = taskTarget;
-    behavior.hasJob = true;
+    ApplyCommonTaskFields(behavior, taskTarget, itemTarget);
+
     behavior.currentPath = std::move(path);
     behavior.currentPathIndex = 0;
     behavior.currentTarget = behavior.currentPath[0];
@@ -126,14 +134,15 @@ bool AITaskExecutor::ApplyIntent(EntityID actor, EntityManager& em, const WorldM
                                  const AIIntent& intent) {
     switch (intent.kind) {
         case AIIntentKind::StartAction:
-            return StartAction(actor, intent.targetEntity, em, intent.actionTask, intent.actionDuration);
+            return StartAction(actor, intent.targetEntity, em, intent.actionTask, intent.actionDuration, intent.itemTarget);
 
         case AIIntentKind::MoveAdjacentToEntity:
             return StartMoveAdjacentToEntity(actor, intent.targetEntity, em, map, tileReg, intent.moveTask, intent.actionTask,
-                                             intent.actionDuration);
+                                             intent.actionDuration, intent.itemTarget);
 
         case AIIntentKind::MoveToPosition:
-            return StartMoveToPosition(actor, intent.targetEntity, intent.targetPosition, em, map, tileReg, intent.moveTask);
+            return StartMoveToPosition(actor, intent.targetEntity, intent.targetPosition, em, map, tileReg, intent.moveTask,
+                                       intent.itemTarget);
 
         case AIIntentKind::None:
         default:

@@ -9,6 +9,8 @@
 #include "systems/Pathfinder.hpp"
 #include "systems/ai/AIDecisionContext.hpp"
 #include "systems/ai/AIDecisionScoring.hpp"
+#include "systems/ai/AIIntent.hpp"
+#include "systems/ai/AIIntentFinder.hpp"
 #include "systems/ai/AIPriority.hpp"
 #include "systems/ai/AITaskCandidate.hpp"
 #include "systems/ai/AITaskExecutor.hpp"
@@ -17,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -424,6 +427,13 @@ void AISystem::BuildTaskCandidates(EntityID entity, EntityManager& em, const Res
 bool AISystem::TryStartTaskCandidate(EntityID entity, const AITaskCandidate& candidate, EntityManager& em, const WorldMap& map,
                                      const TileRegistry& tileReg, const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                      const EntitySpatialGrid& spatialGrid) {
+    const std::optional<AIIntent> intent =
+        AIIntentFinder::FindIntentForTask(entity, candidate.type, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+    if (intent.has_value()) {
+        return AITaskExecutor::ApplyIntent(entity, em, map, tileReg, intent.value());
+    }
+
     switch (candidate.type) {
         case AITaskType::Flee:
             if (em.hasAIContext[entity]) {
@@ -520,6 +530,7 @@ bool AISystem::TryStartTaskCandidate(EntityID entity, const AITaskCandidate& can
 }
 
 bool AISystem::TryStartFallbackTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                    const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                     const EntitySpatialGrid& spatialGrid) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity]) {
         return false;
@@ -532,7 +543,10 @@ bool AISystem::TryStartFallbackTask(EntityID entity, EntityManager& em, const Wo
     const bool canWander = ai::decision::HasCapability(behavior, "wander");
 
     if (canPray && !ai::decision::HasUrgentPersonalNeed(entity, em)) {
-        if (TryFindPrayJob(entity, em, map, tileReg, spatialGrid)) {
+        const std::optional<AIIntent> intent =
+            AIIntentFinder::FindIntentForTask(entity, AITaskType::Pray, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        if (intent.has_value() && AITaskExecutor::ApplyIntent(entity, em, map, tileReg, intent.value())) {
             if (em.hasAIContext[entity]) {
                 em.aiContexts[entity].currentTaskPriority = AIPriority::Pray;
                 em.aiContexts[entity].currentTaskInterruptible = true;
@@ -543,7 +557,10 @@ bool AISystem::TryStartFallbackTask(EntityID entity, EntityManager& em, const Wo
     }
 
     if (canSocialize && !ai::decision::HasUrgentPersonalNeed(entity, em)) {
-        if (TryFindSocializeJob(entity, em, map, tileReg, spatialGrid)) {
+        const std::optional<AIIntent> intent =
+            AIIntentFinder::FindIntentForTask(entity, AITaskType::Socialize, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        if (intent.has_value() && AITaskExecutor::ApplyIntent(entity, em, map, tileReg, intent.value())) {
             if (em.hasAIContext[entity]) {
                 em.aiContexts[entity].currentTaskPriority = AIPriority::Socialize;
                 em.aiContexts[entity].currentTaskInterruptible = true;
@@ -554,7 +571,10 @@ bool AISystem::TryStartFallbackTask(EntityID entity, EntityManager& em, const Wo
     }
 
     if (canWander) {
-        if (TryFindWanderJob(entity, em, map, tileReg)) {
+        const std::optional<AIIntent> intent =
+            AIIntentFinder::FindIntentForTask(entity, AITaskType::Wander, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        if (intent.has_value() && AITaskExecutor::ApplyIntent(entity, em, map, tileReg, intent.value())) {
             if (em.hasAIContext[entity]) {
                 em.aiContexts[entity].currentTaskPriority = AIPriority::Idle;
                 em.aiContexts[entity].currentTaskInterruptible = true;
@@ -593,5 +613,5 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         return true;
     }
 
-    return TryStartFallbackTask(entity, em, map, tileReg, spatialGrid);
+    return TryStartFallbackTask(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
 }

@@ -17,6 +17,7 @@ struct AIIntent {
 
     std::string moveTask;
     std::string actionTask;
+    std::string itemTarget;
 
     EntityID targetEntity = static_cast<EntityID>(-1);
     Vector2 targetPosition = {0.0f, 0.0f};
