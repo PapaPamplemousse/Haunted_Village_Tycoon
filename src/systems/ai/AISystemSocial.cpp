@@ -7,6 +7,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
+#include "systems/ai/AITaskExecutor.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -209,36 +210,7 @@ bool AISystem::TryFindSocializeJob(EntityID entity, EntityManager& em, const Wor
         return false;
     }
 
-    BehaviorComponent& behavior = em.behaviors[entity];
-
-    if (AreEntitiesAdjacent(entity, bestTarget, em)) {
-        behavior.currentTask = "socializing";
-        behavior.currentJobTarget = bestTarget;
-        behavior.hasJob = true;
-        behavior.isMoving = false;
-        behavior.currentPath.clear();
-        behavior.currentPathIndex = 0;
-        behavior.stateTimer = 1.5f;
-        return true;
-    }
-
-    std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestTarget].position, map, tileReg, em, entity);
-
-    if (path.empty()) {
-        return false;
-    }
-
-    behavior.currentTask = "moving_to_socialize";
-    behavior.currentJobTarget = bestTarget;
-    behavior.hasJob = true;
-    behavior.currentPath = std::move(path);
-    behavior.currentPathIndex = 0;
-    behavior.currentTarget = behavior.currentPath[0];
-    behavior.isMoving = true;
-    behavior.stateTimer = 0.0f;
-
-    return true;
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, bestTarget, em, map, tileReg, "moving_to_socialize", "socializing", 1.5f);
 }
 
 bool AISystem::TryFindAvoidPersonJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
@@ -363,34 +335,6 @@ bool AISystem::TryFindConfrontPersonJob(EntityID entity, EntityManager& em, cons
         return false;
     }
 
-    BehaviorComponent& behavior = em.behaviors[entity];
-
-    if (AreEntitiesAdjacent(entity, bestTarget, em)) {
-        behavior.currentTask = "confronting_person";
-        behavior.currentJobTarget = bestTarget;
-        behavior.hasJob = true;
-        behavior.isMoving = false;
-        behavior.currentPath.clear();
-        behavior.currentPathIndex = 0;
-        behavior.stateTimer = 1.5f;
-        return true;
-    }
-
-    std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestTarget].position, map, tileReg, em, entity);
-
-    if (path.empty()) {
-        return false;
-    }
-
-    behavior.currentTask = "moving_to_confront";
-    behavior.currentJobTarget = bestTarget;
-    behavior.hasJob = true;
-    behavior.currentPath = std::move(path);
-    behavior.currentPathIndex = 0;
-    behavior.currentTarget = behavior.currentPath[0];
-    behavior.isMoving = true;
-    behavior.stateTimer = 0.0f;
-
-    return true;
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, bestTarget, em, map, tileReg, "moving_to_confront", "confronting_person",
+                                                     1.2f);
 }

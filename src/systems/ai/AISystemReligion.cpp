@@ -7,6 +7,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
+#include "systems/ai/AITaskExecutor.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -187,61 +188,6 @@ EntityID FindFrightenedTarget(EntityID priest, EntityManager& em, const EntitySp
 
     return best;
 }
-int WorldToTileCoord(float value) {
-    return static_cast<int>(std::floor(value / Config::TILE_SIZE));
-}
-
-bool AreAdjacentLocal(EntityID a, EntityID b, const EntityManager& em) {
-    if (a >= em.active.size() || b >= em.active.size() || !em.active[a] || !em.active[b] || !em.hasTransform[a] || !em.hasTransform[b]) {
-        return false;
-    }
-
-    const int ax = WorldToTileCoord(em.transforms[a].position.x);
-    const int ay = WorldToTileCoord(em.transforms[a].position.y);
-    const int bx = WorldToTileCoord(em.transforms[b].position.x);
-    const int by = WorldToTileCoord(em.transforms[b].position.y);
-
-    return std::max(std::abs(ax - bx), std::abs(ay - by)) <= 1;
-}
-
-bool StartAdjacentOrMove(EntityID actor, EntityID target, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                         const std::string& moveTask, const std::string& actionTask, float actionDuration) {
-    if (!IsValidHuman(em, actor) || target >= em.active.size() || !em.active[target] || !em.hasTransform[target] ||
-        !em.hasBehavior[actor]) {
-        return false;
-    }
-
-    BehaviorComponent& behavior = em.behaviors[actor];
-
-    if (AreAdjacentLocal(actor, target, em)) {
-        behavior.currentTask = actionTask;
-        behavior.currentJobTarget = target;
-        behavior.hasJob = true;
-        behavior.isMoving = false;
-        behavior.currentPath.clear();
-        behavior.currentPathIndex = 0;
-        behavior.stateTimer = actionDuration;
-        return true;
-    }
-
-    std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[actor].position, em.transforms[target].position, map, tileReg, em, actor);
-
-    if (path.empty()) {
-        return false;
-    }
-
-    behavior.currentTask = moveTask;
-    behavior.currentJobTarget = target;
-    behavior.hasJob = true;
-    behavior.currentPath = std::move(path);
-    behavior.currentPathIndex = 0;
-    behavior.currentTarget = behavior.currentPath[0];
-    behavior.isMoving = true;
-    behavior.stateTimer = 0.0f;
-
-    return true;
-}
 
 } // namespace
 
@@ -265,7 +211,7 @@ bool AISystem::TryFindPrayJob(EntityID entity, EntityManager& em, const WorldMap
         return false;
     }
 
-    return StartAdjacentOrMove(entity, shrine, em, map, tileReg, "moving_to_pray", "praying", 3.0f);
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, shrine, em, map, tileReg, "moving_to_pray", "praying", 3.0f);
 }
 
 bool AISystem::TryFindPreachJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -280,7 +226,7 @@ bool AISystem::TryFindPreachJob(EntityID entity, EntityManager& em, const WorldM
         return false;
     }
 
-    return StartAdjacentOrMove(entity, target, em, map, tileReg, "moving_to_preach", "preaching", 2.5f);
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, target, em, map, tileReg, "moving_to_preach", "preaching", 2.5f);
 }
 
 bool AISystem::TryFindHoldRitualJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -295,7 +241,7 @@ bool AISystem::TryFindHoldRitualJob(EntityID entity, EntityManager& em, const Wo
         return false;
     }
 
-    return StartAdjacentOrMove(entity, shrine, em, map, tileReg, "moving_to_ritual", "holding_ritual", 5.0f);
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, shrine, em, map, tileReg, "moving_to_ritual", "holding_ritual", 5.0f);
 }
 
 bool AISystem::TryFindComfortFrightenedJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -310,5 +256,5 @@ bool AISystem::TryFindComfortFrightenedJob(EntityID entity, EntityManager& em, c
         return false;
     }
 
-    return StartAdjacentOrMove(entity, target, em, map, tileReg, "moving_to_comfort", "comforting_frightened", 2.0f);
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, target, em, map, tileReg, "moving_to_comfort", "comforting_frightened", 2.0f);
 }

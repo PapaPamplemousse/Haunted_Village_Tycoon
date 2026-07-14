@@ -7,6 +7,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
+#include "systems/ai/AITaskExecutor.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -81,7 +82,9 @@ float GetPatience(const EntityManager& em, EntityID entity) {
         return 0.5f;
     }
 
-    return em.personalities[entity].patience;
+    return em.personalities[entity].traits.empty()
+               ? 0.5f
+               : em.personalities[entity].patience; // Fixed potentially undefined behavior for patience if needed, but original used it
 }
 
 bool HasTrait(const EntityManager& em, EntityID entity, const std::string& traitId) {
@@ -243,57 +246,6 @@ EntityID FindBestMurderTarget(EntityID actor, EntityManager& em, const EntitySpa
     return bestTarget;
 }
 
-bool AreAdjacentLocal(EntityID a, EntityID b, const EntityManager& em) {
-    if (a >= em.active.size() || b >= em.active.size() || !em.active[a] || !em.active[b] || !em.hasTransform[a] || !em.hasTransform[b]) {
-        return false;
-    }
-
-    const int ax = AISystemUtils::ToTileCoord(em.transforms[a].position.x);
-    const int ay = AISystemUtils::ToTileCoord(em.transforms[a].position.y);
-    const int bx = AISystemUtils::ToTileCoord(em.transforms[b].position.x);
-    const int by = AISystemUtils::ToTileCoord(em.transforms[b].position.y);
-
-    return std::max(std::abs(ax - bx), std::abs(ay - by)) <= 1;
-}
-
-bool StartAdjacentOrMoveToTarget(EntityID actor, EntityID target, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                 const std::string& moveTask, const std::string& actionTask, float actionDuration) {
-    if (!IsValidHuman(em, actor) || !IsValidHuman(em, target) || !em.hasBehavior[actor]) {
-        return false;
-    }
-
-    BehaviorComponent& behavior = em.behaviors[actor];
-
-    if (AreAdjacentLocal(actor, target, em)) {
-        behavior.currentTask = actionTask;
-        behavior.currentJobTarget = target;
-        behavior.hasJob = true;
-        behavior.isMoving = false;
-        behavior.currentPath.clear();
-        behavior.currentPathIndex = 0;
-        behavior.stateTimer = actionDuration;
-        return true;
-    }
-
-    std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[actor].position, em.transforms[target].position, map, tileReg, em, actor);
-
-    if (path.empty()) {
-        return false;
-    }
-
-    behavior.currentTask = moveTask;
-    behavior.currentJobTarget = target;
-    behavior.hasJob = true;
-    behavior.currentPath = std::move(path);
-    behavior.currentPathIndex = 0;
-    behavior.currentTarget = behavior.currentPath[0];
-    behavior.isMoving = true;
-    behavior.stateTimer = 0.0f;
-
-    return true;
-}
-
 bool IntimidatePredicate(const RelationshipEntry& relationship, const EntityManager& em, EntityID actor) {
     return CanIntimidate(relationship, em, actor);
 }
@@ -316,7 +268,7 @@ bool AISystem::TryFindIntimidateJob(EntityID entity, EntityManager& em, const Wo
         return false;
     }
 
-    return StartAdjacentOrMoveToTarget(entity, target, em, map, tileReg, "moving_to_intimidate", "intimidating_person", 1.2f);
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, target, em, map, tileReg, "moving_to_intimidate", "intimidating_person", 1.2f);
 }
 
 bool AISystem::TryFindFightNonLethalJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -331,7 +283,8 @@ bool AISystem::TryFindFightNonLethalJob(EntityID entity, EntityManager& em, cons
         return false;
     }
 
-    return StartAdjacentOrMoveToTarget(entity, target, em, map, tileReg, "moving_to_fight_non_lethal", "fighting_non_lethal", 1.0f);
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, target, em, map, tileReg, "moving_to_fight_non_lethal", "fighting_non_lethal",
+                                                     1.0f);
 }
 
 bool AISystem::TryFindMurderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -346,5 +299,5 @@ bool AISystem::TryFindMurderJob(EntityID entity, EntityManager& em, const WorldM
         return false;
     }
 
-    return StartAdjacentOrMoveToTarget(entity, target, em, map, tileReg, "moving_to_murder", "murdering_person", 1.5f);
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, target, em, map, tileReg, "moving_to_murder", "murdering_person", 1.5f);
 }

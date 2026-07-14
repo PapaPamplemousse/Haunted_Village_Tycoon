@@ -7,6 +7,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
+#include "systems/ai/AITaskExecutor.hpp"
 
 #include <cmath>
 #include <limits>
@@ -102,36 +103,7 @@ bool AISystem::TryFindRepairJob(EntityID entity, EntityManager& em, const WorldM
         return false;
     }
 
-    BehaviorComponent& behavior = em.behaviors[entity];
-
-    if (AreEntitiesAdjacent(entity, bestTarget, em)) {
-        behavior.currentTask = "repairing";
-        behavior.currentJobTarget = bestTarget;
-        behavior.hasJob = true;
-        behavior.isMoving = false;
-        behavior.currentPath.clear();
-        behavior.currentPathIndex = 0;
-        behavior.stateTimer = 1.0f;
-        return true;
-    }
-
-    std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestTarget].position, map, tileReg, em, entity);
-
-    if (path.empty()) {
-        return false;
-    }
-
-    behavior.currentTask = "moving_to_repair";
-    behavior.currentJobTarget = bestTarget;
-    behavior.hasJob = true;
-    behavior.currentPath = std::move(path);
-    behavior.currentPathIndex = 0;
-    behavior.currentTarget = behavior.currentPath[0];
-    behavior.isMoving = true;
-    behavior.stateTimer = 0.0f;
-
-    return true;
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, bestTarget, em, map, tileReg, "moving_to_repair", "repairing", 1.0f);
 }
 
 bool AISystem::TryFindGuardJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -220,37 +192,8 @@ bool AISystem::TryFindGuardJob(EntityID entity, EntityManager& em, const WorldMa
         return false;
     }
 
-    BehaviorComponent& behavior = em.behaviors[entity];
-
-    if (AreEntitiesAdjacent(entity, bestThreat, em)) {
-        behavior.currentTask = "attacking";
-        behavior.currentJobTarget = bestThreat;
-        behavior.hasJob = true;
-        behavior.isMoving = false;
-        behavior.currentPath.clear();
-        behavior.currentPathIndex = 0;
-        behavior.stateTimer = AISystemUtils::ATTACK_DURATION;
-
-        return true;
-    }
-
-    std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestThreat].position, map, tileReg, em, entity);
-
-    if (path.empty()) {
-        return false;
-    }
-
-    behavior.currentTask = "moving_to_hunt";
-    behavior.currentJobTarget = bestThreat;
-    behavior.hasJob = true;
-    behavior.currentPath = std::move(path);
-    behavior.currentPathIndex = 0;
-    behavior.currentTarget = behavior.currentPath[0];
-    behavior.isMoving = true;
-    behavior.stateTimer = 0.0f;
-
-    return true;
+    return AITaskExecutor::StartMoveAdjacentToEntity(entity, bestThreat, em, map, tileReg, "moving_to_hunt", "attacking",
+                                                     AISystemUtils::ATTACK_DURATION);
 }
 
 bool AISystem::TryFindPatrolJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
