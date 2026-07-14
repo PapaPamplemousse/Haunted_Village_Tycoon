@@ -73,6 +73,33 @@ std::optional<AIIntent> FindIntentForTask(EntityID entity, AITaskType taskType, 
         case AITaskType::Haul:
             return ai::intents::FindHaulIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
 
+        case AITaskType::Flee:
+            return ai::intents::FindFleeIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Defend:
+            return ai::intents::FindDefendIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Hunt:
+            return ai::intents::FindHuntIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Guard:
+            return ai::intents::FindGuardIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Patrol:
+            return ai::intents::FindPatrolIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Build:
+            return ai::intents::FindBuildIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Dismantle:
+            return ai::intents::FindDismantleIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Repair:
+            return ai::intents::FindRepairIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Harvest:
+            return ai::intents::FindHarvestIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
         default:
             return std::nullopt;
     }

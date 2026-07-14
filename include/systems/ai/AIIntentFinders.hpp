@@ -96,4 +96,40 @@ std::optional<AIIntent> FindFulfillWeaponRequestIntent(EntityID entity, EntityMa
 std::optional<AIIntent> FindHaulIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                        const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                        const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindFleeIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                       const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                       const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindDefendIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                         const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                         const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindHuntIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                       const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                       const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindGuardIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                        const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                        const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindPatrolIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                         const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                         const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindBuildIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                        const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                        const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindDismantleIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                            const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                            const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindRepairIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                         const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                         const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindHarvestIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                          const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                          const EntitySpatialGrid& spatialGrid);
 } // namespace ai::intents
