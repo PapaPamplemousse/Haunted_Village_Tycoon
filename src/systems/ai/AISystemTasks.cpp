@@ -8,6 +8,8 @@
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
 #include "systems/VillageRequestSystem.hpp"
+#include "systems/ai/AICompletion.hpp"
+#include "systems/ai/AICompletionContext.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -80,141 +82,20 @@ EntityID FindNearestCompatibleStorage(EntityID worker, const std::string& itemId
     return bestStorage;
 }
 
-RelationshipEntry& GetOrCreateTaskRelationship(EntityManager& em, EntityID owner, EntityID other) {
-    SocialComponent& social = em.socials[owner];
-
-    for (RelationshipEntry& relationship : social.relationships) {
-        if (relationship.otherId == other) {
-            return relationship;
-        }
-    }
-
-    social.relationships.push_back({other});
-    return social.relationships.back();
-}
-
-float ClampSocialTaskValue(float value) {
-    if (value < 0.0f) {
-        return 0.0f;
-    }
-
-    if (value > 100.0f) {
-        return 100.0f;
-    }
-
-    return value;
-}
-
-float GetTaskKindness(const EntityManager& em, EntityID entity) {
-    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
-        return 0.5f;
-    }
-
-    return em.personalities[entity].kindness;
-}
-
-float GetTaskAggression(const EntityManager& em, EntityID entity) {
-    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
-        return 0.0f;
-    }
-
-    return em.personalities[entity].aggression;
-}
-
-float GetTaskPatience(const EntityManager& em, EntityID entity) {
-    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
-        return 0.5f;
-    }
-
-    return em.personalities[entity].patience;
-}
-
-RelationshipEntry& GetOrCreateHostilityRelationship(EntityManager& em, EntityID owner, EntityID other) {
-    SocialComponent& social = em.socials[owner];
-
-    for (RelationshipEntry& relationship : social.relationships) {
-        if (relationship.otherId == other) {
-            return relationship;
-        }
-    }
-
-    social.relationships.push_back({other});
-    return social.relationships.back();
-}
-
-float ClampSocialHostility(float value) {
-    if (value < 0.0f) {
-        return 0.0f;
-    }
-
-    if (value > 100.0f) {
-        return 100.0f;
-    }
-
-    return value;
-}
-
-float GetHostilityAggression(const EntityManager& em, EntityID entity) {
-    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
-        return 0.0f;
-    }
-
-    return em.personalities[entity].aggression;
-}
-
-float GetHostilityBravery(const EntityManager& em, EntityID entity) {
-    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
-        return 0.5f;
-    }
-
-    return em.personalities[entity].bravery;
-}
-
-bool HasHostilityTrait(const EntityManager& em, EntityID entity, const std::string& traitId) {
-    if (entity >= em.active.size() || !em.active[entity] || !em.hasPersonality[entity]) {
-        return false;
-    }
-
-    const std::vector<std::string>& traits = em.personalities[entity].traits;
-
-    return std::find(traits.begin(), traits.end(), traitId) != traits.end();
-}
-
-RelationshipEntry& GetOrCreateReligionRelationship(EntityManager& em, EntityID owner, EntityID other) {
-    SocialComponent& social = em.socials[owner];
-
-    for (RelationshipEntry& relationship : social.relationships) {
-        if (relationship.otherId == other) {
-            return relationship;
-        }
-    }
-
-    social.relationships.push_back({other});
-    return social.relationships.back();
-}
-
-float ClampReligionValue(float value) {
-    if (value < 0.0f) {
-        return 0.0f;
-    }
-
-    if (value > 100.0f) {
-        return 100.0f;
-    }
-
-    return value;
-}
-
-bool IsHumanReligionTarget(const EntityManager& em, EntityID entity) {
-    return entity < em.active.size() && em.active[entity] && em.hasTag[entity] && em.tags[entity].species == "human";
-}
-
 } // namespace
 
 void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                     const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                     const EntitySpatialGrid& spatialGrid, RoomSystem& roomSys) {
     auto& behavior = em.behaviors[i];
+
+    const AICompletionContext completionContext{i, em, map, tileReg, resourceReg, weaponReg, spatialGrid, roomSys};
+
+    if (ai::completion::TryCompleteReligionTask(completionContext) || ai::completion::TryCompleteSocialTask(completionContext) ||
+        ai::completion::TryCompleteHostilityTask(completionContext)) {
+        ResetBehaviorState(behavior);
+        return;
+    }
 
     if (behavior.currentTask == "building") {
         EntityID target = behavior.currentJobTarget;
@@ -556,204 +437,6 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMa
 
         if (em.hasAIContext[i]) {
             em.aiContexts[i].careTargetId = static_cast<EntityID>(-1);
-        }
-    } else if (behavior.currentTask == "socializing") {
-        EntityID target = behavior.currentJobTarget;
-
-        if (target < em.active.size() && em.active[target] && em.hasSocial[i] && em.hasSocial[target]) {
-            RelationshipEntry& relToTarget = GetOrCreateTaskRelationship(em, i, target);
-            RelationshipEntry& relFromTarget = GetOrCreateTaskRelationship(em, target, i);
-
-            const float kindnessA = GetTaskKindness(em, i);
-            const float kindnessB = GetTaskKindness(em, target);
-
-            relToTarget.friendship = ClampSocialTaskValue(relToTarget.friendship + 4.0f + kindnessA * 3.0f);
-            relFromTarget.friendship = ClampSocialTaskValue(relFromTarget.friendship + 3.0f + kindnessB * 2.0f);
-
-            relToTarget.trust = ClampSocialTaskValue(relToTarget.trust + 1.0f);
-            relFromTarget.trust = ClampSocialTaskValue(relFromTarget.trust + 1.0f);
-
-            relToTarget.resentment = ClampSocialTaskValue(relToTarget.resentment - 2.0f);
-            relFromTarget.resentment = ClampSocialTaskValue(relFromTarget.resentment - 1.0f);
-        }
-    } else if (behavior.currentTask == "confronting_person") {
-        EntityID target = behavior.currentJobTarget;
-
-        if (target < em.active.size() && em.active[target] && em.hasSocial[i] && em.hasSocial[target]) {
-            RelationshipEntry& relToTarget = GetOrCreateTaskRelationship(em, i, target);
-            RelationshipEntry& relFromTarget = GetOrCreateTaskRelationship(em, target, i);
-
-            const float aggression = GetTaskAggression(em, i);
-            const float patience = GetTaskPatience(em, i);
-
-            // V1 non-lethal confrontation:
-            // - aggressive/impatient villagers escalate resentment and fear;
-            // - patient villagers slightly reduce their own resentment.
-            const bool escalates = aggression > 0.45f || patience < 0.35f;
-
-            if (escalates) {
-                relToTarget.resentment = ClampSocialTaskValue(relToTarget.resentment + 4.0f + aggression * 6.0f);
-                relFromTarget.resentment = ClampSocialTaskValue(relFromTarget.resentment + 6.0f + aggression * 4.0f);
-                relFromTarget.fear = ClampSocialTaskValue(relFromTarget.fear + aggression * 6.0f);
-                relToTarget.friendship = ClampSocialTaskValue(relToTarget.friendship - 2.0f);
-                relFromTarget.friendship = ClampSocialTaskValue(relFromTarget.friendship - 3.0f);
-            } else {
-                relToTarget.resentment = ClampSocialTaskValue(relToTarget.resentment - 5.0f);
-                relFromTarget.resentment = ClampSocialTaskValue(relFromTarget.resentment + 1.0f);
-                relToTarget.trust = ClampSocialTaskValue(relToTarget.trust + 1.0f);
-            }
-        }
-
-    } else if (behavior.currentTask == "intimidating_person") {
-        EntityID target = behavior.currentJobTarget;
-
-        if (target < em.active.size() && em.active[target] && em.hasSocial[i] && em.hasSocial[target]) {
-            RelationshipEntry& actorToTarget = GetOrCreateHostilityRelationship(em, i, target);
-            RelationshipEntry& targetToActor = GetOrCreateHostilityRelationship(em, target, i);
-
-            const float aggression = GetHostilityAggression(em, i);
-            const float bravery = GetHostilityBravery(em, i);
-
-            actorToTarget.resentment = ClampSocialHostility(actorToTarget.resentment - 2.0f);
-            actorToTarget.respect = ClampSocialHostility(actorToTarget.respect + 1.0f);
-
-            targetToActor.fear = ClampSocialHostility(targetToActor.fear + 8.0f + aggression * 8.0f + bravery * 3.0f);
-            targetToActor.resentment = ClampSocialHostility(targetToActor.resentment + 3.0f);
-            targetToActor.friendship = ClampSocialHostility(targetToActor.friendship - 2.0f);
-
-            std::cout << "[HOSTILITY] Entity #" << i << " intimidated entity #" << target << "." << std::endl;
-
-            if (em.hasAIContext[i]) {
-                em.aiContexts[i].socialActionCooldownTimer = 20.0f;
-            }
-        }
-    } else if (behavior.currentTask == "fighting_non_lethal") {
-        EntityID target = behavior.currentJobTarget;
-
-        if (target < em.active.size() && em.active[target] && em.hasHealth[target] && em.hasSocial[i] && em.hasSocial[target]) {
-            RelationshipEntry& actorToTarget = GetOrCreateHostilityRelationship(em, i, target);
-            RelationshipEntry& targetToActor = GetOrCreateHostilityRelationship(em, target, i);
-
-            float damage = 3.0f + GetHostilityAggression(em, i) * 7.0f;
-
-            if (em.hasStats[i]) {
-                damage += em.stats[i].baseAttack * 0.5f;
-            }
-
-            // Non-lethal cap: never reduce below 20% max HP.
-            const float minHp = std::max(1.0f, em.healths[target].max * 0.20f);
-
-            em.healths[target].current = std::max(minHp, em.healths[target].current - damage);
-
-            actorToTarget.resentment = ClampSocialHostility(actorToTarget.resentment - 4.0f);
-            actorToTarget.fear = ClampSocialHostility(actorToTarget.fear - 2.0f);
-
-            targetToActor.resentment = ClampSocialHostility(targetToActor.resentment + 12.0f);
-            targetToActor.fear = ClampSocialHostility(targetToActor.fear + 10.0f);
-            targetToActor.friendship = ClampSocialHostility(targetToActor.friendship - 8.0f);
-            targetToActor.trust = ClampSocialHostility(targetToActor.trust - 10.0f);
-
-            std::cout << "[HOSTILITY] Entity #" << i << " fought entity #" << target << " non-lethally." << std::endl;
-
-            if (em.hasAIContext[i]) {
-                em.aiContexts[i].socialActionCooldownTimer = 120.0f;
-            }
-        }
-    } else if (behavior.currentTask == "murdering_person") {
-        EntityID target = behavior.currentJobTarget;
-
-        if (target < em.active.size() && em.active[target] && em.hasHealth[target] && em.hasSocial[i]) {
-            const bool darkTrait = HasHostilityTrait(em, i, "VIOLENT") || HasHostilityTrait(em, i, "VENGEFUL");
-
-            if (darkTrait && GetHostilityAggression(em, i) >= 0.85f) {
-                em.healths[target].current = 0.0f;
-                em.DestroyEntity(target);
-
-                RelationshipEntry& actorToTarget = GetOrCreateHostilityRelationship(em, i, target);
-                actorToTarget.resentment = ClampSocialHostility(actorToTarget.resentment - 20.0f);
-                actorToTarget.fear = ClampSocialHostility(actorToTarget.fear + 10.0f);
-
-                std::cout << "[HOSTILITY] Entity #" << i << " murdered entity #" << target << "." << std::endl;
-            }
-        }
-    } else if (behavior.currentTask == "praying") {
-        if (em.hasFaction[i]) {
-            FactionComponent& faction = em.factions[i];
-
-            if (faction.factionId == "COMMON_FOLK") {
-                faction.factionId = "OLD_FAITH";
-                faction.conviction = std::max(faction.conviction, 15.0f);
-            } else if (faction.factionId == "OLD_FAITH") {
-                faction.conviction = ClampReligionValue(faction.conviction + 6.0f);
-            }
-        }
-    } else if (behavior.currentTask == "preaching") {
-        const EntityID target = behavior.currentJobTarget;
-
-        if (IsHumanReligionTarget(em, target) && em.hasFaction[target] && em.hasSocial[i] && em.hasSocial[target]) {
-            FactionComponent& targetFaction = em.factions[target];
-
-            RelationshipEntry& priestToTarget = GetOrCreateReligionRelationship(em, i, target);
-            RelationshipEntry& targetToPriest = GetOrCreateReligionRelationship(em, target, i);
-
-            if (targetFaction.factionId == "COMMON_FOLK") {
-                targetFaction.factionId = "OLD_FAITH";
-                targetFaction.conviction = std::max(targetFaction.conviction, 12.0f);
-
-                targetToPriest.trust = ClampReligionValue(targetToPriest.trust + 6.0f);
-                priestToTarget.respect = ClampReligionValue(priestToTarget.respect + 2.0f);
-            } else if (targetFaction.factionId == "OLD_FAITH") {
-                targetFaction.conviction = ClampReligionValue(targetFaction.conviction + 5.0f);
-                targetToPriest.trust = ClampReligionValue(targetToPriest.trust + 3.0f);
-            } else if (targetFaction.factionId == "CULT_OF_THE_HOLLOW") {
-                targetToPriest.resentment = ClampReligionValue(targetToPriest.resentment + 5.0f);
-                targetToPriest.trust = ClampReligionValue(targetToPriest.trust - 3.0f);
-                priestToTarget.resentment = ClampReligionValue(priestToTarget.resentment + 2.0f);
-            }
-        }
-    } else if (behavior.currentTask == "holding_ritual") {
-        if (em.hasVillageMember[i]) {
-            const EntityID villageId = em.villageMembers[i].villageId;
-
-            for (EntityID target = 0; target < em.active.size(); ++target) {
-                if (!IsHumanReligionTarget(em, target) || !em.hasVillageMember[target] || !em.hasFaction[target] ||
-                    em.villageMembers[target].villageId != villageId) {
-                    continue;
-                }
-
-                FactionComponent& targetFaction = em.factions[target];
-
-                if (targetFaction.factionId == "OLD_FAITH") {
-                    targetFaction.conviction = ClampReligionValue(targetFaction.conviction + 4.0f);
-                } else if (targetFaction.factionId == "COMMON_FOLK") {
-                    targetFaction.conviction = ClampReligionValue(targetFaction.conviction + 1.0f);
-                }
-
-                if (em.hasSocial[target]) {
-                    for (RelationshipEntry& relationship : em.socials[target].relationships) {
-                        relationship.fear = ClampReligionValue(relationship.fear - 3.0f);
-                    }
-                }
-            }
-        }
-    } else if (behavior.currentTask == "comforting_frightened") {
-        const EntityID target = behavior.currentJobTarget;
-
-        if (IsHumanReligionTarget(em, target) && em.hasSocial[i] && em.hasSocial[target]) {
-            RelationshipEntry& priestToTarget = GetOrCreateReligionRelationship(em, i, target);
-            RelationshipEntry& targetToPriest = GetOrCreateReligionRelationship(em, target, i);
-
-            targetToPriest.trust = ClampReligionValue(targetToPriest.trust + 6.0f);
-            targetToPriest.friendship = ClampReligionValue(targetToPriest.friendship + 3.0f);
-            priestToTarget.respect = ClampReligionValue(priestToTarget.respect + 2.0f);
-
-            for (RelationshipEntry& relationship : em.socials[target].relationships) {
-                relationship.fear = ClampReligionValue(relationship.fear - 8.0f);
-            }
-
-            if (em.hasFaction[target] && em.factions[target].factionId == "OLD_FAITH") {
-                em.factions[target].conviction = ClampReligionValue(em.factions[target].conviction + 3.0f);
-            }
         }
     }
 
