@@ -14,6 +14,7 @@
 #include "data/ConstructionRegistry.hpp"
 #include "data/EntityRegistry.hpp"
 #include "data/EnvironmentRegistry.hpp"
+#include "data/EventRuleRegistry.hpp"
 #include "data/FurnitureRegistry.hpp"
 #include "data/NameRegistry.hpp"
 #include "data/ProfessionRegistry.hpp"
@@ -79,6 +80,7 @@ private:
     ProfessionRegistry m_professionRegistry;
     ResourceRegistry m_resourceRegistry;
     TraitRegistry m_traitRegistry;
+    EventRuleRegistry m_eventRuleRegistry;
 
     // World state
     WorldMap m_worldMap;

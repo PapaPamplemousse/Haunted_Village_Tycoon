@@ -467,6 +467,10 @@ Application::Application()
         std::cerr << "Failed to load traits!" << std::endl;
     }
 
+    if (!m_eventRuleRegistry.LoadFromSTV("data/events.stv")) {
+        std::cerr << "Failed to load event rules!" << std::endl;
+    }
+
     m_worldMap.Initialize(Config::MAP_WIDTH, Config::MAP_HEIGHT);
 
     MapGenerator::GenerateIsland(m_worldMap, m_entityManager, m_tileRegistry, m_biomeRegistry, m_environmentRegistry, Config::SEED);
@@ -539,12 +543,10 @@ void Application::Update(float deltaTime) {
     m_buildPlacementSystem.Update(m_inputManager, m_uiManager, m_entityManager, m_entityRegistry, m_furnitureRegistry,
                                   m_constructionRegistry, m_nameRegistry, m_behaviorRegistry);
 
-    // m_villageSystem.Update(deltaTime, m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, m_worldMap, m_tileRegistry,
-    //                        m_resourceRegistry, m_timeSystem);
-
     m_timeSystem.Update(deltaTime, m_entityManager);
 
-    m_eventSystem.Update(m_entityManager, m_timeSystem, m_resourceRegistry, m_settlementMetrics, m_chronicle);
+    m_eventSystem.Update(m_entityManager, m_entityRegistry, m_nameRegistry, m_behaviorRegistry, m_eventRuleRegistry, m_worldMap,
+                         m_tileRegistry, m_timeSystem, m_resourceRegistry, m_settlementMetrics, m_chronicle);
 
     m_roomSystem.Update(m_entityManager, m_worldMap, m_structureRegistry);
 

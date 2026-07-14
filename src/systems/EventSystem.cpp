@@ -5,11 +5,13 @@
  */
 #include "systems/EventSystem.hpp"
 
-void EventSystem::Update(EntityManager& em, const TimeSystem& timeSystem, const ResourceRegistry& resourceReg, SettlementMetrics& metrics,
+void EventSystem::Update(EntityManager& em, EntityRegistry& entityReg, const NameRegistry& nameReg, const BehaviorRegistry& behaviorReg,
+                         const EventRuleRegistry& eventRuleReg, const WorldMap& worldMap, const TileRegistry& tileReg,
+                         const TimeSystem& timeSystem, const ResourceRegistry& resourceReg, SettlementMetrics& metrics,
                          Chronicle& chronicle) {
     HandleSeasonEvents(timeSystem, metrics, chronicle);
 
-    HandleNightEvents(em, timeSystem, resourceReg, metrics, chronicle);
+    HandleNightEvents(em, entityReg, nameReg, behaviorReg, eventRuleReg, worldMap, tileReg, timeSystem, resourceReg, metrics, chronicle);
 
     HandleDawnEvents(timeSystem, metrics, chronicle);
 

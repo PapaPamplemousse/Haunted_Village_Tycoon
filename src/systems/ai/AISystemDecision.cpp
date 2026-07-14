@@ -28,7 +28,7 @@ constexpr float PRIORITY_LOGISTICS = 430.0f;
 constexpr float PRIORITY_WORK = 250.0f;
 constexpr float PRIORITY_IDLE = 10.0f;
 constexpr float PRIORITY_RETURN_TO_VILLAGE = 610.0f;
-constexpr float PRIORITY_GUARD = 740.0f;
+constexpr float PRIORITY_GUARD = 860.0f;
 constexpr float PRIORITY_REPAIR = 280.0f;
 constexpr float PRIORITY_PATROL = 120.0f;
 constexpr float PRIORITY_HAUL = 410.0f;
@@ -37,7 +37,7 @@ constexpr float PRIORITY_REQUEST_WEAPON = 720.0f;
 constexpr float PRIORITY_FULFILL_REQUEST = 710.0f;
 constexpr float PRIORITY_AVOID_PERSON = 690.0f;
 constexpr float PRIORITY_CONFRONT_PERSON = 180.0f;
-constexpr float PRIORITY_SOCIALIZE = 90.0f;
+constexpr float PRIORITY_SOCIALIZE = 190.0f;
 constexpr float PRIORITY_INTIMIDATE = 175.0f;
 constexpr float PRIORITY_FIGHT_NON_LETHAL = 185.0f;
 constexpr float PRIORITY_MURDER = 195.0f;
@@ -671,6 +671,53 @@ float EstimateMurderUtility(EntityID entity, const EntityManager& em) {
     return best;
 }
 
+bool IsSocialTimeWindow(float hour) {
+    // Dawn gathering / morning village life.
+    if (hour >= 5.0f && hour < 8.0f) {
+        return true;
+    }
+
+    // Midday short break.
+    if (hour >= 12.0f && hour < 14.0f) {
+        return true;
+    }
+
+    // Evening social life before sleep.
+    if (hour >= 18.0f && hour < 23.0f) {
+        return true;
+    }
+
+    return false;
+}
+
+bool HasUrgentPersonalNeed(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasNeeds[entity]) {
+        return false;
+    }
+
+    const NeedsComponent& needs = em.needs[entity];
+
+    const float hungerRatio = needs.maxHunger > 0.0f ? needs.hunger / needs.maxHunger : 1.0f;
+
+    const float fatigueRatio = needs.maxFatigue > 0.0f ? needs.fatigue / needs.maxFatigue : 0.0f;
+
+    return hungerRatio <= 0.35f || fatigueRatio >= 0.85f || needs.collapsedFromFatigue;
+}
+
+bool IsCarryingItems(EntityID entity, const EntityManager& em) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasInventory[entity]) {
+        return false;
+    }
+
+    for (const auto& item : em.inventories[entity].items) {
+        if (item.second > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 } // namespace
 
 void AISystem::UpdateAIContextTimers(float deltaTime, EntityManager& em) {
@@ -683,11 +730,19 @@ void AISystem::UpdateAIContextTimers(float deltaTime, EntityManager& em) {
 
         if (context.threatMemoryTimer > 0.0f) {
             context.threatMemoryTimer -= deltaTime;
+
+            if (context.threatMemoryTimer <= 0.0f) {
+                context.threatMemoryTimer = 0.0f;
+                context.lastThreatId = static_cast<EntityID>(-1);
+            }
         }
 
-        if (context.threatMemoryTimer <= 0.0f || !IsValidThreat(context.lastThreatId, em)) {
-            context.lastThreatId = static_cast<EntityID>(-1);
-            context.threatMemoryTimer = 0.0f;
+        if (context.socialActionCooldownTimer > 0.0f) {
+            context.socialActionCooldownTimer -= deltaTime;
+
+            if (context.socialActionCooldownTimer < 0.0f) {
+                context.socialActionCooldownTimer = 0.0f;
+            }
         }
     }
 }
@@ -928,6 +983,21 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
 
     const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
 
+    const bool socialCooldownReady = !em.hasAIContext[entity] || em.aiContexts[entity].socialActionCooldownTimer <= 0.0f;
+
+    const bool hasUrgentNeed = HasUrgentPersonalNeed(entity, em);
+    const bool isCarrying = IsCarryingItems(entity, em);
+
+    // Social is allowed during natural village-life windows,
+    // and also outside work hours.
+    //
+    // Important:
+    // We do NOT require !canStartWork anymore.
+    // Otherwise villagers almost never socialize during normal life.
+    const bool isSocialWindow = IsSocialTimeWindow(currentHour) || !canStartWork;
+
+    const bool canConsiderLowPrioritySocial = socialCooldownReady && isSocialWindow && !hasUrgentNeed && !isCarrying;
+
     // =========================================================
     // Threat response
     // =========================================================
@@ -976,6 +1046,19 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         }
 
         candidates.push_back({AIDecisionTaskType::Rest, priority, score});
+    }
+
+    // =========================================================
+    // Defense
+    // =========================================================
+    if (canGuard) {
+        float guardScore = 100.0f;
+
+        if (currentHour >= 20.0f || currentHour < 6.0f) {
+            guardScore += 80.0f;
+        }
+
+        candidates.push_back({AIDecisionTaskType::Guard, PRIORITY_GUARD, guardScore});
     }
 
     // =========================================================
@@ -1078,10 +1161,6 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
             candidates.push_back({AIDecisionTaskType::FulfillWeaponRequest, PRIORITY_FULFILL_REQUEST, 100.0f});
         }
 
-        if (canGuard) {
-            candidates.push_back({AIDecisionTaskType::Guard, PRIORITY_GUARD, 100.0f});
-        }
-
         if (canRepair) {
             candidates.push_back({AIDecisionTaskType::Repair, PRIORITY_REPAIR, 80.0f});
         }
@@ -1097,7 +1176,7 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     // =========================================================
     // Low-priority social actions
     // =========================================================
-    if (canConfrontPerson) {
+    if (canConsiderLowPrioritySocial && canConfrontPerson) {
         const float confrontScore = EstimateConfrontPersonUtility(entity, em);
 
         if (confrontScore > 0.0f) {
@@ -1105,19 +1184,35 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         }
     }
 
-    if (canSocialize) {
-        const float socializeScore = EstimateSocializeUtility(entity, em);
+    // if (canConsiderLowPrioritySocial && canSocialize) {
+    //     const float socializeScore = EstimateSocializeUtility(entity, em);
 
-        if (socializeScore > 0.0f) {
-            candidates.push_back({AIDecisionTaskType::Socialize, PRIORITY_SOCIALIZE, socializeScore});
-        }
-    }
+    //     if (socializeScore > 0.0f) {
+    //         candidates.push_back({AIDecisionTaskType::Socialize, PRIORITY_SOCIALIZE, socializeScore});
+    //     }
+    // }
 
-    if (canMurder) {
+    if (canConsiderLowPrioritySocial && canMurder) {
         const float murderScore = EstimateMurderUtility(entity, em);
 
         if (murderScore > 0.0f) {
             candidates.push_back({AIDecisionTaskType::Murder, PRIORITY_MURDER, murderScore});
+        }
+    }
+
+    if (canConsiderLowPrioritySocial && canFightNonLethal) {
+        const float hostilityScore = EstimateHighestHostility(entity, em);
+
+        if (hostilityScore >= 75.0f) {
+            candidates.push_back({AIDecisionTaskType::FightNonLethal, PRIORITY_FIGHT_NON_LETHAL, hostilityScore});
+        }
+    }
+
+    if (canConsiderLowPrioritySocial && canIntimidate) {
+        const float hostilityScore = EstimateHighestHostility(entity, em);
+
+        if (hostilityScore >= 55.0f) {
+            candidates.push_back({AIDecisionTaskType::Intimidate, PRIORITY_INTIMIDATE, hostilityScore});
         }
     }
 
@@ -1137,9 +1232,9 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         }
     }
 
-    if (canWander) {
-        candidates.push_back({AIDecisionTaskType::Wander, PRIORITY_IDLE, 0.0f});
-    }
+    // if (canWander) {
+    //     candidates.push_back({AIDecisionTaskType::Wander, PRIORITY_IDLE, 0.0f});
+    // }
 
     if (candidates.empty()) {
         return false;
@@ -1266,6 +1361,34 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         }
 
         return true;
+    }
+
+    // =========================================================
+    // Fallback social life.
+    // If the villager would otherwise
+    // idle/wander, prefer socializing.
+    // This must not compete with work, survival, defense, or logistics.
+    // =========================================================
+    if (canSocialize && !HasUrgentPersonalNeed(entity, em)) {
+        if (TryFindSocializeJob(entity, em, map, tileReg, spatialGrid)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = PRIORITY_SOCIALIZE;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+            return true;
+        }
+    }
+    // =========================================================
+    // Final fallback.
+    // =========================================================
+    if (canWander) {
+        if (TryFindWanderJob(entity, em, map, tileReg)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = PRIORITY_IDLE;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+            return true;
+        }
     }
 
     return false;

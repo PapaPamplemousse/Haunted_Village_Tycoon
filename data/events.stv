@@ -1,0 +1,67 @@
+# =========================================================
+# NIGHT EVENTS
+# =========================================================
+
+[NIGHT_OF_THE_UNDEAD]
+name = Night of the Undead
+type = spawn_wave
+phase = night
+priority = 100
+min_population = 3
+min_season_number = 1
+base_chance = 5
+population_chance_factor = 0.25
+season_chance_factor = 2.0
+cooldown_days = 3
+fear = 10
+corruption = 2
+spawn_prefab = ZOMBIE
+spawn_count = 1, 12
+spawn_population_divisor = 5
+spawn_season_divisor = 2
+spawn_random_bonus = 2
+spawn_radius_tiles = 18, 32
+message = Night of the Undead: {count} corpses rose beyond the village lights.
+empty_message = The dead stirred beyond the village, but none found a path through the dark.
+
+[OMINOUS_WHISPERS]
+name = Ominous Whispers
+type = settlement_effect
+phase = night
+priority = 40
+base_chance = 25
+cooldown_days = 1
+fear = 5
+corruption = 1
+message = Whispers moved between the houses. Nobody admits hearing them first.
+
+[SUSPICIOUS_TRACKS]
+name = Suspicious Tracks
+type = settlement_effect
+phase = night
+priority = 30
+base_chance = 20
+cooldown_days = 1
+fear = 2
+message = Suspicious tracks were found near the village edge at dawn.
+
+[FOOD_THEFT]
+name = Food Theft
+type = food_theft
+phase = night
+priority = 20
+base_chance = 20
+cooldown_days = 1
+fear = 4
+food_amount = 1, 4
+message = {amount} {item} disappeared from storage during the night.
+empty_message = Something searched the stores, but found nothing worth stealing.
+
+[QUIET_NIGHT]
+name = Quiet Night
+type = chronicle
+phase = night
+priority = 0
+base_chance = 100
+cooldown_days = 0
+message = The village endured a quiet night. Suspiciously quiet.

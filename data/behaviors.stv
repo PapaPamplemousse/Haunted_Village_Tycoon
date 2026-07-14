@@ -185,3 +185,19 @@ species = cannibal
 [HUNT_CANNIBAL]
 rule = hunt(human)
 species = cannibal
+
+# ==========================================
+#  ZOMBIE
+# ==========================================
+
+[HUNT_ZOMBIE]
+rule = hunt(human)
+species = zombie
+
+[DEFEND_ZOMBIE]
+rule = defend
+species = zombie
+
+[WANDER_ZOMBIE]
+rule = wander
+species = zombie

@@ -432,6 +432,9 @@ struct AIContextComponent {
     // Social economy context
     EntityID activeRequestId = static_cast<EntityID>(-1);
     std::string requestedCraftItemId = "";
+    // Social action throttling.
+    // Prevents villagers from chain-socializing every AI decision cycle.
+    float socialActionCooldownTimer = 0.0f;
 };
 
 enum class VillageRequestType { WeaponNeeded, ToolNeeded, FoodNeeded, ChildFoodNeeded, RepairNeeded, MedicineNeeded, FuelNeeded };

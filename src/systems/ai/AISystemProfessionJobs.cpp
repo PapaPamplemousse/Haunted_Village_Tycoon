@@ -136,68 +136,119 @@ bool AISystem::TryFindRepairJob(EntityID entity, EntityManager& em, const WorldM
 
 bool AISystem::TryFindGuardJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                const EntitySpatialGrid& spatialGrid) {
-    if (!IsValidEntity(em, entity) || !em.hasTransform[entity] || !em.hasBehavior[entity]) {
+    if (entity >= em.active.size() || !em.active[entity] || !em.hasTransform[entity] || !em.hasBehavior[entity] ||
+        !em.hasVillageMember[entity]) {
         return false;
     }
 
-    const float searchRadius = AISystemUtils::GetActionRadiusWorld(entity, em);
-    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[entity].position, searchRadius, em);
+    const EntityID villageId = em.villageMembers[entity].villageId;
 
-    EntityID bestTarget = static_cast<EntityID>(-1);
-    float bestDistanceSq = std::numeric_limits<float>::infinity();
+    if (villageId >= em.active.size() || !em.active[villageId] || !em.hasTransform[villageId]) {
+        return false;
+    }
 
-    for (EntityID target : candidates) {
-        if (target == entity || !IsValidEntity(em, target) || !em.hasTag[target] || !em.hasTransform[target] || !em.hasHealth[target]) {
+    constexpr float GUARD_RESPONSE_RADIUS_TILES = 90.0f;
+    constexpr float THREAT_TO_VILLAGER_RADIUS_TILES = 12.0f;
+
+    const float villageSearchRadius = GUARD_RESPONSE_RADIUS_TILES * Config::TILE_SIZE;
+
+    const std::vector<EntityID> candidates = spatialGrid.GetEntitiesInRadius(em.transforms[villageId].position, villageSearchRadius, em);
+
+    EntityID bestThreat = static_cast<EntityID>(-1);
+    float bestScore = -std::numeric_limits<float>::infinity();
+
+    for (EntityID threat : candidates) {
+        if (threat == entity || threat >= em.active.size() || !em.active[threat] || !em.hasTag[threat] || !em.hasTransform[threat] ||
+            !em.hasHealth[threat]) {
             continue;
         }
 
-        if (!IsHostileSpecies(em.tags[target].species)) {
+        const std::string& species = em.tags[threat].species;
+
+        const bool hostile = species == "cannibal" || species == "zombie" || species == "eldritch";
+
+        if (!hostile) {
             continue;
         }
 
-        if (em.healths[target].current <= 0.0f) {
+        if (em.healths[threat].current <= 0.0f) {
             continue;
         }
 
-        const float distanceSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[target].position);
+        float threatenedVillagerBonus = 0.0f;
 
-        if (distanceSq < bestDistanceSq) {
-            bestDistanceSq = distanceSq;
-            bestTarget = target;
+        for (EntityID villager = 0; villager < em.active.size(); ++villager) {
+            if (!em.active[villager] || !em.hasVillageMember[villager] || !em.hasTransform[villager] || !em.hasTag[villager]) {
+                continue;
+            }
+
+            if (em.villageMembers[villager].villageId != villageId) {
+                continue;
+            }
+
+            if (em.tags[villager].species != "human") {
+                continue;
+            }
+
+            const float threatToVillagerSq =
+                AISystemUtils::SquaredDistance(em.transforms[threat].position, em.transforms[villager].position);
+
+            const float threatToVillagerTiles = std::sqrt(threatToVillagerSq) / Config::TILE_SIZE;
+
+            if (threatToVillagerTiles <= THREAT_TO_VILLAGER_RADIUS_TILES) {
+                threatenedVillagerBonus = std::max(threatenedVillagerBonus, 200.0f - threatToVillagerTiles * 10.0f);
+            }
+        }
+
+        const float guardToThreatSq = AISystemUtils::SquaredDistance(em.transforms[entity].position, em.transforms[threat].position);
+
+        const float villageToThreatSq = AISystemUtils::SquaredDistance(em.transforms[villageId].position, em.transforms[threat].position);
+
+        const float guardDistancePenalty = std::sqrt(guardToThreatSq) / Config::TILE_SIZE;
+
+        const float villageDistancePenalty = std::sqrt(villageToThreatSq) / Config::TILE_SIZE * 0.5f;
+
+        const float score = 300.0f + threatenedVillagerBonus - guardDistancePenalty - villageDistancePenalty;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestThreat = threat;
         }
     }
 
-    if (bestTarget == static_cast<EntityID>(-1)) {
+    if (bestThreat == static_cast<EntityID>(-1)) {
         return false;
     }
 
     BehaviorComponent& behavior = em.behaviors[entity];
 
-    if (AreEntitiesAdjacent(entity, bestTarget, em)) {
+    if (AreEntitiesAdjacent(entity, bestThreat, em)) {
         behavior.currentTask = "attacking";
-        behavior.currentJobTarget = bestTarget;
+        behavior.currentJobTarget = bestThreat;
         behavior.hasJob = true;
         behavior.isMoving = false;
         behavior.currentPath.clear();
         behavior.currentPathIndex = 0;
         behavior.stateTimer = AISystemUtils::ATTACK_DURATION;
+
         return true;
     }
 
     std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestTarget].position, map, tileReg, em, entity);
+        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[bestThreat].position, map, tileReg, em, entity);
 
     if (path.empty()) {
         return false;
     }
 
     behavior.currentTask = "moving_to_hunt";
-    behavior.currentJobTarget = bestTarget;
+    behavior.currentJobTarget = bestThreat;
     behavior.hasJob = true;
     behavior.currentPath = std::move(path);
     behavior.currentPathIndex = 0;
     behavior.currentTarget = behavior.currentPath[0];
     behavior.isMoving = true;
+    behavior.stateTimer = 0.0f;
 
     return true;
 }

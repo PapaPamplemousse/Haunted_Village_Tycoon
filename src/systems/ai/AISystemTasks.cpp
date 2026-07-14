@@ -10,11 +10,11 @@
 #include "systems/VillageRequestSystem.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 namespace {
 
@@ -574,6 +574,7 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMa
                 relToTarget.trust = ClampSocialTaskValue(relToTarget.trust + 1.0f);
             }
         }
+
     } else if (behavior.currentTask == "intimidating_person") {
         EntityID target = behavior.currentJobTarget;
 
@@ -592,6 +593,10 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMa
             targetToActor.friendship = ClampSocialHostility(targetToActor.friendship - 2.0f);
 
             std::cout << "[HOSTILITY] Entity #" << i << " intimidated entity #" << target << "." << std::endl;
+
+            if (em.hasAIContext[i]) {
+                em.aiContexts[i].socialActionCooldownTimer = 20.0f;
+            }
         }
     } else if (behavior.currentTask == "fighting_non_lethal") {
         EntityID target = behavior.currentJobTarget;
@@ -620,6 +625,10 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMa
             targetToActor.trust = ClampSocialHostility(targetToActor.trust - 10.0f);
 
             std::cout << "[HOSTILITY] Entity #" << i << " fought entity #" << target << " non-lethally." << std::endl;
+
+            if (em.hasAIContext[i]) {
+                em.aiContexts[i].socialActionCooldownTimer = 120.0f;
+            }
         }
     } else if (behavior.currentTask == "murdering_person") {
         EntityID target = behavior.currentJobTarget;

@@ -1,13 +1,62 @@
 /**
  * @file EventSystemNight.cpp
- * @brief Logic for triggering random and systemic night-time events.
+ * @brief Logic for triggering data-driven night-time events.
  * @author Hugo Reif Faudemer (PapaPamplemousse)
  */
+#include "core/Config.hpp"
 #include "systems/EventSystem.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <raylib.h>
 
-void EventSystem::HandleNightEvents(EntityManager& em, const TimeSystem& timeSystem, const ResourceRegistry& resourceReg,
+namespace {
+
+int WorldToTile(float worldCoord) {
+    return static_cast<int>(std::floor(worldCoord / Config::TILE_SIZE));
+}
+
+Vector2 TileToWorldCenter(int tileX, int tileY) {
+    return {tileX * Config::TILE_SIZE + Config::TILE_SIZE * 0.5f, tileY * Config::TILE_SIZE + Config::TILE_SIZE * 0.5f};
+}
+
+bool IsEntityOnTile(const EntityManager& em, int tileX, int tileY) {
+    for (EntityID entity = 0; entity < em.active.size(); ++entity) {
+        if (!em.active[entity] || !em.hasTransform[entity]) {
+            continue;
+        }
+
+        const int ex = WorldToTile(em.transforms[entity].position.x);
+        const int ey = WorldToTile(em.transforms[entity].position.y);
+
+        if (ex == tileX && ey == tileY) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool IsBlockedTileById(const TileRegistry& tileReg, int tileId) {
+    const int voidTile = tileReg.GetTileIdByString("VOID");
+    const int lavaTile = tileReg.GetTileIdByString("LAVA");
+
+    if (voidTile >= 0 && tileId == voidTile) {
+        return true;
+    }
+
+    if (lavaTile >= 0 && tileId == lavaTile) {
+        return true;
+    }
+
+    return tileId < 0;
+}
+
+} // namespace
+
+void EventSystem::HandleNightEvents(EntityManager& em, EntityRegistry& entityReg, const NameRegistry& nameReg,
+                                    const BehaviorRegistry& behaviorReg, const EventRuleRegistry& eventRuleReg, const WorldMap& worldMap,
+                                    const TileRegistry& tileReg, const TimeSystem& timeSystem, const ResourceRegistry& resourceReg,
                                     SettlementMetrics& metrics, Chronicle& chronicle) {
     const EventDayPhase phase = GetCurrentPhase(timeSystem.GetHour());
 
@@ -26,55 +75,149 @@ void EventSystem::HandleNightEvents(EntityManager& em, const TimeSystem& timeSys
 
     m_lastNightEventDay = timeSystem.GetDay();
 
-    const int roll = GetRandomValue(1, 100);
+    const EntityID villageId = FindPrimaryVillage(em);
+    const int population = villageId != static_cast<EntityID>(-1) ? CountVillagePopulation(em, villageId) : 0;
 
-    if (roll <= 35) {
-        TriggerQuietNight(timeSystem, chronicle);
-    } else if (roll <= 60) {
-        TriggerOminousWhispers(timeSystem, metrics, chronicle);
-    } else if (roll <= 80) {
-        TriggerSuspiciousTracks(timeSystem, metrics, chronicle);
-    } else {
-        TriggerFoodTheft(em, timeSystem, resourceReg, metrics, chronicle);
+    for (const EventRuleDef& rule : eventRuleReg.GetRules()) {
+        if (rule.phase != "night") {
+            continue;
+        }
+
+        if (!IsRuleEligible(rule, timeSystem, population)) {
+            continue;
+        }
+
+        if (IsRuleOnCooldown(rule, timeSystem)) {
+            continue;
+        }
+
+        const float chance = ComputeRuleChance(rule, timeSystem, population);
+        const int roll = GetRandomValue(1, 100);
+
+        if (static_cast<float>(roll) > chance) {
+            continue;
+        }
+
+        if (TryTriggerEventRule(em, entityReg, nameReg, behaviorReg, rule, worldMap, tileReg, timeSystem, resourceReg, metrics,
+                                chronicle)) {
+            MarkRuleTriggered(rule, timeSystem);
+            return;
+        }
     }
 }
 
-void EventSystem::TriggerQuietNight(const TimeSystem& timeSystem, Chronicle& chronicle) {
-    chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), "Night", "The village endured a quiet night. Suspiciously quiet.");
+bool EventSystem::TryTriggerEventRule(EntityManager& em, EntityRegistry& entityReg, const NameRegistry& nameReg,
+                                      const BehaviorRegistry& behaviorReg, const EventRuleDef& rule, const WorldMap& worldMap,
+                                      const TileRegistry& tileReg, const TimeSystem& timeSystem, const ResourceRegistry& resourceReg,
+                                      SettlementMetrics& metrics, Chronicle& chronicle) {
+    if (rule.type == "spawn_wave") {
+        return TriggerSpawnWaveRule(em, entityReg, nameReg, behaviorReg, rule, worldMap, tileReg, timeSystem, metrics, chronicle);
+    }
+
+    if (rule.type == "food_theft") {
+        return TriggerFoodTheftRule(em, rule, timeSystem, resourceReg, metrics, chronicle);
+    }
+
+    if (rule.type == "settlement_effect") {
+        return TriggerSettlementEffectRule(rule, timeSystem, metrics, chronicle);
+    }
+
+    if (rule.type == "chronicle") {
+        chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), PhaseToString(GetCurrentPhase(timeSystem.GetHour())), rule.message);
+        return true;
+    }
+
+    return false;
 }
 
-void EventSystem::TriggerOminousWhispers(const TimeSystem& timeSystem, SettlementMetrics& metrics, Chronicle& chronicle) {
-    AddFear(metrics, 5.0f);
-    AddCorruption(metrics, 1.0f);
+bool EventSystem::IsRuleEligible(const EventRuleDef& rule, const TimeSystem& timeSystem, int population) const {
+    if (population < rule.minPopulation) {
+        return false;
+    }
 
-    chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), "Night",
-                  "Whispers moved between the houses. Nobody admits hearing them first.");
+    if (timeSystem.GetSeasonNumber() < rule.minSeasonNumber) {
+        return false;
+    }
+
+    if (!rule.allowedSeasonIndexes.empty()) {
+        const int currentSeason = timeSystem.GetSeasonIndex();
+
+        if (std::find(rule.allowedSeasonIndexes.begin(), rule.allowedSeasonIndexes.end(), currentSeason) ==
+            rule.allowedSeasonIndexes.end()) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
-void EventSystem::TriggerSuspiciousTracks(const TimeSystem& timeSystem, SettlementMetrics& metrics, Chronicle& chronicle) {
-    AddFear(metrics, 2.0f);
+float EventSystem::ComputeRuleChance(const EventRuleDef& rule, const TimeSystem& timeSystem, int population) const {
+    float chance = rule.baseChance;
+    chance += static_cast<float>(population) * rule.populationChanceFactor;
+    chance += static_cast<float>(timeSystem.GetSeasonNumber()) * rule.seasonChanceFactor;
 
-    chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), "Night", "Suspicious tracks were found near the village edge at dawn.");
+    return std::clamp(chance, 0.0f, 100.0f);
 }
 
-void EventSystem::TriggerFoodTheft(EntityManager& em, const TimeSystem& timeSystem, const ResourceRegistry& resourceReg,
-                                   SettlementMetrics& metrics, Chronicle& chronicle) {
+bool EventSystem::IsRuleOnCooldown(const EventRuleDef& rule, const TimeSystem& timeSystem) const {
+    auto it = m_lastTriggeredDayByRule.find(rule.id);
+
+    if (it == m_lastTriggeredDayByRule.end()) {
+        return false;
+    }
+
+    return timeSystem.GetDay() - it->second < rule.cooldownDays;
+}
+
+void EventSystem::MarkRuleTriggered(const EventRuleDef& rule, const TimeSystem& timeSystem) {
+    m_lastTriggeredDayByRule[rule.id] = timeSystem.GetDay();
+}
+
+bool EventSystem::TriggerSettlementEffectRule(const EventRuleDef& rule, const TimeSystem& timeSystem, SettlementMetrics& metrics,
+                                              Chronicle& chronicle) {
+    if (rule.fear > 0.0f) {
+        AddFear(metrics, rule.fear);
+    }
+
+    if (rule.corruption > 0.0f) {
+        AddCorruption(metrics, rule.corruption);
+    }
+
+    chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), PhaseToString(GetCurrentPhase(timeSystem.GetHour())), rule.message);
+
+    return true;
+}
+
+bool EventSystem::TriggerFoodTheftRule(EntityManager& em, const EventRuleDef& rule, const TimeSystem& timeSystem,
+                                       const ResourceRegistry& resourceReg, SettlementMetrics& metrics, Chronicle& chronicle) {
+    const int amountToSteal = GetRandomValue(rule.foodAmount.min, rule.foodAmount.max);
+
     std::string stolenItem;
     int stolenAmount = 0;
 
-    const bool stolen = RemoveFoodFromAnyStorage(em, resourceReg, GetRandomValue(1, 4), stolenItem, stolenAmount);
+    const bool stolen = RemoveFoodFromAnyStorage(em, resourceReg, amountToSteal, stolenItem, stolenAmount);
 
     if (!stolen) {
-        AddFear(metrics, 2.0f);
+        if (rule.fear > 0.0f) {
+            AddFear(metrics, std::max(1.0f, rule.fear * 0.5f));
+        }
 
-        chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), "Night",
-                      "Something searched the stores, but found nothing worth stealing.");
+        chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), PhaseToString(GetCurrentPhase(timeSystem.GetHour())),
+                      rule.emptyMessage.empty() ? "Something searched the stores, but found nothing worth stealing." : rule.emptyMessage);
 
-        return;
+        return true;
     }
 
-    AddFear(metrics, 4.0f);
+    if (rule.fear > 0.0f) {
+        AddFear(metrics, rule.fear);
+    }
 
-    chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), "Night",
-                  std::to_string(stolenAmount) + " " + stolenItem + " disappeared from storage during the night.");
+    if (rule.corruption > 0.0f) {
+        AddCorruption(metrics, rule.corruption);
+    }
+
+    chronicle.Add(timeSystem.GetDay(), timeSystem.GetSeasonName(), PhaseToString(GetCurrentPhase(timeSystem.GetHour())),
+                  FormatEventMessage(rule.message, 0, stolenItem, stolenAmount));
+
+    return true;
 }
