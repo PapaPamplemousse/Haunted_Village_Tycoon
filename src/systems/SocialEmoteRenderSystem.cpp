@@ -100,6 +100,25 @@ bool GetEmoteForTask(const std::string& task, EmoteView& outEmote) {
         outEmote = {"FOOD", GREEN};
         return true;
     }
+    if (task == "praying" || task == "moving_to_pray") {
+        outEmote = {"PRAY", GOLD};
+        return true;
+    }
+
+    if (task == "preaching" || task == "moving_to_preach") {
+        outEmote = {"PREACH", GOLD};
+        return true;
+    }
+
+    if (task == "holding_ritual" || task == "moving_to_ritual") {
+        outEmote = {"RITUAL", PURPLE};
+        return true;
+    }
+
+    if (task == "comforting_frightened" || task == "moving_to_comfort") {
+        outEmote = {"CALM", SKYBLUE};
+        return true;
+    }
 
     return false;
 }

@@ -128,3 +128,11 @@ max_area = 40
 requirements = FORGE_ANVIL:1, WEAPON_RACK:1
 granted_buffs = crafting
 job_slots = blacksmith:1
+
+[SHRINE_ROOM]
+name = Shrine Room
+min_area = 4
+max_area = 30
+requirements = OLD_FAITH_SHRINE:1
+granted_buffs = faith
+job_slots = priest:1

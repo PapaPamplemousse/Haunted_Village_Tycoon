@@ -334,6 +334,17 @@ void SpawnDebugVillageTestStructures(EntityManager& em, FurnitureRegistry& furni
         SpawnDebugFurniture(em, furnitureReg, "TOOL_RACK", x + 1, y);
     }
 
+    // Shrine Room:
+    // requirements = OLD_FAITH_SHRINE:1
+    // job_slots = priest:1
+    {
+        const int x = coreX - 20;
+        const int y = coreY;
+
+        SpawnDebugRoomBox(em, constructionReg, x, y, 3, 3);
+        SpawnDebugFurniture(em, furnitureReg, "OLD_FAITH_SHRINE", x + 1, y + 1);
+    }
+
     // =========================================================
     // Housing rooms
     // =========================================================

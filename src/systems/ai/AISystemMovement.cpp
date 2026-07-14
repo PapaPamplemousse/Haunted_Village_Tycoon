@@ -260,6 +260,18 @@ void AISystem::HandleMovingState(EntityID i, float deltaTime, EntityManager& em,
         } else if (behavior.currentTask == "moving_to_murder") {
             behavior.currentTask = "murdering_person";
             behavior.stateTimer = 1.5f;
+        } else if (behavior.currentTask == "moving_to_pray") {
+            behavior.currentTask = "praying";
+            behavior.stateTimer = 3.0f;
+        } else if (behavior.currentTask == "moving_to_preach") {
+            behavior.currentTask = "preaching";
+            behavior.stateTimer = 2.5f;
+        } else if (behavior.currentTask == "moving_to_ritual") {
+            behavior.currentTask = "holding_ritual";
+            behavior.stateTimer = 5.0f;
+        } else if (behavior.currentTask == "moving_to_comfort") {
+            behavior.currentTask = "comforting_frightened";
+            behavior.stateTimer = 2.0f;
         } else if (behavior.currentTask == "wandering") {
             behavior.currentTask = "idle";
             behavior.stateTimer = GetRandomValue(10, 40) / 10.0f;

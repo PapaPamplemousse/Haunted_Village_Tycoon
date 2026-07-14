@@ -180,6 +180,35 @@ bool HasHostilityTrait(const EntityManager& em, EntityID entity, const std::stri
     return std::find(traits.begin(), traits.end(), traitId) != traits.end();
 }
 
+RelationshipEntry& GetOrCreateReligionRelationship(EntityManager& em, EntityID owner, EntityID other) {
+    SocialComponent& social = em.socials[owner];
+
+    for (RelationshipEntry& relationship : social.relationships) {
+        if (relationship.otherId == other) {
+            return relationship;
+        }
+    }
+
+    social.relationships.push_back({other});
+    return social.relationships.back();
+}
+
+float ClampReligionValue(float value) {
+    if (value < 0.0f) {
+        return 0.0f;
+    }
+
+    if (value > 100.0f) {
+        return 100.0f;
+    }
+
+    return value;
+}
+
+bool IsHumanReligionTarget(const EntityManager& em, EntityID entity) {
+    return entity < em.active.size() && em.active[entity] && em.hasTag[entity] && em.tags[entity].species == "human";
+}
+
 } // namespace
 
 void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
@@ -645,6 +674,85 @@ void AISystem::HandleTaskCompletion(EntityID i, EntityManager& em, const WorldMa
                 actorToTarget.fear = ClampSocialHostility(actorToTarget.fear + 10.0f);
 
                 std::cout << "[HOSTILITY] Entity #" << i << " murdered entity #" << target << "." << std::endl;
+            }
+        }
+    } else if (behavior.currentTask == "praying") {
+        if (em.hasFaction[i]) {
+            FactionComponent& faction = em.factions[i];
+
+            if (faction.factionId == "COMMON_FOLK") {
+                faction.factionId = "OLD_FAITH";
+                faction.conviction = std::max(faction.conviction, 15.0f);
+            } else if (faction.factionId == "OLD_FAITH") {
+                faction.conviction = ClampReligionValue(faction.conviction + 6.0f);
+            }
+        }
+    } else if (behavior.currentTask == "preaching") {
+        const EntityID target = behavior.currentJobTarget;
+
+        if (IsHumanReligionTarget(em, target) && em.hasFaction[target] && em.hasSocial[i] && em.hasSocial[target]) {
+            FactionComponent& targetFaction = em.factions[target];
+
+            RelationshipEntry& priestToTarget = GetOrCreateReligionRelationship(em, i, target);
+            RelationshipEntry& targetToPriest = GetOrCreateReligionRelationship(em, target, i);
+
+            if (targetFaction.factionId == "COMMON_FOLK") {
+                targetFaction.factionId = "OLD_FAITH";
+                targetFaction.conviction = std::max(targetFaction.conviction, 12.0f);
+
+                targetToPriest.trust = ClampReligionValue(targetToPriest.trust + 6.0f);
+                priestToTarget.respect = ClampReligionValue(priestToTarget.respect + 2.0f);
+            } else if (targetFaction.factionId == "OLD_FAITH") {
+                targetFaction.conviction = ClampReligionValue(targetFaction.conviction + 5.0f);
+                targetToPriest.trust = ClampReligionValue(targetToPriest.trust + 3.0f);
+            } else if (targetFaction.factionId == "CULT_OF_THE_HOLLOW") {
+                targetToPriest.resentment = ClampReligionValue(targetToPriest.resentment + 5.0f);
+                targetToPriest.trust = ClampReligionValue(targetToPriest.trust - 3.0f);
+                priestToTarget.resentment = ClampReligionValue(priestToTarget.resentment + 2.0f);
+            }
+        }
+    } else if (behavior.currentTask == "holding_ritual") {
+        if (em.hasVillageMember[i]) {
+            const EntityID villageId = em.villageMembers[i].villageId;
+
+            for (EntityID target = 0; target < em.active.size(); ++target) {
+                if (!IsHumanReligionTarget(em, target) || !em.hasVillageMember[target] || !em.hasFaction[target] ||
+                    em.villageMembers[target].villageId != villageId) {
+                    continue;
+                }
+
+                FactionComponent& targetFaction = em.factions[target];
+
+                if (targetFaction.factionId == "OLD_FAITH") {
+                    targetFaction.conviction = ClampReligionValue(targetFaction.conviction + 4.0f);
+                } else if (targetFaction.factionId == "COMMON_FOLK") {
+                    targetFaction.conviction = ClampReligionValue(targetFaction.conviction + 1.0f);
+                }
+
+                if (em.hasSocial[target]) {
+                    for (RelationshipEntry& relationship : em.socials[target].relationships) {
+                        relationship.fear = ClampReligionValue(relationship.fear - 3.0f);
+                    }
+                }
+            }
+        }
+    } else if (behavior.currentTask == "comforting_frightened") {
+        const EntityID target = behavior.currentJobTarget;
+
+        if (IsHumanReligionTarget(em, target) && em.hasSocial[i] && em.hasSocial[target]) {
+            RelationshipEntry& priestToTarget = GetOrCreateReligionRelationship(em, i, target);
+            RelationshipEntry& targetToPriest = GetOrCreateReligionRelationship(em, target, i);
+
+            targetToPriest.trust = ClampReligionValue(targetToPriest.trust + 6.0f);
+            targetToPriest.friendship = ClampReligionValue(targetToPriest.friendship + 3.0f);
+            priestToTarget.respect = ClampReligionValue(priestToTarget.respect + 2.0f);
+
+            for (RelationshipEntry& relationship : em.socials[target].relationships) {
+                relationship.fear = ClampReligionValue(relationship.fear - 8.0f);
+            }
+
+            if (em.hasFaction[target] && em.factions[target].factionId == "OLD_FAITH") {
+                em.factions[target].conviction = ClampReligionValue(em.factions[target].conviction + 3.0f);
             }
         }
     }

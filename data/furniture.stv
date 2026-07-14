@@ -173,3 +173,14 @@ blueprint_cost = STONE:8, WOOD:4
 texture = square
 color = 90, 90, 100, 255
 sprite_size = 32, 32
+
+[OLD_FAITH_SHRINE]
+name = Old Faith Shrine
+max_hp = 120
+grid_size = 1, 1
+interaction_type = work, ritual, pray
+storage_capacity = 0
+blueprint_cost = WOOD:10, STONE:12
+texture = square
+color = 170, 150, 80, 255
+sprite_size = 32, 32

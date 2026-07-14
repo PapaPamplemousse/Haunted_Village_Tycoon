@@ -78,5 +78,7 @@ name = Firekeeper
 min_age = 16
 req_species = human
 
-
-
+[priest]
+name = Priest
+min_age = 18
+req_species = human

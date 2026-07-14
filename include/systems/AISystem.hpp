@@ -133,4 +133,16 @@ private:
 
     bool TryFindMurderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                           const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindPrayJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                        const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindPreachJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                          const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindHoldRitualJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                              const EntitySpatialGrid& spatialGrid);
+
+    bool TryFindComfortFrightenedJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                     const EntitySpatialGrid& spatialGrid);
 };

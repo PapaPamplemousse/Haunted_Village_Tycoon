@@ -135,6 +135,22 @@ professions = firekeeper
 rule = cook
 professions = cook
 
+[PRAY_HUMAN]
+rule = pray
+species = human
+
+[PREACH_PRIEST]
+rule = preach
+professions = priest
+
+[HOLD_RITUAL_PRIEST]
+rule = hold_ritual
+professions = priest
+
+[COMFORT_FRIGHTENED_PRIEST]
+rule = comfort_frightened
+professions = priest
+
 # ==========================================
 #  SOCIAL & CARE
 # ==========================================

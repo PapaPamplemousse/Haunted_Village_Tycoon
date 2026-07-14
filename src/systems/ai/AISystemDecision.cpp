@@ -41,6 +41,10 @@ constexpr float PRIORITY_SOCIALIZE = 190.0f;
 constexpr float PRIORITY_INTIMIDATE = 175.0f;
 constexpr float PRIORITY_FIGHT_NON_LETHAL = 185.0f;
 constexpr float PRIORITY_MURDER = 195.0f;
+constexpr float PRIORITY_COMFORT_FRIGHTENED = 210.0f;
+constexpr float PRIORITY_PREACH = 145.0f;
+constexpr float PRIORITY_HOLD_RITUAL = 140.0f;
+constexpr float PRIORITY_PRAY = 75.0f;
 
 enum class AIDecisionTaskType {
     Flee,
@@ -62,6 +66,10 @@ enum class AIDecisionTaskType {
     Harvest,
     Patrol,
     Socialize,
+    Pray,
+    Preach,
+    HoldRitual,
+    ComfortFrightened,
     Intimidate,
     FightNonLethal,
     Murder,
@@ -980,6 +988,10 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
     const bool canIntimidate = HasCapability(behavior, "intimidate");
     const bool canFightNonLethal = HasCapability(behavior, "fight_non_lethal");
     const bool canMurder = HasCapability(behavior, "murder");
+    const bool canPray = HasCapability(behavior, "pray");
+    const bool canPreach = HasCapability(behavior, "preach");
+    const bool canHoldRitual = HasCapability(behavior, "hold_ritual");
+    const bool canComfortFrightened = HasCapability(behavior, "comfort_frightened");
 
     const bool canStartWork = AISystemUtils::CanStartWorkNow(behavior, currentHour);
 
@@ -1147,6 +1159,18 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
             if (harvestScore > 0.0f) {
                 candidates.push_back({AIDecisionTaskType::Harvest, PRIORITY_WORK + 10.0f, harvestScore});
             }
+        }
+
+        if (canComfortFrightened) {
+            candidates.push_back({AIDecisionTaskType::ComfortFrightened, PRIORITY_COMFORT_FRIGHTENED, 100.0f});
+        }
+
+        if (canPreach) {
+            candidates.push_back({AIDecisionTaskType::Preach, PRIORITY_PREACH, 70.0f});
+        }
+
+        if (canHoldRitual) {
+            candidates.push_back({AIDecisionTaskType::HoldRitual, PRIORITY_HOLD_RITUAL, 60.0f});
         }
 
         if (canEquipWeapon) {
@@ -1349,6 +1373,22 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
             case AIDecisionTaskType::Wander:
                 started = TryFindWanderJob(entity, em, map, tileReg);
                 break;
+
+            case AIDecisionTaskType::ComfortFrightened:
+                started = TryFindComfortFrightenedJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Preach:
+                started = TryFindPreachJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::HoldRitual:
+                started = TryFindHoldRitualJob(entity, em, map, tileReg, spatialGrid);
+                break;
+
+            case AIDecisionTaskType::Pray:
+                started = TryFindPrayJob(entity, em, map, tileReg, spatialGrid);
+                break;
         }
 
         if (!started) {
@@ -1363,6 +1403,16 @@ bool AISystem::SelectAndStartBestTask(EntityID entity, EntityManager& em, const 
         return true;
     }
 
+    if (canPray && !HasUrgentPersonalNeed(entity, em)) {
+        if (TryFindPrayJob(entity, em, map, tileReg, spatialGrid)) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = PRIORITY_PRAY;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
+
+            return true;
+        }
+    }
     // =========================================================
     // Fallback social life.
     // If the villager would otherwise
