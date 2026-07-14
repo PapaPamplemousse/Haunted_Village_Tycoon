@@ -35,7 +35,7 @@ void AISystem::Update(float deltaTime, EntityManager& em, const WorldMap& map, c
             continue;
         }
 
-        if (TryInterruptCurrentTask(i, em, map, tileReg, resourceReg, spatialGrid)) {
+        if (TryInterruptCurrentTask(i, em, map, tileReg, resourceReg, weaponReg, spatialGrid)) {
             continue;
         }
 

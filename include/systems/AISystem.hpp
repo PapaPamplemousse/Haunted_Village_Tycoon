@@ -57,7 +57,8 @@ private:
     void UpdateAIContextTimers(float deltaTime, EntityManager& em);
 
     bool TryInterruptCurrentTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                 const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
+                                 const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                 const EntitySpatialGrid& spatialGrid);
 
     void BuildTaskCandidates(EntityID entity, EntityManager& em, const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid,
                              float currentHour, std::vector<AITaskCandidate>& candidates);
@@ -74,87 +75,4 @@ private:
                                 float currentHour);
 
     void CancelCurrentTask(EntityID entity, EntityManager& em);
-
-    bool TryStartFleeFromThreat(EntityID entity, EntityID threat, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
-
-    bool TryStartDefendAgainstThreat(EntityID entity, EntityID threat, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
-
-    // --- Jobs ---
-    bool TryFindHuntJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                        const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindBuildJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                         const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindDismantleJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                             const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindWanderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
-
-    bool TryFindHarvestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                           const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindStoreJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                         const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindSeekFoodJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                            const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindRestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                        const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindCareChildFoodJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                 const ResourceRegistry& resourceReg);
-
-    bool TryFindReturnToVillageCoreJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
-
-    bool TryFindRepairJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                          const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindGuardJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                         const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindPatrolJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
-
-    bool TryFindHaulJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                        const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindRequestWeaponJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                 const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindEquipWeaponJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                               const WeaponRegistry& weaponReg, const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindFulfillWeaponRequestJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                        const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
-                                        const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindSocializeJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                             const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindAvoidPersonJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg);
-
-    bool TryFindConfrontPersonJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                  const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindIntimidateJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                              const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindFightNonLethalJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                  const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindMurderJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                          const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindPrayJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                        const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindPreachJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                          const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindHoldRitualJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                              const EntitySpatialGrid& spatialGrid);
-
-    bool TryFindComfortFrightenedJob(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                     const EntitySpatialGrid& spatialGrid);
 };

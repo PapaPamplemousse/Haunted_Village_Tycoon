@@ -239,93 +239,9 @@ void AISystem::CancelCurrentTask(EntityID entity, EntityManager& em) {
     }
 }
 
-bool AISystem::TryStartFleeFromThreat(EntityID entity, EntityID threat, EntityManager& em, const WorldMap& map,
-                                      const TileRegistry& tileReg) {
-    if (entity >= em.active.size() || threat >= em.active.size() || !em.active[entity] || !em.active[threat] || !em.hasTransform[entity] ||
-        !em.hasTransform[threat] || !em.hasBehavior[entity]) {
-        return false;
-    }
-
-    const Vector2 entityPos = em.transforms[entity].position;
-    const Vector2 threatPos = em.transforms[threat].position;
-
-    Vector2 away = {entityPos.x - threatPos.x, entityPos.y - threatPos.y};
-
-    away = NormalizeSafe(away);
-
-    const float fleeDistance = FLEE_DISTANCE_TILES * Config::TILE_SIZE;
-
-    for (int attempt = 0; attempt < FLEE_PATH_ATTEMPTS; ++attempt) {
-        const float angleOffset = static_cast<float>(attempt - FLEE_PATH_ATTEMPTS / 2) * 0.35f;
-        const Vector2 direction = Rotate(away, angleOffset);
-
-        const Vector2 target = {entityPos.x + direction.x * fleeDistance, entityPos.y + direction.y * fleeDistance};
-
-        if (AITaskExecutor::StartMoveToPosition(entity, threat, target, em, map, tileReg, "moving_to_flee")) {
-            if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
-                em.aiContexts[entity].currentTaskInterruptible = true;
-            }
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool AISystem::TryStartDefendAgainstThreat(EntityID entity, EntityID threat, EntityManager& em, const WorldMap& map,
-                                           const TileRegistry& tileReg) {
-    if (entity >= em.active.size() || threat >= em.active.size() || !em.active[entity] || !em.active[threat] || !em.hasTransform[entity] ||
-        !em.hasTransform[threat] || !em.hasBehavior[entity] || !em.hasHealth[threat]) {
-        return false;
-    }
-
-    BehaviorComponent& behavior = em.behaviors[entity];
-
-    if (AreEntitiesAdjacent(entity, threat, em)) {
-        behavior.currentTask = "attacking";
-        behavior.currentJobTarget = threat;
-        behavior.hasJob = true;
-        behavior.isMoving = false;
-        behavior.currentPath.clear();
-        behavior.currentPathIndex = 0;
-        behavior.stateTimer = AISystemUtils::ATTACK_DURATION;
-
-        if (em.hasAIContext[entity]) {
-            em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
-            em.aiContexts[entity].currentTaskInterruptible = false;
-        }
-
-        return true;
-    }
-
-    std::vector<Vector2> path =
-        Pathfinder::FindPathToAdjacentTile(em.transforms[entity].position, em.transforms[threat].position, map, tileReg, em, entity);
-
-    if (path.empty()) {
-        return false;
-    }
-
-    behavior.currentTask = "moving_to_hunt";
-    behavior.currentJobTarget = threat;
-    behavior.hasJob = true;
-    behavior.currentPath = std::move(path);
-    behavior.currentPathIndex = 0;
-    behavior.currentTarget = behavior.currentPath[0];
-    behavior.isMoving = true;
-    behavior.stateTimer = 0.0f;
-
-    if (em.hasAIContext[entity]) {
-        em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
-        em.aiContexts[entity].currentTaskInterruptible = true;
-    }
-
-    return true;
-}
-
 bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
-                                       const ResourceRegistry& resourceReg, const EntitySpatialGrid& spatialGrid) {
+                                       const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                       const EntitySpatialGrid& spatialGrid) {
     if (entity >= em.active.size() || !em.active[entity] || !em.hasBehavior[entity] || !em.hasAIContext[entity]) {
         return false;
     }
@@ -337,26 +253,45 @@ bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const
         return false;
     }
 
+    auto tryApplyInterruptIntent = [&](AITaskType taskType, float priority) -> bool {
+        const std::optional<AIIntent> intent =
+            AIIntentFinder::FindIntentForTask(entity, taskType, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        if (!intent.has_value()) {
+            return false;
+        }
+
+        CancelCurrentTask(entity, em);
+
+        if (!AITaskExecutor::ApplyIntent(entity, em, map, tileReg, intent.value())) {
+            return false;
+        }
+
+        if (em.hasAIContext[entity]) {
+            em.aiContexts[entity].currentTaskPriority = priority;
+            em.aiContexts[entity].currentTaskInterruptible = true;
+        }
+
+        return true;
+    };
     // =========================================================
-    // 1. Threat response has absolute priority.
+    // 1. Threat response has top priority.
     // =========================================================
     const EntityID threat = context.lastThreatId;
 
-    const bool hasValidThreat = threat != static_cast<EntityID>(-1) && context.threatMemoryTimer > 0.0f && IsValidThreat(threat, em);
+    const bool hasValidThreat = threat != static_cast<EntityID>(-1) && context.threatMemoryTimer > 0.0f && threat < em.active.size() &&
+                                em.active[threat] && em.hasTransform[threat] && em.hasHealth[threat] && em.healths[threat].current > 0.0f;
 
     if (hasValidThreat && !ai::decision::IsCurrentThreatResponseTask(behavior, threat) &&
         context.currentTaskPriority < AIPriority::Threat) {
-        const bool canFlee = HasCapability(behavior, "flee");
-        const bool canDefend = HasCapability(behavior, "defend") || HasCapability(behavior, "hunt");
-
-        if (canFlee || canDefend) {
-            CancelCurrentTask(entity, em);
-
-            if (canFlee && TryStartFleeFromThreat(entity, threat, em, map, tileReg)) {
+        if (ai::decision::HasCapability(behavior, "flee")) {
+            if (tryApplyInterruptIntent(AITaskType::Flee, AIPriority::Threat)) {
                 return true;
             }
+        }
 
-            if (canDefend && TryStartDefendAgainstThreat(entity, threat, em, map, tileReg)) {
+        if (ai::decision::HasCapability(behavior, "defend") || ai::decision::HasCapability(behavior, "hunt")) {
+            if (tryApplyInterruptIntent(AITaskType::Defend, AIPriority::Threat - 20.0f)) {
                 return true;
             }
         }
@@ -367,34 +302,20 @@ bool AISystem::TryInterruptCurrentTask(EntityID entity, EntityManager& em, const
     // =========================================================
     const float hungerRatio = ai::decision::GetHungerRatio(entity, em);
 
-    if (hungerRatio <= 0.15f && HasCapability(behavior, "seek_food") && context.currentTaskPriority < AIPriority::CriticalNeed) {
-        CancelCurrentTask(entity, em);
-
-        if (TryFindSeekFoodJob(entity, em, map, tileReg, resourceReg, spatialGrid)) {
-            if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = AIPriority::CriticalNeed;
-                em.aiContexts[entity].currentTaskInterruptible = true;
-            }
-
+    if (hungerRatio <= 0.15f && ai::decision::HasCapability(behavior, "seek_food") &&
+        context.currentTaskPriority < AIPriority::CriticalNeed) {
+        if (tryApplyInterruptIntent(AITaskType::SeekFood, AIPriority::CriticalNeed)) {
             return true;
         }
     }
 
     // =========================================================
-    // 3. Extreme fatigue can interrupt work, but stays below
-    //    threat and critical hunger.
+    // 3. Extreme fatigue can interrupt work.
     // =========================================================
     const float fatigueRatio = ai::decision::GetFatigueRatio(entity, em);
 
-    if (fatigueRatio >= 0.95f && HasCapability(behavior, "rest") && context.currentTaskPriority < AIPriority::Rest) {
-        CancelCurrentTask(entity, em);
-
-        if (TryFindRestJob(entity, em, map, tileReg, spatialGrid)) {
-            if (em.hasAIContext[entity]) {
-                em.aiContexts[entity].currentTaskPriority = AIPriority::Rest;
-                em.aiContexts[entity].currentTaskInterruptible = true;
-            }
-
+    if (fatigueRatio >= 0.95f && ai::decision::HasCapability(behavior, "rest") && context.currentTaskPriority < AIPriority::Rest) {
+        if (tryApplyInterruptIntent(AITaskType::Rest, AIPriority::Rest)) {
             return true;
         }
     }
@@ -430,103 +351,11 @@ bool AISystem::TryStartTaskCandidate(EntityID entity, const AITaskCandidate& can
     const std::optional<AIIntent> intent =
         AIIntentFinder::FindIntentForTask(entity, candidate.type, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
 
-    if (intent.has_value()) {
-        return AITaskExecutor::ApplyIntent(entity, em, map, tileReg, intent.value());
+    if (!intent.has_value()) {
+        return false;
     }
 
-    switch (candidate.type) {
-        case AITaskType::Flee:
-            if (em.hasAIContext[entity]) {
-                return TryStartFleeFromThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
-            }
-            return false;
-
-        case AITaskType::Defend:
-            if (em.hasAIContext[entity]) {
-                return TryStartDefendAgainstThreat(entity, em.aiContexts[entity].lastThreatId, em, map, tileReg);
-            }
-            return false;
-
-        case AITaskType::SeekFood:
-            return TryFindSeekFoodJob(entity, em, map, tileReg, resourceReg, spatialGrid);
-
-        case AITaskType::Rest:
-            return TryFindRestJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::CareChildFood:
-            return TryFindCareChildFoodJob(entity, em, map, tileReg, resourceReg);
-
-        case AITaskType::ReturnToVillageCore:
-            return TryFindReturnToVillageCoreJob(entity, em, map, tileReg);
-
-        case AITaskType::EquipWeapon:
-            return TryFindEquipWeaponJob(entity, em, map, tileReg, weaponReg, spatialGrid);
-
-        case AITaskType::RequestWeapon:
-            return TryFindRequestWeaponJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::FulfillWeaponRequest:
-            return TryFindFulfillWeaponRequestJob(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
-
-        case AITaskType::Store:
-            return TryFindStoreJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Haul:
-            return TryFindHaulJob(entity, em, map, tileReg, resourceReg, spatialGrid);
-
-        case AITaskType::Guard:
-            return TryFindGuardJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Repair:
-            return TryFindRepairJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Patrol:
-            return TryFindPatrolJob(entity, em, map, tileReg);
-
-        case AITaskType::Hunt:
-            return TryFindHuntJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Build:
-            return TryFindBuildJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Dismantle:
-            return TryFindDismantleJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Harvest:
-            return TryFindHarvestJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::AvoidPerson:
-            return TryFindAvoidPersonJob(entity, em, map, tileReg);
-
-        case AITaskType::ConfrontPerson:
-            return TryFindConfrontPersonJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::ComfortFrightened:
-            return TryFindComfortFrightenedJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Preach:
-            return TryFindPreachJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::HoldRitual:
-            return TryFindHoldRitualJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Intimidate:
-            return TryFindIntimidateJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::FightNonLethal:
-            return TryFindFightNonLethalJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Murder:
-            return TryFindMurderJob(entity, em, map, tileReg, spatialGrid);
-
-        case AITaskType::Pray:
-        case AITaskType::Socialize:
-        case AITaskType::Wander:
-        case AITaskType::None:
-            return false;
-    }
-
-    return false;
+    return AITaskExecutor::ApplyIntent(entity, em, map, tileReg, intent.value());
 }
 
 bool AISystem::TryStartFallbackTask(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
