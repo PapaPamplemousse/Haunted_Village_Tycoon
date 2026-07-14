@@ -50,6 +50,13 @@ professions = guard, watchman
 rule = request_weapon
 professions = guard, watchman
 
+[HUNT_GUARD]
+rule = hunt(zombie)
+professions = guard, watchman
+
+[ESCORT_VILLAGER_GUARD]
+rule = escort_villager
+professions = guard, watchman
 
 # ==========================================
 #  RESOURCE GATHERING
@@ -185,6 +192,18 @@ species = human
 
 [MURDER_HUMAN]
 rule = murder
+species = human
+
+[SPREAD_RUMOR_HUMAN]
+rule = spread_rumor
+species = human
+
+[SECRET_CULT_MEETING_HUMAN]
+rule = secret_cult_meeting
+species = human
+
+[MOURNING_HUMAN]
+rule = mourning
 species = human
 
 # ==========================================

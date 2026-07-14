@@ -40,6 +40,6 @@ constexpr float HoldRitual = 140.0f;
 constexpr float Patrol = 120.0f;
 constexpr float Pray = 75.0f;
 
-constexpr float Idle = 10.0f;
+constexpr float Idle = 5.0f;
 
 } // namespace AIPriority

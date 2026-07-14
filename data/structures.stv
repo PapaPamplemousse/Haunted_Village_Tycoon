@@ -33,7 +33,7 @@ min_area = 4
 max_area = 50
 requirements = GATHERING_BASKET:1
 granted_buffs = none
-job_slots = gatherer:1
+job_slots = gatherer:2
 
 
 [SMALL_BEDROOM]
@@ -95,7 +95,7 @@ min_area = 4
 max_area = 25
 requirements = WEAPON_RACK:1
 granted_buffs = defense
-job_slots = guard:2, watchman:1
+job_slots = guard:4, watchman:1
 
 [CHILDCARE_ROOM]
 name = Childcare Room

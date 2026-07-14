@@ -449,6 +449,18 @@ struct AIContextComponent {
     // Social action throttling.
     // Prevents villagers from chain-socializing every AI decision cycle.
     float socialActionCooldownTimer = 0.0f;
+
+    // Social manipulation context.
+    EntityID rumorSubjectId = static_cast<EntityID>(-1);
+
+    // Mourning context.
+    // Used when a villager reacts to the death of a known village member.
+    bool hasMourningLocation = false;
+    Vector2 mourningLocation = {0.0f, 0.0f};
+    float mourningNeed = 0.0f;
+
+    // Escort context.
+    EntityID escortTargetId = static_cast<EntityID>(-1);
 };
 
 enum class VillageRequestType { WeaponNeeded, ToolNeeded, FoodNeeded, ChildFoodNeeded, RepairNeeded, MedicineNeeded, FuelNeeded };

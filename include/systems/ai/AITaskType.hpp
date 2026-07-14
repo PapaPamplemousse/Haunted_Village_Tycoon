@@ -40,6 +40,10 @@ enum class AITaskType {
     Socialize,
     AvoidPerson,
     ConfrontPerson,
+    EscortVillager,
+    SpreadRumor,
+    SecretCultMeeting,
+    Mourning,
 
     // Religion
     Pray,
