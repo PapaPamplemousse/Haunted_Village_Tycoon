@@ -33,4 +33,36 @@ std::optional<AIIntent> FindPrayIntent(EntityID entity, EntityManager& em, const
                                        const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                        const EntitySpatialGrid& spatialGrid);
 
+std::optional<AIIntent> FindAvoidPersonIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                              const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                              const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindConfrontPersonIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                                 const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                                 const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindPreachIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                         const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                         const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindHoldRitualIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                             const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                             const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindComfortFrightenedIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                                    const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                                    const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindIntimidateIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                             const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                             const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindFightNonLethalIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                                 const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                                 const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindMurderIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                         const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                         const EntitySpatialGrid& spatialGrid);
+
 } // namespace ai::intents

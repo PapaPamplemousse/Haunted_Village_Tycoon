@@ -25,6 +25,30 @@ std::optional<AIIntent> FindIntentForTask(EntityID entity, AITaskType taskType, 
         case AITaskType::Pray:
             return ai::intents::FindPrayIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
 
+        case AITaskType::AvoidPerson:
+            return ai::intents::FindAvoidPersonIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::ConfrontPerson:
+            return ai::intents::FindConfrontPersonIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Preach:
+            return ai::intents::FindPreachIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::HoldRitual:
+            return ai::intents::FindHoldRitualIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::ComfortFrightened:
+            return ai::intents::FindComfortFrightenedIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Intimidate:
+            return ai::intents::FindIntimidateIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::FightNonLethal:
+            return ai::intents::FindFightNonLethalIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Murder:
+            return ai::intents::FindMurderIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
         default:
             return std::nullopt;
     }
