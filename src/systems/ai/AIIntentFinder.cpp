@@ -49,6 +49,30 @@ std::optional<AIIntent> FindIntentForTask(EntityID entity, AITaskType taskType, 
         case AITaskType::Murder:
             return ai::intents::FindMurderIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
 
+        case AITaskType::SeekFood:
+            return ai::intents::FindSeekFoodIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Rest:
+            return ai::intents::FindRestIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::CareChildFood:
+            return ai::intents::FindCareChildFoodIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Store:
+            return ai::intents::FindStoreIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::EquipWeapon:
+            return ai::intents::FindEquipWeaponIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::RequestWeapon:
+            return ai::intents::FindRequestWeaponIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::FulfillWeaponRequest:
+            return ai::intents::FindFulfillWeaponRequestIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
+        case AITaskType::Haul:
+            return ai::intents::FindHaulIntent(entity, em, map, tileReg, resourceReg, weaponReg, spatialGrid);
+
         default:
             return std::nullopt;
     }

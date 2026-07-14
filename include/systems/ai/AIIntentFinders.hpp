@@ -65,4 +65,35 @@ std::optional<AIIntent> FindMurderIntent(EntityID entity, EntityManager& em, con
                                          const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
                                          const EntitySpatialGrid& spatialGrid);
 
+std::optional<AIIntent> FindSeekFoodIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                           const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                           const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindRestIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                       const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                       const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindCareChildFoodIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                                const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                                const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindStoreIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                        const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                        const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindEquipWeaponIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                              const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                              const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindRequestWeaponIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                                const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                                const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindFulfillWeaponRequestIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                                       const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                                       const EntitySpatialGrid& spatialGrid);
+
+std::optional<AIIntent> FindHaulIntent(EntityID entity, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
+                                       const ResourceRegistry& resourceReg, const WeaponRegistry& weaponReg,
+                                       const EntitySpatialGrid& spatialGrid);
 } // namespace ai::intents
