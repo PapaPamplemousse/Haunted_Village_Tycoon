@@ -11,6 +11,7 @@
 #include "systems/ai/AIDecisionScoring.hpp"
 #include "systems/ai/AIPriority.hpp"
 #include "systems/ai/AITaskCandidate.hpp"
+#include "systems/ai/AITaskExecutor.hpp"
 #include "systems/ai/AITaskProviders.hpp"
 #include "systems/ai/AITaskType.hpp"
 
@@ -257,29 +258,14 @@ bool AISystem::TryStartFleeFromThreat(EntityID entity, EntityID threat, EntityMa
 
         const Vector2 target = {entityPos.x + direction.x * fleeDistance, entityPos.y + direction.y * fleeDistance};
 
-        std::vector<Vector2> path = Pathfinder::FindPath(entityPos, target, map, tileReg, em, entity);
+        if (AITaskExecutor::StartMoveToPosition(entity, threat, target, em, map, tileReg, "moving_to_flee")) {
+            if (em.hasAIContext[entity]) {
+                em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
+                em.aiContexts[entity].currentTaskInterruptible = true;
+            }
 
-        if (path.empty()) {
-            continue;
+            return true;
         }
-
-        BehaviorComponent& behavior = em.behaviors[entity];
-
-        behavior.currentTask = "moving_to_flee";
-        behavior.currentJobTarget = threat;
-        behavior.hasJob = true;
-        behavior.currentPath = std::move(path);
-        behavior.currentPathIndex = 0;
-        behavior.currentTarget = behavior.currentPath[0];
-        behavior.isMoving = true;
-        behavior.stateTimer = 0.0f;
-
-        if (em.hasAIContext[entity]) {
-            em.aiContexts[entity].currentTaskPriority = AIPriority::Threat;
-            em.aiContexts[entity].currentTaskInterruptible = true;
-        }
-
-        return true;
     }
 
     return false;

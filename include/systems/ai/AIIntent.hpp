@@ -10,7 +10,7 @@
 #include <raylib.h>
 #include <string>
 
-enum class AIIntentKind { None, StartAction, MoveAdjacentToEntity };
+enum class AIIntentKind { None, StartAction, MoveAdjacentToEntity, MoveToPosition };
 
 struct AIIntent {
     AIIntentKind kind = AIIntentKind::None;

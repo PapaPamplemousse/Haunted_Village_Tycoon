@@ -7,6 +7,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
+#include "systems/ai/AIPriority.hpp"
 #include "systems/ai/AITaskExecutor.hpp"
 
 #include <cmath>
@@ -212,23 +213,9 @@ bool AISystem::TryFindPatrolJob(EntityID entity, EntityManager& em, const WorldM
     for (int attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
         const Vector2 target = FindPatrolPointAroundVillage(entity, em);
 
-        std::vector<Vector2> path = Pathfinder::FindPath(em.transforms[entity].position, target, map, tileReg, em, entity);
-
-        if (path.empty()) {
-            continue;
+        if (AITaskExecutor::StartMoveToPosition(entity, villageId, target, em, map, tileReg, "patrolling")) {
+            return true;
         }
-
-        BehaviorComponent& behavior = em.behaviors[entity];
-
-        behavior.currentTask = "patrolling";
-        behavior.currentJobTarget = villageId;
-        behavior.hasJob = true;
-        behavior.currentPath = std::move(path);
-        behavior.currentPathIndex = 0;
-        behavior.currentTarget = behavior.currentPath[0];
-        behavior.isMoving = true;
-
-        return true;
     }
 
     return false;

@@ -96,6 +96,32 @@ bool AITaskExecutor::StartMoveAdjacentToEntity(EntityID actor, EntityID target, 
     return true;
 }
 
+bool AITaskExecutor::StartMoveToPosition(EntityID actor, EntityID taskTarget, Vector2 targetPosition, EntityManager& em,
+                                         const WorldMap& map, const TileRegistry& tileReg, const std::string& moveTask) {
+    if (!HasValidBehavior(actor, em)) {
+        return false;
+    }
+
+    std::vector<Vector2> path = Pathfinder::FindPath(em.transforms[actor].position, targetPosition, map, tileReg, em, actor);
+
+    if (path.empty()) {
+        return false;
+    }
+
+    BehaviorComponent& behavior = em.behaviors[actor];
+
+    behavior.currentTask = moveTask;
+    behavior.currentJobTarget = taskTarget;
+    behavior.hasJob = true;
+    behavior.currentPath = std::move(path);
+    behavior.currentPathIndex = 0;
+    behavior.currentTarget = behavior.currentPath[0];
+    behavior.isMoving = true;
+    behavior.stateTimer = 0.0f;
+
+    return true;
+}
+
 bool AITaskExecutor::ApplyIntent(EntityID actor, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg,
                                  const AIIntent& intent) {
     switch (intent.kind) {
@@ -105,6 +131,9 @@ bool AITaskExecutor::ApplyIntent(EntityID actor, EntityManager& em, const WorldM
         case AIIntentKind::MoveAdjacentToEntity:
             return StartMoveAdjacentToEntity(actor, intent.targetEntity, em, map, tileReg, intent.moveTask, intent.actionTask,
                                              intent.actionDuration);
+
+        case AIIntentKind::MoveToPosition:
+            return StartMoveToPosition(actor, intent.targetEntity, intent.targetPosition, em, map, tileReg, intent.moveTask);
 
         case AIIntentKind::None:
         default:

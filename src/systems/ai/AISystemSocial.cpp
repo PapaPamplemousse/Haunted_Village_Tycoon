@@ -268,24 +268,9 @@ bool AISystem::TryFindAvoidPersonJob(EntityID entity, EntityManager& em, const W
 
         const Vector2 target = {selfPos.x + direction.x * fleeDistance, selfPos.y + direction.y * fleeDistance};
 
-        std::vector<Vector2> path = Pathfinder::FindPath(selfPos, target, map, tileReg, em, entity);
-
-        if (path.empty()) {
-            continue;
+        if (AITaskExecutor::StartMoveToPosition(entity, avoidedTarget, target, em, map, tileReg, "moving_to_avoid")) {
+            return true;
         }
-
-        BehaviorComponent& behavior = em.behaviors[entity];
-
-        behavior.currentTask = "avoiding_person";
-        behavior.currentJobTarget = avoidedTarget;
-        behavior.hasJob = true;
-        behavior.currentPath = std::move(path);
-        behavior.currentPathIndex = 0;
-        behavior.currentTarget = behavior.currentPath[0];
-        behavior.isMoving = true;
-        behavior.stateTimer = 0.0f;
-
-        return true;
     }
 
     return false;

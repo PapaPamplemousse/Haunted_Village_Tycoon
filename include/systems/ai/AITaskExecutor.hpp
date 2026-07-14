@@ -23,4 +23,7 @@ public:
     static bool ApplyIntent(EntityID actor, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg, const AIIntent& intent);
 
     static bool AreEntitiesAdjacent(EntityID a, EntityID b, const EntityManager& em);
+
+    static bool StartMoveToPosition(EntityID actor, EntityID taskTarget, Vector2 targetPosition, EntityManager& em, const WorldMap& map,
+                                    const TileRegistry& tileReg, const std::string& moveTask);
 };

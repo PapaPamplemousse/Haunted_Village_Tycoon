@@ -7,6 +7,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/AISystemUtils.hpp"
 #include "systems/Pathfinder.hpp"
+#include "systems/ai/AITaskExecutor.hpp"
 
 #include <cmath>
 #include <limits>
@@ -183,35 +184,26 @@ bool AISystem::TryFindDismantleJob(EntityID i, EntityManager& em, const WorldMap
 }
 
 bool AISystem::TryFindWanderJob(EntityID i, EntityManager& em, const WorldMap& map, const TileRegistry& tileReg) {
-    auto& behavior = em.behaviors[i];
-
-    constexpr int MaxAttempts = 8;
-
-    for (int attempt = 0; attempt < MaxAttempts; ++attempt) {
-        const float angle = GetRandomValue(0, 360) * DEG2RAD;
-
-        const float distance =
-            static_cast<float>(GetRandomValue(static_cast<int>(Config::TILE_SIZE * 2), static_cast<int>(Config::TILE_SIZE * 8)));
-
-        Vector2 proposedTarget = {em.transforms[i].position.x + std::cos(angle) * distance,
-                                  em.transforms[i].position.y + std::sin(angle) * distance};
-
-        std::vector<Vector2> path = Pathfinder::FindPath(em.transforms[i].position, proposedTarget, map, tileReg, em, i);
-
-        if (path.empty()) {
-            continue;
-        }
-
-        behavior.currentTask = "wandering";
-        behavior.currentPath = std::move(path);
-        behavior.currentPathIndex = 0;
-        behavior.currentTarget = behavior.currentPath[0];
-        behavior.isMoving = true;
-
-        return true;
+    if (i >= em.active.size() || !em.active[i] || !em.hasBehavior[i] || !em.hasTransform[i]) {
+        return false;
     }
 
-    behavior.stateTimer = 1.0f;
+    constexpr int MAX_ATTEMPTS = 10;
+    constexpr float WANDER_RADIUS_TILES = 8.0f;
+
+    const Vector2 origin = em.transforms[i].position;
+
+    for (int attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
+        const float angle = static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
+        const float distance = static_cast<float>(GetRandomValue(2, static_cast<int>(WANDER_RADIUS_TILES))) * Config::TILE_SIZE;
+
+        const Vector2 target = {origin.x + std::cos(angle) * distance, origin.y + std::sin(angle) * distance};
+
+        if (AITaskExecutor::StartMoveToPosition(i, static_cast<EntityID>(-1), target, em, map, tileReg, "wandering")) {
+            return true;
+        }
+    }
+
     return false;
 }
 
