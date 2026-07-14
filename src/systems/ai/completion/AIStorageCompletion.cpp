@@ -9,7 +9,7 @@
 
 namespace ai::completion {
 
-bool TryCompleteStorageTask(const AICompletionContext& ctx) {
+AICompletionStatus TryCompleteStorageTask(const AICompletionContext& ctx) {
     EntityManager& em = ctx.em;
     const EntityID entity = ctx.entity;
     BehaviorComponent& behavior = ctx.behavior();
@@ -22,12 +22,12 @@ bool TryCompleteStorageTask(const AICompletionContext& ctx) {
             AISystemUtils::DepositInventoryIntoStorage(em.inventories[entity], em.inventories[storage], em.storages[storage]);
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "hauling_deposit") {
         if (!em.hasAIContext[entity] || !em.hasInventory[entity]) {
-            return true;
+            return AICompletionStatus::Completed;
         }
 
         AIContextComponent& context = em.aiContexts[entity];
@@ -55,10 +55,10 @@ bool TryCompleteStorageTask(const AICompletionContext& ctx) {
         context.haulItemId.clear();
         context.haulAmount = 0;
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
-    return false;
+    return AICompletionStatus::NotHandled;
 }
 
 } // namespace ai::completion

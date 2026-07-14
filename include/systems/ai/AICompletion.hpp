@@ -8,10 +8,24 @@
 #include "systems/ai/AICompletionContext.hpp"
 
 namespace ai::completion {
-bool TryCompleteSocialTask(const AICompletionContext& ctx);
-bool TryCompleteHostilityTask(const AICompletionContext& ctx);
-bool TryCompleteReligionTask(const AICompletionContext& ctx);
-bool TryCompleteNeedsTask(const AICompletionContext& ctx);
-bool TryCompleteStorageTask(const AICompletionContext& ctx);
-bool TryCompleteCraftingTask(const AICompletionContext& ctx);
+
+enum class AICompletionStatus { NotHandled, Completed, InProgress };
+
+// Needs / logistics / crafting
+AICompletionStatus TryCompleteNeedsTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteStorageTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteCraftingTask(const AICompletionContext& ctx);
+
+// Social domains
+AICompletionStatus TryCompleteSocialTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteHostilityTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteReligionTask(const AICompletionContext& ctx);
+
+// Work / combat domains
+AICompletionStatus TryCompleteRequestTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteConstructionTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteRepairTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteHarvestTask(const AICompletionContext& ctx);
+AICompletionStatus TryCompleteCombatTask(const AICompletionContext& ctx);
+
 } // namespace ai::completion

@@ -8,7 +8,7 @@
 
 namespace ai::completion {
 
-bool TryCompleteReligionTask(const AICompletionContext& ctx) {
+AICompletionStatus TryCompleteReligionTask(const AICompletionContext& ctx) {
     EntityManager& em = ctx.em;
     const EntityID entity = ctx.entity;
     const BehaviorComponent& behavior = ctx.behavior();
@@ -25,7 +25,7 @@ bool TryCompleteReligionTask(const AICompletionContext& ctx) {
             }
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "preaching") {
@@ -53,7 +53,7 @@ bool TryCompleteReligionTask(const AICompletionContext& ctx) {
             }
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "holding_ritual") {
@@ -82,7 +82,7 @@ bool TryCompleteReligionTask(const AICompletionContext& ctx) {
             }
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "comforting_frightened") {
@@ -105,10 +105,10 @@ bool TryCompleteReligionTask(const AICompletionContext& ctx) {
             }
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
-    return false;
+    return AICompletionStatus::NotHandled;
 }
 
 } // namespace ai::completion

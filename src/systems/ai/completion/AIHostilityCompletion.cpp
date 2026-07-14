@@ -8,7 +8,7 @@
 
 namespace ai::completion {
 
-bool TryCompleteSocialTask(const AICompletionContext& ctx) {
+AICompletionStatus TryCompleteSocialTask(const AICompletionContext& ctx) {
     EntityManager& em = ctx.em;
     const EntityID entity = ctx.entity;
     const BehaviorComponent& behavior = ctx.behavior();
@@ -33,7 +33,7 @@ bool TryCompleteSocialTask(const AICompletionContext& ctx) {
             relFromTarget.resentment = Clamp100(relFromTarget.resentment - 1.0f);
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "confronting_person") {
@@ -66,10 +66,10 @@ bool TryCompleteSocialTask(const AICompletionContext& ctx) {
             em.aiContexts[entity].socialActionCooldownTimer = 45.0f;
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
-    return false;
+    return AICompletionStatus::NotHandled;
 }
 
 } // namespace ai::completion

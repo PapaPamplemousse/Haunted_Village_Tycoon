@@ -10,7 +10,7 @@
 
 namespace ai::completion {
 
-bool TryCompleteHostilityTask(const AICompletionContext& ctx) {
+AICompletionStatus TryCompleteHostilityTask(const AICompletionContext& ctx) {
     EntityManager& em = ctx.em;
     const EntityID entity = ctx.entity;
     const BehaviorComponent& behavior = ctx.behavior();
@@ -38,7 +38,7 @@ bool TryCompleteHostilityTask(const AICompletionContext& ctx) {
             em.aiContexts[entity].socialActionCooldownTimer = 60.0f;
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "fighting_non_lethal") {
@@ -72,7 +72,7 @@ bool TryCompleteHostilityTask(const AICompletionContext& ctx) {
             em.aiContexts[entity].socialActionCooldownTimer = 90.0f;
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "murdering_person") {
@@ -97,10 +97,10 @@ bool TryCompleteHostilityTask(const AICompletionContext& ctx) {
             em.aiContexts[entity].socialActionCooldownTimer = 180.0f;
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
-    return false;
+    return AICompletionStatus::NotHandled;
 }
 
 } // namespace ai::completion

@@ -80,14 +80,14 @@ EntityID FindNearestCompatibleStorage(EntityID worker, const std::string& itemId
 
 namespace ai::completion {
 
-bool TryCompleteCraftingTask(const AICompletionContext& ctx) {
+AICompletionStatus TryCompleteCraftingTask(const AICompletionContext& ctx) {
     EntityManager& em = ctx.em;
     const EntityID entity = ctx.entity;
     BehaviorComponent& behavior = ctx.behavior();
 
     if (behavior.currentTask == "crafting_weapon") {
         if (!em.hasAIContext[entity] || !em.hasInventory[entity]) {
-            return true;
+            return AICompletionStatus::Completed;
         }
 
         AIContextComponent& context = em.aiContexts[entity];
@@ -102,7 +102,7 @@ bool TryCompleteCraftingTask(const AICompletionContext& ctx) {
 
             context.activeRequestId = static_cast<EntityID>(-1);
             context.requestedCraftItemId.clear();
-            return true;
+            return AICompletionStatus::Completed;
         }
 
         const std::unordered_map<std::string, int> requirements = GetCraftRequirementsForTask(itemId);
@@ -124,7 +124,7 @@ bool TryCompleteCraftingTask(const AICompletionContext& ctx) {
 
             context.activeRequestId = static_cast<EntityID>(-1);
             context.requestedCraftItemId.clear();
-            return true;
+            return AICompletionStatus::Completed;
         }
 
         const EntityID storage = FindNearestCompatibleStorage(entity, itemId, em, ctx.spatialGrid);
@@ -136,20 +136,20 @@ bool TryCompleteCraftingTask(const AICompletionContext& ctx) {
 
             context.activeRequestId = static_cast<EntityID>(-1);
             context.requestedCraftItemId.clear();
-            return true;
+            return AICompletionStatus::Completed;
         }
 
         if (AITaskExecutor::AreEntitiesAdjacent(entity, storage, em)) {
             if (AITaskExecutor::StartAction(entity, storage, em, "depositing_crafted_weapon", AISystemUtils::DEPOSIT_DURATION)) {
                 behavior.currentItemTarget = itemId;
-                return true;
+                return AICompletionStatus::Completed;
             }
         }
 
         if (AITaskExecutor::StartMoveAdjacentToEntity(entity, storage, em, ctx.map, ctx.tileReg, "moving_to_crafted_weapon_storage",
                                                       "depositing_crafted_weapon", AISystemUtils::DEPOSIT_DURATION)) {
             behavior.currentItemTarget = itemId;
-            return true;
+            return AICompletionStatus::Completed;
         }
 
         if (requestId < em.active.size() && em.active[requestId] && em.hasVillageRequest[requestId]) {
@@ -158,12 +158,12 @@ bool TryCompleteCraftingTask(const AICompletionContext& ctx) {
 
         context.activeRequestId = static_cast<EntityID>(-1);
         context.requestedCraftItemId.clear();
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "depositing_crafted_weapon") {
         if (!em.hasAIContext[entity] || !em.hasInventory[entity]) {
-            return true;
+            return AICompletionStatus::Completed;
         }
 
         AIContextComponent& context = em.aiContexts[entity];
@@ -196,10 +196,10 @@ bool TryCompleteCraftingTask(const AICompletionContext& ctx) {
         context.activeRequestId = static_cast<EntityID>(-1);
         context.requestedCraftItemId.clear();
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
-    return false;
+    return AICompletionStatus::NotHandled;
 }
 
 } // namespace ai::completion

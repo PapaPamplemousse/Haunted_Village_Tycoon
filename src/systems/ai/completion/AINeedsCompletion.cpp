@@ -9,7 +9,7 @@
 
 namespace ai::completion {
 
-bool TryCompleteNeedsTask(const AICompletionContext& ctx) {
+AICompletionStatus TryCompleteNeedsTask(const AICompletionContext& ctx) {
     EntityManager& em = ctx.em;
     const EntityID entity = ctx.entity;
     BehaviorComponent& behavior = ctx.behavior();
@@ -26,12 +26,12 @@ bool TryCompleteNeedsTask(const AICompletionContext& ctx) {
 
             if (!AISystemUtils::IsFullyRested(entity, em)) {
                 behavior.stateTimer = 1.0f;
-                return true;
+                return AICompletionStatus::Completed;
             }
         }
 
         AISystemUtils::ReleaseRestSpotReservation(entity, em);
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "eating") {
@@ -39,7 +39,7 @@ bool TryCompleteNeedsTask(const AICompletionContext& ctx) {
             AISystemUtils::ConsumeFoodFromInventory(em.inventories[entity], em.needs[entity], behavior.currentItemTarget, ctx.resourceReg);
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "eating_from_storage") {
@@ -50,7 +50,7 @@ bool TryCompleteNeedsTask(const AICompletionContext& ctx) {
             AISystemUtils::ConsumeFoodFromInventory(em.inventories[storage], em.needs[entity], behavior.currentItemTarget, ctx.resourceReg);
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
     if (behavior.currentTask == "feeding_child") {
@@ -65,10 +65,10 @@ bool TryCompleteNeedsTask(const AICompletionContext& ctx) {
             em.aiContexts[entity].careTargetId = static_cast<EntityID>(-1);
         }
 
-        return true;
+        return AICompletionStatus::Completed;
     }
 
-    return false;
+    return AICompletionStatus::NotHandled;
 }
 
 } // namespace ai::completion
